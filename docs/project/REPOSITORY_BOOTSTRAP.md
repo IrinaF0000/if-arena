@@ -38,7 +38,10 @@ Only after the core boundary is clean, start implementing:
 
 ```text
 src/battle_protocol/
-src/battle_server/
+src/battle_backend/
+src/battle_transport_tcp/
+src/battle_transport_ws/
+src/battle_server_app/
 src/battle_cli_client/
 tools/load_client/
 src/battle_qt_client/

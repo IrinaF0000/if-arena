@@ -1,0 +1,36 @@
+{
+  "server": {
+    "tickRate": 20,
+    "snapshotRate": 10,
+    "maxConnections": 128,
+    "maxMatches": 32
+  },
+  "transports": {
+    "tcp": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 5555,
+      "maxFrameBytes": 65536
+    },
+    "websocket": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 8081,
+      "path": "/ws",
+      "maxMessageBytes": 65536,
+      "requireTls": false
+    }
+  },
+  "security": {
+    "demoAuthEnabled": true,
+    "telegramAuthEnabled": false,
+    "handshakeTimeoutMs": 5000,
+    "idleTimeoutMs": 30000,
+    "maxInputCommandsPerSecond": 30,
+    "maxPendingWriteBytesPerSession": 1048576,
+    "maxPendingCommandsPerSession": 64
+  },
+  "metrics": {
+    "logEverySeconds": 5
+  }
+}

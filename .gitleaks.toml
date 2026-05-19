@@ -1,0 +1,19 @@
+title = "IF Arena gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow documented placeholders and examples only"
+regexes = [
+  '''REPLACE_ME[_A-Z0-9]*''',
+  '''example\.com''',
+  '''PLACEHOLDER[_A-Z0-9]*''',
+  '''DO_NOT_COMMIT_REAL_TOKEN'''
+]
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''frontend/telegram_mini_app/\.env\.example$''',
+  '''docs/.*''',
+  '''.*\.md$'''
+]

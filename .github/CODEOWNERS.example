@@ -1,0 +1,15 @@
+# Copy this file to .github/CODEOWNERS and replace placeholders with real GitHub handles.
+# Invalid CODEOWNERS entries may not enforce review, so do not use placeholders in a real repo.
+
+.github/workflows/** @your-github-handle
+.github/actions/** @your-github-handle
+.github/CODEOWNERS @your-github-handle
+deploy/** @your-github-handle
+docs/ci/** @your-github-handle
+docs/security/** @your-github-handle
+
+# Agent harness ownership examples
+AGENTS.md @your-github-handle
+.agents/ @your-github-handle
+docs/agent-rules/ @your-github-handle
+docs/agent-manager/ @your-github-handle

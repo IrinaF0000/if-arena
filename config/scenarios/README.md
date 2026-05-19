@@ -1,0 +1,3 @@
+# scenarios
+
+Battle scenario definitions.

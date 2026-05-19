@@ -1,0 +1,64 @@
+name: PR CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-cpp-build:
+    name: pr-cpp-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure C++
+        run: cmake -S . -B build -DBATTLE_BUILD_TESTS=ON
+      - name: Build C++
+        run: cmake --build build --parallel
+      - name: Test C++
+        run: ctest --test-dir build --output-on-failure
+
+  pr-telegram-mini-app:
+    name: pr-telegram-mini-app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/telegram_mini_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  pr-docs-and-structure:
+    name: pr-docs-and-structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate repository structure
+        run: bash scripts/ci/validate_structure.sh
+      - name: Scan for committed secrets
+        run: python3 scripts/ci/scan_secrets.py
+      - name: Check whitespace in diff-capable files
+        run: git diff --check origin/${{ github.base_ref }}...HEAD

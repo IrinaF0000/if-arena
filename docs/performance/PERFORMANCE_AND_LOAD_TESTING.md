@@ -1,0 +1,136 @@
+# Performance and Load Testing
+
+## Purpose
+
+The project should demonstrate high-load-oriented backend practices without claiming unrealistic production scale.
+
+Good wording:
+
+```text
+load-tested C++20 TCP/WebSocket game backend with async I/O, bounded queues,
+match workers, rate limiting, backpressure, metrics, and simulated clients.
+```
+
+Avoid:
+
+```text
+production-grade MMO backend
+millions of users
+unlimited scalability
+```
+
+## Targets
+
+Initial local demo targets are non-binding and must be measured honestly:
+
+```text
+200-1000 simulated clients
+20 server ticks per second
+bounded memory growth
+p50/p95/p99 latency reported
+no unbounded queues
+stable slow-client behavior
+```
+
+## Load client modes
+
+### Normal clients
+
+- Connect.
+- Authenticate.
+- Create/join matches.
+- Send movement and action commands at configured rate.
+- Read snapshots.
+- Measure latency.
+
+### Slow readers
+
+- Connect and authenticate.
+- Read snapshots slowly or stop reading.
+- Verify server backpressure policy.
+
+### Command spam
+
+- Send commands above allowed rate.
+- Verify rate limiter rejects or disconnects.
+
+### Invalid clients
+
+- Send malformed frames/messages.
+- Send oversized payloads.
+- Send commands before auth/join.
+- Verify safe failure.
+
+### Mixed transport
+
+- Raw TCP simulated clients.
+- WebSocket simulated clients as stretch goal.
+- Mixed clients hitting same backend.
+
+## Metrics
+
+Minimum server metrics:
+
+```text
+active_connections{transport}
+authenticated_sessions{transport}
+active_matches
+commands_received_total
+commands_accepted_total
+commands_rejected_total{reason}
+snapshots_sent_total
+bytes_in_total{transport}
+bytes_out_total{transport}
+pending_write_bytes{transport}
+pending_commands
+tick_duration_ms
+command_latency_ms p50/p95/p99
+disconnects_total{reason}
+auth_failures_total{reason}
+```
+
+## Backpressure policy
+
+Each session must have a bounded outgoing queue.
+
+If queue exceeds configured limit, choose one:
+
+1. Drop obsolete snapshots and keep latest.
+2. Degrade snapshot frequency.
+3. Disconnect slow client.
+
+The selected policy must be documented and tested.
+
+## Report format
+
+Load reports should be saved under:
+
+```text
+reports/load/YYYY-MM-DD-scenario-name.md
+```
+
+Report must include:
+
+- commit hash;
+- machine/environment;
+- build type;
+- config;
+- number of simulated clients;
+- duration;
+- tick rate;
+- transport;
+- latency percentiles;
+- CPU/memory if available;
+- disconnect reasons;
+- observed bottlenecks;
+- tuning notes.
+
+## Agent requirements
+
+Performance-sensitive tasks require:
+
+- Performance-Agent review.
+- Metrics update.
+- Load scenario update where applicable.
+- No unbounded structures.
+- No thread-per-client design.

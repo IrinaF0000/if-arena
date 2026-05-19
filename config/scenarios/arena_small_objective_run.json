@@ -1,0 +1,56 @@
+{
+  "scenario": "arena_small_objective_run",
+  "mode": "objective_run",
+  "map": {
+    "width": 21,
+    "height": 13,
+    "symmetry": "rotational_180",
+    "center": { "x": 10, "y": 6 },
+    "blueBase": { "x": 10, "y": 11, "radius": 1.5 },
+    "redBase": { "x": 10, "y": 1, "radius": 1.5 },
+    "objectiveSpawn": { "x": 10, "y": 6 },
+    "obstacles": [
+      { "x": 6, "y": 4 },
+      { "x": 7, "y": 4 },
+      { "x": 14, "y": 8 },
+      { "x": 13, "y": 8 },
+      { "x": 14, "y": 4 },
+      { "x": 13, "y": 4 },
+      { "x": 6, "y": 8 },
+      { "x": 7, "y": 8 },
+      { "x": 10, "y": 3 },
+      { "x": 10, "y": 9 }
+    ]
+  },
+  "players": {
+    "blueSpawn": { "x": 10, "y": 10 },
+    "redSpawn": { "x": 10, "y": 2 },
+    "playerView": {
+      "ownBaseAtBottom": true,
+      "replayOrientation": "canonical"
+    }
+  },
+  "objective": {
+    "kind": "carry_objective",
+    "scoreLimit": 3,
+    "carrierSpeedMultiplier": 0.8,
+    "dropOnCarrierHit": true,
+    "dropOnCarrierDefeat": true,
+    "dropOnHazardHit": true,
+    "pickupLockMs": 500,
+    "captureRespawnDelayMs": 1000,
+    "pickupRadius": 0.75
+  },
+  "hazards": [
+    { "id": "tower_top", "kind": "tower", "x": 4, "y": 4, "range": 3.5, "damage": 8, "cooldownMs": 1400 },
+    { "id": "tower_bottom", "kind": "tower", "x": 16, "y": 8, "range": 3.5, "damage": 8, "cooldownMs": 1400 },
+    { "id": "mine_top", "kind": "mine", "x": 15, "y": 4, "radius": 0.8, "damage": 18 },
+    { "id": "mine_bottom", "kind": "mine", "x": 5, "y": 8, "radius": 0.8, "damage": 18 },
+    { "id": "center_drone", "kind": "drone", "enabled": false, "path": [{ "x": 8, "y": 6 }, { "x": 12, "y": 6 }], "damage": 6, "speed": 1.0 }
+  ],
+  "rules": {
+    "timeLimitSeconds": 240,
+    "tickRate": 20,
+    "snapshotRate": 10
+  }
+}

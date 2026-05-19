@@ -1,0 +1,39 @@
+{
+  "server": {
+    "tickRate": 20,
+    "snapshotRate": 10,
+    "maxConnections": 1000,
+    "maxMatches": 250
+  },
+  "transports": {
+    "tcp": {
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 5555,
+      "maxFrameBytes": 65536
+    },
+    "websocket": {
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 8081,
+      "path": "/ws",
+      "maxMessageBytes": 65536,
+      "requireTls": true,
+      "publicUrl": "wss://example.com/ws"
+    }
+  },
+  "security": {
+    "demoAuthEnabled": false,
+    "telegramAuthEnabled": true,
+    "telegramBotTokenEnv": "BATTLE_TELEGRAM_BOT_TOKEN",
+    "telegramAuthMaxAgeSeconds": 86400,
+    "handshakeTimeoutMs": 5000,
+    "idleTimeoutMs": 30000,
+    "maxInputCommandsPerSecond": 30,
+    "maxPendingWriteBytesPerSession": 1048576,
+    "maxPendingCommandsPerSession": 64
+  },
+  "metrics": {
+    "logEverySeconds": 5
+  }
+}

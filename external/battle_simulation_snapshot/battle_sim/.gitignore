@@ -1,0 +1,44 @@
+# Build directories
+build/
+build-*/
+out/
+cmake-build-*/
+
+# CMake / Ninja generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+CTestTestfile.cmake
+Testing/
+
+# Binaries and object files
+*.exe
+*.a
+*.o
+*.obj
+*.lib
+*.dll
+*.pdb
+*.ilk
+*.so
+*.dylib
+
+# IDE and local files
+.vscode/
+.vs/
+*.user
+*.suo
+*.vcxproj.user
+.cache/
+.DS_Store
+
+# Optional local agent scratch files
+/AGENT_*.md
+/*_development_plan.md
+
+# Generated local runner artifacts
+/tools/local-runner/runs/

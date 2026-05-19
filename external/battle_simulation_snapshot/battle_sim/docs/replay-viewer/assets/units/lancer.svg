@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Lancer robot unit">
+  <defs>
+    <linearGradient id="body" x1="16" y1="16" x2="48" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d8d2ff"/>
+      <stop offset="1" stop-color="#aec9ff"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="22" y1="24" x2="42" y2="35" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#132036"/>
+      <stop offset="1" stop-color="#293250"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="32" cy="56" rx="19" ry="4" fill="#9aaec4" opacity=".35"/>
+  <path d="M10 55L54 11" stroke="#6f8fb3" stroke-width="4" stroke-linecap="round"/>
+  <path d="M52 8l6-2-2 6z" fill="#dff9ff" stroke="#6f8fb3" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="17" y="19" width="30" height="28" rx="10" fill="url(#body)" stroke="#6b75ad" stroke-width="2"/>
+  <rect x="22" y="25" width="20" height="8" rx="4" fill="url(#visor)"/>
+  <circle cx="27" cy="29" r="2" fill="#79f5ff"/>
+  <circle cx="37" cy="29" r="2" fill="#79f5ff"/>
+  <path d="M15 35l-6 5 5 9 8-5 1-8z" fill="#cfc7ff" stroke="#6b75ad" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M46 35l7 3" fill="none" stroke="#94a7d7" stroke-width="4" stroke-linecap="round"/>
+  <rect x="22" y="46" width="8" height="9" rx="4" fill="#98a7dc"/>
+  <rect x="34" y="46" width="8" height="9" rx="4" fill="#98a7dc"/>
+</svg>

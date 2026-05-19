@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "Spearman",
+  "hp": 6,
+  "strength": 2,
+  "mobile": true,
+  "blocksCell": true,
+  "attackable": true,
+  "actionBudget": 1,
+  "rules": [
+    {
+      "priority": 20,
+      "condition": "core.always",
+      "selector": "battle.effective-range",
+      "targetPicker": "core.random-one",
+      "effect": "battle.damage",
+      "amountValueResolver": "battle.strength",
+      "minDistance": 2,
+      "maxDistance": 2,
+      "cost": 1,
+      "requireAttackableTarget": true
+    },
+    {
+      "priority": 10,
+      "condition": "battle.has-march-target",
+      "selector": "core.none",
+      "targetPicker": "core.none",
+      "effect": "battle.move",
+      "stepDistance": 1,
+      "cost": 1,
+      "allowEmptyTargets": true
+    }
+  ]
+}

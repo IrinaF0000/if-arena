@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hunter robot unit">
+  <defs>
+    <linearGradient id="body" x1="18" y1="15" x2="45" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d9f7be"/>
+      <stop offset="1" stop-color="#a7e8d0"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="22" y1="23" x2="41" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102436"/>
+      <stop offset="1" stop-color="#243c4c"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="32" cy="56" rx="17" ry="4" fill="#8ea8a4" opacity=".35"/>
+  <path d="M49 18c8 8 8 20 0 28" fill="none" stroke="#75a99b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M50 32H35" stroke="#64f1ff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M35 32l6-4v8z" fill="#64f1ff"/>
+  <rect x="18" y="19" width="26" height="27" rx="9" fill="url(#body)" stroke="#5d987e" stroke-width="2"/>
+  <rect x="23" y="25" width="15" height="8" rx="4" fill="url(#visor)"/>
+  <circle cx="28" cy="29" r="2" fill="#7ff8ff"/>
+  <circle cx="35" cy="29" r="2" fill="#7ff8ff"/>
+  <path d="M19 36l-8-2" fill="none" stroke="#78a58f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43 36l8-4" fill="none" stroke="#78a58f" stroke-width="4" stroke-linecap="round"/>
+  <rect x="23" y="45" width="7" height="10" rx="3" fill="#87bea7"/>
+  <rect x="34" y="45" width="7" height="10" rx="3" fill="#87bea7"/>
+</svg>

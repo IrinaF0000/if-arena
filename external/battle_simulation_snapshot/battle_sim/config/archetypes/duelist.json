@@ -1,0 +1,10 @@
+{
+  "id": "Duelist",
+  "actionTemplate": "adjacent-striker",
+  "hp": 6,
+  "strength": 2,
+  "mobile": true,
+  "blocksCell": true,
+  "attackable": true,
+  "actionBudget": 1
+}

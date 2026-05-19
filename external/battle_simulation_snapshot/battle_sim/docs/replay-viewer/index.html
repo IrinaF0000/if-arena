@@ -1,0 +1,2289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battle Trace Replay Viewer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --panel-alt: #f1f4f8;
+      --text: #1c2430;
+      --muted: #687386;
+      --line: #d9dee7;
+      --accent: #0f766e;
+      --accent-strong: #0b5f59;
+      --danger: #b42318;
+      --warning: #a15c07;
+      --grid: #e7ebf0;
+      --shadow: 0 10px 30px rgba(28, 36, 48, 0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      min-height: 36px;
+      padding: 0 12px;
+    }
+
+    button:hover:not(:disabled),
+    button:focus-visible {
+      border-color: var(--accent);
+      outline: 2px solid rgba(15, 118, 110, 0.18);
+      outline-offset: 1px;
+    }
+
+    button:disabled {
+      color: #9aa3b2;
+      cursor: not-allowed;
+    }
+
+    .app-header {
+      align-items: center;
+      background: #13202f;
+      color: #f8fafc;
+      display: flex;
+      gap: 20px;
+      justify-content: space-between;
+      padding: 18px clamp(16px, 4vw, 40px);
+    }
+
+    .app-header h1 {
+      font-size: 24px;
+      line-height: 1.2;
+      margin: 0 0 4px;
+    }
+
+    .app-header p {
+      color: #cbd5e1;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .header-actions {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .demo-select {
+      border: 1px solid rgba(248, 250, 252, 0.28);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
+      min-height: 40px;
+      padding: 0 10px;
+    }
+
+    .demo-select option {
+      color: var(--text);
+    }
+
+    .demo-action,
+    .file-picker {
+      align-items: center;
+      background: var(--accent);
+      border-color: var(--accent);
+      border-radius: 6px;
+      color: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      font-weight: 700;
+      min-height: 40px;
+      padding: 0 14px;
+      white-space: nowrap;
+    }
+
+    .demo-action:hover,
+    .demo-action:focus-visible,
+    .file-picker:hover {
+      background: var(--accent-strong);
+    }
+
+    .file-picker input {
+      inline-size: 0;
+      opacity: 0;
+      position: absolute;
+    }
+
+    .shell {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      grid-template-rows: auto minmax(320px, 1fr);
+      padding: 16px clamp(12px, 3vw, 28px) 24px;
+    }
+
+    .stage,
+    .side-panel,
+    .event-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .stage {
+      min-width: 0;
+      padding: 14px;
+    }
+
+    .toolbar {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .toolbar .spacer {
+      flex: 1 1 auto;
+    }
+
+    .primary-action {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .primary-action:hover:not(:disabled),
+    .primary-action:focus-visible {
+      background: var(--accent-strong);
+      border-color: var(--accent-strong);
+    }
+
+    .tick-readout {
+      background: var(--panel-alt);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      min-height: 36px;
+      padding: 7px 10px;
+    }
+
+    .speed-select {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      min-height: 36px;
+      padding: 0 8px;
+    }
+
+    .status {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      min-height: 38px;
+      padding: 8px 10px;
+    }
+
+    .status.error {
+      background: #fff1f0;
+      border-color: #f2b8b5;
+      color: var(--danger);
+    }
+
+    .status.warning {
+      background: #fff8e6;
+      border-color: #f1c27d;
+      color: var(--warning);
+    }
+
+    .map-meta {
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      font-size: 13px;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .map-wrap {
+      overflow: auto;
+      padding-bottom: 2px;
+    }
+
+    .map-shell {
+      inline-size: max-content;
+      min-inline-size: 100%;
+      position: relative;
+    }
+
+    .map-grid {
+      background: var(--grid);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 1px;
+      min-block-size: 320px;
+      min-inline-size: 320px;
+      position: relative;
+      width: max-content;
+      z-index: 1;
+    }
+
+    .map-grid.empty {
+      align-items: center;
+      background: var(--panel-alt);
+      color: var(--muted);
+      display: flex;
+      justify-content: center;
+      min-inline-size: 100%;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .cell {
+      background: #ffffff;
+      min-block-size: 64px;
+      min-inline-size: 64px;
+      padding: 4px;
+      position: relative;
+    }
+
+    .event-overlay {
+      inset-block-start: 0;
+      inset-inline-start: 0;
+      overflow: visible;
+      pointer-events: none;
+      position: absolute;
+      z-index: 3;
+    }
+
+    .combat-link,
+    .combat-dot,
+    .combat-pulse,
+    .combat-label {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .combat-link {
+      animation: combat-link-in 720ms ease-out both;
+      fill: none;
+      stroke-linecap: round;
+      stroke-width: 4;
+    }
+
+    .combat-link.attack {
+      stroke: #dc2626;
+    }
+
+    .combat-link.heal {
+      stroke: #059669;
+    }
+
+    .combat-link.move {
+      stroke: #2563eb;
+      stroke-dasharray: 7 5;
+      stroke-width: 3;
+    }
+
+    .combat-dot {
+      animation: combat-dot-in 720ms ease-out both;
+      fill: #ffffff;
+      stroke-width: 3;
+    }
+
+    .combat-dot.attack {
+      stroke: #dc2626;
+    }
+
+    .combat-dot.heal {
+      stroke: #059669;
+    }
+
+    .combat-dot.move {
+      stroke: #2563eb;
+    }
+
+    .combat-pulse {
+      animation: combat-pulse-in 780ms ease-out both;
+      fill: rgba(28, 36, 48, 0.08);
+      stroke-width: 3;
+    }
+
+    .combat-pulse.attack,
+    .combat-pulse.death {
+      stroke: #dc2626;
+    }
+
+    .combat-pulse.heal {
+      stroke: #059669;
+    }
+
+    .combat-pulse.explosion {
+      fill: rgba(249, 115, 22, 0.18);
+      stroke: #f97316;
+      stroke-width: 4;
+    }
+
+    .combat-label {
+      animation: combat-label-float 780ms ease-out both;
+      fill: var(--text);
+      font-size: 13px;
+      font-weight: 900;
+      paint-order: stroke;
+      pointer-events: none;
+      stroke: #ffffff;
+      stroke-linejoin: round;
+      stroke-width: 4px;
+      text-anchor: middle;
+    }
+
+    .combat-label.attack,
+    .combat-label.death {
+      fill: #b42318;
+    }
+
+    .combat-label.heal {
+      fill: #047857;
+    }
+
+    .combat-label.move {
+      fill: #1d4ed8;
+    }
+
+    .combat-label.explosion {
+      fill: #c2410c;
+    }
+
+    @keyframes combat-link-in {
+      from {
+        opacity: 0;
+        transform: scale(0.92);
+      }
+      18% {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes combat-dot-in {
+      from {
+        opacity: 0;
+        transform: scale(0.6);
+      }
+      24% {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+        transform: scale(1.3);
+      }
+    }
+
+    @keyframes combat-pulse-in {
+      from {
+        opacity: 0;
+        transform: scale(0.35);
+      }
+      22% {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+        transform: scale(1.45);
+      }
+    }
+
+    @keyframes combat-label-float {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      20% {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-14px);
+      }
+    }
+
+    .cell-coord {
+      color: #9aa3b2;
+      font-size: 10px;
+      line-height: 1;
+      position: absolute;
+      right: 4px;
+      top: 4px;
+    }
+
+    .unit-stack {
+      align-content: end;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      height: 100%;
+      padding-top: 12px;
+    }
+
+    .unit {
+      align-items: center;
+      background: var(--team-bg, #e2e8f0);
+      border: 2px solid var(--team-color, #94a3b8);
+      border-radius: 999px;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.78), 0 2px 5px rgba(28, 36, 48, 0.18);
+      color: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      flex: 0 0 auto;
+      justify-content: center;
+      min-height: 42px;
+      min-width: 42px;
+      overflow: visible;
+      padding: 0;
+      position: relative;
+      height: 42px;
+      width: 42px;
+    }
+
+    .unit.team-neutral {
+      --team-bg: #eef2f7;
+      --team-color: #64748b;
+    }
+
+    .unit.team-red {
+      --team-bg: #ffe5e5;
+      --team-color: #e25555;
+    }
+
+    .unit.team-blue {
+      --team-bg: #e1efff;
+      --team-color: #3b82f6;
+    }
+
+    .unit.team-green {
+      --team-bg: #daf8e8;
+      --team-color: #16a36a;
+    }
+
+    .unit.team-gold {
+      --team-bg: #fff1c9;
+      --team-color: #d99a12;
+    }
+
+    .unit-sprite {
+      display: block;
+      height: 32px;
+      pointer-events: none;
+      width: 32px;
+    }
+
+    .unit-id {
+      align-items: center;
+      background: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      border-radius: 999px;
+      bottom: -4px;
+      color: #ffffff;
+      display: inline-flex;
+      font-size: 10px;
+      font-weight: 800;
+      justify-content: center;
+      line-height: 1;
+      min-height: 16px;
+      min-width: 16px;
+      padding: 0 4px;
+      position: absolute;
+      right: -5px;
+    }
+
+    .unit.highlight {
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .unit.selected {
+      outline: 3px solid #111827;
+      outline-offset: 1px;
+    }
+
+    .unit.dead {
+      filter: grayscale(1);
+      opacity: 0.45;
+    }
+
+    .side-panel {
+      display: grid;
+      gap: 0;
+      grid-row: span 2;
+      overflow: hidden;
+    }
+
+    .info-section {
+      border-bottom: 1px solid var(--line);
+      padding: 14px;
+    }
+
+    .info-section:last-child {
+      border-bottom: 0;
+    }
+
+    .info-section h2,
+    .event-panel h2 {
+      font-size: 15px;
+      line-height: 1.2;
+      margin: 0 0 10px;
+    }
+
+    .runner-status {
+      background: var(--panel-alt);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      margin-bottom: 10px;
+      min-height: 38px;
+      overflow-wrap: anywhere;
+      padding: 8px 10px;
+    }
+
+    .runner-status.ok {
+      background: #e8f7f3;
+      border-color: #9fd8cb;
+      color: var(--accent-strong);
+    }
+
+    .runner-status.warning {
+      background: #fff8e6;
+      border-color: #f1c27d;
+      color: var(--warning);
+    }
+
+    .runner-status.error {
+      background: #fff1f0;
+      border-color: #f2b8b5;
+      color: var(--danger);
+    }
+
+    .run-form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field {
+      color: var(--muted);
+      display: grid;
+      font-size: 12px;
+      font-weight: 700;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .field.wide {
+      grid-column: 1 / -1;
+    }
+
+    .field input {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      min-height: 34px;
+      min-width: 0;
+      padding: 0 8px;
+      width: 100%;
+    }
+
+    .field input:focus-visible {
+      border-color: var(--accent);
+      outline: 2px solid rgba(15, 118, 110, 0.18);
+      outline-offset: 1px;
+    }
+
+    .run-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .run-actions button {
+      flex: 1 1 112px;
+    }
+
+    .run-message {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      min-height: 18px;
+      overflow-wrap: anywhere;
+    }
+
+    .run-message.error {
+      color: var(--danger);
+    }
+
+    .run-message.ok {
+      color: var(--accent-strong);
+    }
+
+    .artifact-links {
+      display: flex;
+      flex-wrap: wrap;
+      font-size: 13px;
+      gap: 8px;
+    }
+
+    .artifact-links a {
+      color: var(--accent-strong);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .artifact-links a:hover,
+    .artifact-links a:focus-visible {
+      text-decoration: underline;
+    }
+
+    .summary-list,
+    .unit-details,
+    .warnings-list {
+      margin: 0;
+    }
+
+    .summary-list div,
+    .unit-details div {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      padding: 5px 0;
+    }
+
+    .summary-list dt,
+    .unit-details dt {
+      color: var(--muted);
+    }
+
+    .summary-list dd,
+    .unit-details dd {
+      font-weight: 700;
+      margin: 0;
+      text-align: right;
+    }
+
+    .warnings-list {
+      color: var(--warning);
+      font-size: 13px;
+      padding-left: 18px;
+    }
+
+    .warnings-list li + li {
+      margin-top: 6px;
+    }
+
+    .event-panel {
+      grid-column: 1;
+      max-height: 420px;
+      min-width: 0;
+      overflow: hidden;
+      padding: 14px;
+    }
+
+    .event-log {
+      counter-reset: event;
+      list-style: none;
+      margin: 0;
+      max-height: 360px;
+      overflow: auto;
+      padding: 0;
+    }
+
+    .event-log li {
+      border-bottom: 1px solid var(--line);
+      counter-increment: event;
+    }
+
+    .event-log button {
+      align-items: start;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      color: inherit;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 54px minmax(0, 1fr);
+      min-height: 42px;
+      padding: 7px 4px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .event-log button::before {
+      color: var(--muted);
+      content: "#" counter(event);
+      font-variant-numeric: tabular-nums;
+      padding-top: 1px;
+    }
+
+    .event-log .current {
+      background: #e6f7f5;
+    }
+
+    .event-log .future {
+      color: #8b95a5;
+    }
+
+    .event-line {
+      min-width: 0;
+    }
+
+    .event-name {
+      font-weight: 800;
+    }
+
+    .event-detail {
+      color: var(--muted);
+      display: block;
+      font-size: 12px;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .event-warning {
+      color: var(--warning);
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .side-panel,
+      .event-panel {
+        grid-column: 1;
+        grid-row: auto;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .header-actions {
+        justify-content: stretch;
+      }
+
+      .demo-select,
+      .demo-action,
+      .file-picker {
+        flex: 1 1 100%;
+        justify-content: center;
+      }
+
+      .toolbar {
+        align-items: stretch;
+      }
+
+      .toolbar button,
+      .toolbar select,
+      .tick-readout {
+        flex: 1 1 96px;
+      }
+
+      .cell {
+        min-block-size: 56px;
+        min-inline-size: 56px;
+      }
+
+      .unit {
+        height: 38px;
+        min-height: 38px;
+        min-width: 38px;
+        width: 38px;
+      }
+
+      .unit-sprite {
+        height: 29px;
+        width: 29px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Battle Trace Replay Viewer</h1>
+      <p>Inspect deterministic JSON traces from the C++ battle simulator.</p>
+    </div>
+    <div class="header-actions">
+      <select id="demoTraceSelect" class="demo-select" aria-label="Demo trace">
+        <option value="traces/basic-battle.json" selected>Basic battle demo</option>
+      </select>
+      <button id="loadDemoTraceButton" class="demo-action" type="button">Load Demo</button>
+      <label class="file-picker">
+        Load JSON
+        <input id="traceFile" type="file" accept=".json,application/json">
+      </label>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="stage" aria-labelledby="mapTitle">
+      <div class="toolbar">
+        <button id="resetButton" type="button" disabled>Reset</button>
+        <button id="prevButton" type="button" disabled>Prev</button>
+        <button id="playButton" type="button" disabled>Play</button>
+        <button id="nextButton" type="button" disabled>Next</button>
+        <select id="speedSelect" class="speed-select" aria-label="Playback speed">
+          <option value="0.5">0.5x</option>
+          <option value="1">1x</option>
+          <option value="2">2x</option>
+          <option value="4" selected>4x</option>
+        </select>
+        <div class="spacer"></div>
+        <div id="tickReadout" class="tick-readout">Tick: none</div>
+      </div>
+
+      <div id="status" class="status">Load a trace JSON file to begin.</div>
+      <div id="mapMeta" class="map-meta"></div>
+      <div class="map-wrap">
+        <div id="mapShell" class="map-shell">
+          <div id="mapGrid" class="map-grid empty">No trace loaded.</div>
+          <svg id="eventOverlay" class="event-overlay" aria-hidden="true"></svg>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-panel" aria-label="Trace details">
+      <section class="info-section">
+        <h2>Run Configuration</h2>
+        <div id="runnerStatus" class="runner-status">Checking local runner...</div>
+        <form id="runForm" class="run-form">
+          <div class="form-grid">
+            <label class="field">
+              Map width
+              <input id="mapWidth" name="mapWidth" type="number" min="1" max="64" value="8" required>
+            </label>
+            <label class="field">
+              Map height
+              <input id="mapHeight" name="mapHeight" type="number" min="1" max="64" value="5" required>
+            </label>
+            <label class="field">
+              Random seed
+              <input id="seed" name="seed" type="number" min="0" max="2147483647" value="1" required>
+            </label>
+            <label class="field">
+              Swordsmen
+              <input id="swordsmanCount" name="swordsmanCount" type="number" min="0" max="128" value="2" required>
+            </label>
+            <label class="field">
+              Hunters
+              <input id="hunterCount" name="hunterCount" type="number" min="0" max="128" value="1" required>
+            </label>
+            <label class="field">
+              Towers
+              <input id="towerCount" name="towerCount" type="number" min="0" max="128" value="1" required>
+            </label>
+            <label class="field">
+              Healers
+              <input id="healerCount" name="healerCount" type="number" min="0" max="128" value="1" required>
+            </label>
+            <label class="field">
+              Mines
+              <input id="mineCount" name="mineCount" type="number" min="0" max="128" value="1" required>
+            </label>
+            <label class="field">
+              Ravens
+              <input id="ravenCount" name="ravenCount" type="number" min="0" max="128" value="1" required>
+            </label>
+            <label class="field wide">
+              Run name
+              <input id="runName" name="runName" type="text" maxlength="40" placeholder="optional">
+            </label>
+          </div>
+          <div class="run-actions">
+            <button id="runButton" class="primary-action" type="submit">Run</button>
+            <button id="latestRunButton" type="button">Last Run</button>
+          </div>
+          <div id="runMessage" class="run-message"></div>
+          <div id="artifactLinks" class="artifact-links" hidden>
+            <a id="stdoutLink" href="#" target="_blank" rel="noreferrer">stdout</a>
+            <a id="stderrLink" href="#" target="_blank" rel="noreferrer">stderr</a>
+            <a id="scenarioLink" href="#" target="_blank" rel="noreferrer">scenario</a>
+          </div>
+        </form>
+      </section>
+      <section class="info-section">
+        <h2>Summary</h2>
+        <dl id="summary" class="summary-list"></dl>
+      </section>
+      <section class="info-section">
+        <h2>Selected Unit</h2>
+        <dl id="selectedUnit" class="unit-details"></dl>
+      </section>
+      <section class="info-section">
+        <h2>Warnings</h2>
+        <ul id="warnings" class="warnings-list"></ul>
+      </section>
+    </aside>
+
+    <section class="event-panel" aria-labelledby="eventTitle">
+      <h2 id="eventTitle">Combat Log</h2>
+      <ol id="eventLog" class="event-log"></ol>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const supportedEvents = new Set([
+        "MAP_CREATED",
+        "UNIT_SPAWNED",
+        "MARCH_STARTED",
+        "MARCH_ENDED",
+        "UNIT_MOVED",
+        "UNIT_ATTACKED",
+        "UNIT_HEALED",
+        "UNIT_DIED"
+      ]);
+
+      const requiredFields = {
+        MAP_CREATED: { number: ["tick", "width", "height"], string: ["event"] },
+        UNIT_SPAWNED: { number: ["tick", "unitId", "x", "y"], string: ["event", "unitType"] },
+        MARCH_STARTED: { number: ["tick", "unitId", "x", "y", "targetX", "targetY"], string: ["event"] },
+        MARCH_ENDED: { number: ["tick", "unitId", "x", "y"], string: ["event"] },
+        UNIT_MOVED: { number: ["tick", "unitId", "x", "y"], string: ["event"] },
+        UNIT_ATTACKED: { number: ["tick", "sourceUnitId", "targetUnitId", "amount", "resultingValue"], string: ["event"] },
+        UNIT_HEALED: { number: ["tick", "sourceUnitId", "targetUnitId", "amount", "resultingValue"], string: ["event"] },
+        UNIT_DIED: { number: ["tick", "unitId"], string: ["event"] }
+      };
+
+      const unitSpritePaths = {
+        Swordsman: "assets/units/swordsman.svg",
+        Lancer: "assets/units/lancer.svg",
+        Hunter: "assets/units/hunter.svg",
+        Tower: "assets/units/tower.svg",
+        Raven: "assets/units/raven.svg",
+        Healer: "assets/units/healer.svg",
+        Mine: "assets/units/mine.svg",
+        Duelist: "assets/units/duelist.svg",
+        Spearman: "assets/units/spearman.svg",
+        default: "assets/units/default.svg"
+      };
+
+      const runFormFieldByUnitType = {
+        Swordsman: "swordsmanCount",
+        Hunter: "hunterCount",
+        Tower: "towerCount",
+        Healer: "healerCount",
+        Mine: "mineCount",
+        Raven: "ravenCount"
+      };
+
+      const teamClassByName = new Map([
+        ["red", "team-red"],
+        ["blue", "team-blue"],
+        ["green", "team-green"],
+        ["gold", "team-gold"],
+        ["yellow", "team-gold"],
+        ["neutral", "team-neutral"]
+      ]);
+
+      const els = {
+        file: document.getElementById("traceFile"),
+        demoSelect: document.getElementById("demoTraceSelect"),
+        loadDemo: document.getElementById("loadDemoTraceButton"),
+        reset: document.getElementById("resetButton"),
+        prev: document.getElementById("prevButton"),
+        play: document.getElementById("playButton"),
+        next: document.getElementById("nextButton"),
+        speed: document.getElementById("speedSelect"),
+        tick: document.getElementById("tickReadout"),
+        status: document.getElementById("status"),
+        mapMeta: document.getElementById("mapMeta"),
+        mapShell: document.getElementById("mapShell"),
+        map: document.getElementById("mapGrid"),
+        overlay: document.getElementById("eventOverlay"),
+        summary: document.getElementById("summary"),
+        selected: document.getElementById("selectedUnit"),
+        warnings: document.getElementById("warnings"),
+        log: document.getElementById("eventLog"),
+        runnerStatus: document.getElementById("runnerStatus"),
+        runForm: document.getElementById("runForm"),
+        runButton: document.getElementById("runButton"),
+        latestRun: document.getElementById("latestRunButton"),
+        runMessage: document.getElementById("runMessage"),
+        artifactLinks: document.getElementById("artifactLinks"),
+        stdoutLink: document.getElementById("stdoutLink"),
+        stderrLink: document.getElementById("stderrLink"),
+        scenarioLink: document.getElementById("scenarioLink")
+      };
+
+      const state = {
+        events: [],
+        sortedEvents: [],
+        eventsByTick: new Map(),
+        ticks: [],
+        steps: [],
+        stepIndexByEventIndex: new Map(),
+        currentTickIndex: 0,
+        selectedUnitId: null,
+        playbackTimer: null,
+        totalCounts: new Map(),
+        validationWarnings: [],
+        invalidEventIndexes: new Set(),
+        currentSnapshot: null,
+        runnerAvailable: false
+      };
+
+      els.file.addEventListener("change", handleFile);
+      els.loadDemo.addEventListener("click", handleDemoTraceLoad);
+      els.runForm.addEventListener("submit", handleRunSubmit);
+      els.latestRun.addEventListener("click", handleLatestRun);
+      els.reset.addEventListener("click", () => jumpToIndex(0));
+      els.prev.addEventListener("click", () => jumpToIndex(state.currentTickIndex - 1));
+      els.next.addEventListener("click", () => jumpToIndex(state.currentTickIndex + 1));
+      els.play.addEventListener("click", togglePlayback);
+      els.speed.addEventListener("change", () => {
+        if (state.playbackTimer) {
+          stopPlayback();
+          startPlayback();
+        }
+      });
+
+      renderEmpty();
+      checkRunner();
+      loadDefaultDemoTrace();
+
+      async function loadDefaultDemoTrace() {
+        if (window.location.protocol === "file:") {
+          return;
+        }
+        await loadSelectedDemoTrace(true);
+      }
+
+      async function handleDemoTraceLoad() {
+        await loadSelectedDemoTrace(false);
+      }
+
+      async function loadSelectedDemoTrace(silent) {
+        const selected = els.demoSelect.options[els.demoSelect.selectedIndex];
+        const tracePath = selected ? selected.value : "";
+        const traceLabel = selected ? selected.textContent.trim() : "demo trace";
+        if (!tracePath) {
+          if (!silent) {
+            setError("No demo trace is selected.");
+          }
+          return false;
+        }
+
+        try {
+          const response = await fetch(tracePath, { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`Demo trace request returned HTTP ${response.status}.`);
+          }
+          const rawText = await response.text();
+          return loadTrace(rawText, traceLabel);
+        } catch (error) {
+          if (!silent) {
+            setError(error.message || "Could not load demo trace.");
+          }
+          return false;
+        }
+      }
+
+      function handleFile(event) {
+        const [file] = event.target.files;
+        if (!file) {
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => loadTrace(reader.result, file.name);
+        reader.onerror = () => setError("Could not read selected file.");
+        reader.readAsText(file);
+      }
+
+      async function checkRunner() {
+        setRunnerStatus("Checking local runner...", "warning");
+        els.runButton.disabled = true;
+        els.latestRun.disabled = true;
+
+        if (window.location.protocol === "file:") {
+          state.runnerAvailable = false;
+          setRunnerStatus(
+            "Manual trace loading works from file://. To run simulations, start the local runner and open http://127.0.0.1:8765.",
+            "warning"
+          );
+          return;
+        }
+
+        if (!isLocalRunnerHost()) {
+          state.runnerAvailable = false;
+          setRunnerStatus(
+            "Static demo mode. This page replays prepared JSON traces. To run the C++ executable, start the local runner and open http://127.0.0.1:8765.",
+            "ok"
+          );
+          return;
+        }
+
+        try {
+          const response = await fetch(runnerUrl("/api/health"));
+          if (!response.ok) {
+            throw new Error(`Local runner returned HTTP ${response.status}.`);
+          }
+          const data = await response.json();
+          state.runnerAvailable = true;
+          els.runButton.disabled = false;
+          els.latestRun.disabled = false;
+          if (data.executable && data.executable.found) {
+            setRunnerStatus(`Local runner connected. Executable: ${data.executable.path}`, "ok");
+          } else {
+            setRunnerStatus("Local runner connected, but battle_sim was not found. Start it with --exe or set BATTLE_SIM_EXE.", "warning");
+          }
+        } catch (error) {
+          state.runnerAvailable = false;
+          els.runButton.disabled = true;
+          els.latestRun.disabled = true;
+          setRunnerStatus("Local runner is not available. Start it with: python tools/local-runner/server.py and open http://127.0.0.1:8765", "error");
+        }
+      }
+
+      async function handleRunSubmit(event) {
+        event.preventDefault();
+        clearArtifactLinks();
+        setRunMessage("Running simulation...", "");
+        els.runButton.disabled = true;
+        try {
+          const response = await fetch(runnerUrl("/api/run"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(readRunForm())
+          });
+          const data = await response.json();
+          showArtifactLinks(data);
+          if (!response.ok) {
+            throw new Error(data.error || `Local runner returned HTTP ${response.status}.`);
+          }
+          if (!data.ok) {
+            setRunMessage(data.error || "Simulation failed.", "error");
+            return;
+          }
+          const loaded = await loadTraceFromRunner(data.traceUrl, `run ${data.runId}`);
+          setRunMessage(loaded ? `Run ${data.runId} completed and loaded.` : `Run ${data.runId} completed, but trace loading failed.`, loaded ? "ok" : "error");
+        } catch (error) {
+          setRunMessage(error.message || "Local run failed.", "error");
+          if (!state.runnerAvailable) {
+            setRunnerStatus("Local runner is not available. Start it with: python tools/local-runner/server.py", "error");
+          }
+        } finally {
+          checkRunner();
+        }
+      }
+
+      async function handleLatestRun() {
+        clearArtifactLinks();
+        setRunMessage("Loading latest run...", "");
+        try {
+          const response = await fetch(runnerUrl("/api/runs/latest"));
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || `Local runner returned HTTP ${response.status}.`);
+          }
+          const run = data.run;
+          showArtifactLinks(run);
+          if (!run.traceUrl) {
+            throw new Error("Latest run has no trace.json.");
+          }
+          const loaded = await loadTraceFromRunner(run.traceUrl, `run ${run.runId}`);
+          setRunMessage(loaded ? `Run ${run.runId} loaded.` : `Run ${run.runId} has an invalid trace.`, loaded ? "ok" : "error");
+        } catch (error) {
+          setRunMessage(error.message || "Could not load latest run.", "error");
+        }
+      }
+
+      async function loadTraceFromRunner(tracePath, label) {
+        const response = await fetch(runnerUrl(tracePath));
+        if (!response.ok) {
+          throw new Error(`Trace request returned HTTP ${response.status}.`);
+        }
+        const rawText = await response.text();
+        return loadTrace(rawText, label);
+      }
+
+      function readRunForm() {
+        return {
+          mapWidth: numberField("mapWidth"),
+          mapHeight: numberField("mapHeight"),
+          seed: numberField("seed"),
+          runName: document.getElementById("runName").value,
+          unitCounts: {
+            Swordsman: numberField("swordsmanCount"),
+            Hunter: numberField("hunterCount"),
+            Tower: numberField("towerCount"),
+            Healer: numberField("healerCount"),
+            Mine: numberField("mineCount"),
+            Raven: numberField("ravenCount")
+          }
+        };
+      }
+
+      function numberField(id) {
+        return Number(document.getElementById(id).value);
+      }
+
+      function runnerUrl(path) {
+        if (/^https?:\/\//.test(path)) {
+          return path;
+        }
+        return path;
+      }
+
+      function isLocalRunnerHost() {
+        const host = window.location.hostname;
+        return host === "127.0.0.1" || host === "localhost";
+      }
+
+      function setRunnerStatus(message, level) {
+        els.runnerStatus.className = `runner-status ${level || ""}`.trim();
+        els.runnerStatus.textContent = message;
+      }
+
+      function setRunMessage(message, level) {
+        els.runMessage.className = `run-message ${level || ""}`.trim();
+        els.runMessage.textContent = message;
+      }
+
+      function showArtifactLinks(data) {
+        const links = [
+          [els.stdoutLink, data.stdoutUrl],
+          [els.stderrLink, data.stderrUrl],
+          [els.scenarioLink, data.scenarioUrl]
+        ];
+        let hasAny = false;
+        for (const [element, url] of links) {
+          if (url) {
+            element.hidden = false;
+            element.href = runnerUrl(url);
+            hasAny = true;
+          } else {
+            element.hidden = true;
+            element.removeAttribute("href");
+          }
+        }
+        els.artifactLinks.hidden = !hasAny;
+      }
+
+      function clearArtifactLinks() {
+        showArtifactLinks({});
+      }
+
+      function loadTrace(rawText, filename) {
+        stopPlayback();
+        try {
+          const parsed = JSON.parse(rawText);
+          const validation = validateTrace(parsed);
+          if (validation.errors.length > 0) {
+            throw new Error(validation.errors[0]);
+          }
+
+          applyTraceConfigurationToRunForm(parsed);
+
+          state.events = parsed.map((event, index) => ({ ...event, __index: index }));
+          state.sortedEvents = [...state.events].sort((a, b) => {
+            const leftTick = eventTick(a) ?? Number.MAX_SAFE_INTEGER;
+            const rightTick = eventTick(b) ?? Number.MAX_SAFE_INTEGER;
+            const tickDelta = leftTick - rightTick;
+            return tickDelta || a.__index - b.__index;
+          });
+          state.ticks = [...new Set(state.sortedEvents.map(eventTick).filter((tick) => tick !== null))];
+          state.steps = state.sortedEvents
+            .map((event, sortedIndex) => ({ event, sortedIndex, tick: eventTick(event) }))
+            .filter((step) => step.tick !== null);
+          if (state.steps.length === 0) {
+            throw new Error("Trace has no valid tick values.");
+          }
+          state.stepIndexByEventIndex = new Map(state.steps.map((step, index) => [step.event.__index, index]));
+          state.eventsByTick = groupEventsByTick(state.sortedEvents);
+          state.currentTickIndex = 0;
+          state.selectedUnitId = null;
+          state.validationWarnings = validation.warnings;
+          state.invalidEventIndexes = validation.invalidEventIndexes;
+          state.totalCounts = countEvents(state.events);
+
+          setStatus(`${filename} loaded. ${state.events.length} events across ${state.ticks.length} ticks and ${state.steps.length} replay steps.`, validation.warnings.length ? "warning" : "ok");
+          renderAtCurrentTick();
+          return true;
+        } catch (error) {
+          state.events = [];
+          state.sortedEvents = [];
+          state.eventsByTick = new Map();
+          state.ticks = [];
+          state.steps = [];
+          state.stepIndexByEventIndex = new Map();
+          state.currentSnapshot = null;
+          state.validationWarnings = [];
+          state.invalidEventIndexes = new Set();
+          state.totalCounts = new Map();
+          setError(error.message || "Invalid trace file.");
+          renderEmpty();
+          return false;
+        }
+      }
+
+      function applyTraceConfigurationToRunForm(trace) {
+        const mapEvent = trace.find((event) => event && event.event === "MAP_CREATED");
+        if (mapEvent) {
+          setNumberFieldValue("mapWidth", mapEvent.width);
+          setNumberFieldValue("mapHeight", mapEvent.height);
+        }
+
+        const counts = new Map(Object.keys(runFormFieldByUnitType).map((unitType) => [unitType, 0]));
+        for (const event of trace) {
+          if (!event || event.event !== "UNIT_SPAWNED" || !counts.has(event.unitType)) {
+            continue;
+          }
+          counts.set(event.unitType, counts.get(event.unitType) + 1);
+        }
+
+        for (const [unitType, fieldId] of Object.entries(runFormFieldByUnitType)) {
+          setNumberFieldValue(fieldId, counts.get(unitType) ?? 0);
+        }
+      }
+
+      function setNumberFieldValue(id, value) {
+        const field = document.getElementById(id);
+        const number = Number(value);
+        if (!field || !Number.isFinite(number)) {
+          return;
+        }
+        field.value = String(Math.max(0, Math.floor(number)));
+      }
+
+      function validateTrace(trace) {
+        const warnings = [];
+        const errors = [];
+        const invalidEventIndexes = new Set();
+
+        if (!Array.isArray(trace)) {
+          return { errors: ["Trace root must be a JSON array."], warnings, invalidEventIndexes };
+        }
+
+        if (trace.length === 0) {
+          return { errors: ["Trace is empty."], warnings, invalidEventIndexes };
+        }
+
+        let hasMap = false;
+        trace.forEach((event, index) => {
+          if (!event || typeof event !== "object" || Array.isArray(event)) {
+            errors.push(`Event #${index + 1} must be a JSON object.`);
+            invalidEventIndexes.add(index);
+            return;
+          }
+
+          if (typeof event.event !== "string" || event.event.length === 0) {
+            warnings.push(`Event #${index + 1} is missing a valid event name.`);
+            invalidEventIndexes.add(index);
+            return;
+          }
+
+          if (typeof event.tick !== "number" || !Number.isFinite(event.tick) || event.tick < 0) {
+            warnings.push(`${event.event} at #${index + 1} is missing a valid tick.`);
+            invalidEventIndexes.add(index);
+          }
+
+          if (!supportedEvents.has(event.event)) {
+            warnings.push(`${event.event} at #${index + 1} is unsupported and will be shown as log-only.`);
+            return;
+          }
+
+          if (event.event === "MAP_CREATED") {
+            hasMap = true;
+          }
+
+          const schema = requiredFields[event.event];
+          const missing = [];
+          for (const key of schema.number) {
+            if (typeof event[key] !== "number" || !Number.isFinite(event[key])) {
+              missing.push(key);
+            }
+          }
+          for (const key of schema.string) {
+            if (typeof event[key] !== "string" || event[key].length === 0) {
+              missing.push(key);
+            }
+          }
+
+          if (missing.length > 0) {
+            warnings.push(`${event.event} at #${index + 1} has missing or invalid field(s): ${missing.join(", ")}.`);
+            invalidEventIndexes.add(index);
+          }
+        });
+
+        if (!hasMap) {
+          errors.push("Trace must include MAP_CREATED before it can be replayed.");
+        }
+
+        return { errors, warnings, invalidEventIndexes };
+      }
+
+      function countEvents(events) {
+        const counts = new Map();
+        for (const event of events) {
+          const name = typeof event.event === "string" ? event.event : "INVALID";
+          counts.set(name, (counts.get(name) || 0) + 1);
+        }
+        return counts;
+      }
+
+      function groupEventsByTick(events) {
+        const grouped = new Map();
+        for (const event of events) {
+          const tick = eventTick(event);
+          if (tick === null) {
+            continue;
+          }
+          if (!grouped.has(tick)) {
+            grouped.set(tick, []);
+          }
+          grouped.get(tick).push(event);
+        }
+        return grouped;
+      }
+
+      function eventTick(event) {
+        const tick = Number(event.tick);
+        return Number.isFinite(tick) ? tick : null;
+      }
+
+      function finiteNumber(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function jumpToIndex(nextIndex) {
+        if (state.steps.length === 0) {
+          return;
+        }
+        state.currentTickIndex = Math.max(0, Math.min(nextIndex, state.steps.length - 1));
+        renderAtCurrentTick();
+      }
+
+      function jumpToEventIndex(eventIndex) {
+        const index = state.stepIndexByEventIndex.get(eventIndex);
+        if (index !== undefined) {
+          jumpToIndex(index);
+        }
+      }
+
+      function togglePlayback() {
+        if (state.playbackTimer) {
+          stopPlayback();
+        } else {
+          startPlayback();
+        }
+      }
+
+      function startPlayback() {
+        if (state.steps.length <= 1) {
+          return;
+        }
+        els.play.textContent = "Pause";
+        const interval = Math.max(120, 1000 / Number(els.speed.value || 1));
+        state.playbackTimer = window.setInterval(() => {
+          if (state.currentTickIndex >= state.steps.length - 1) {
+            stopPlayback();
+            return;
+          }
+          jumpToIndex(state.currentTickIndex + 1);
+        }, interval);
+      }
+
+      function stopPlayback() {
+        if (state.playbackTimer) {
+          window.clearInterval(state.playbackTimer);
+          state.playbackTimer = null;
+        }
+        els.play.textContent = "Play";
+      }
+
+      function renderAtCurrentTick() {
+        const step = state.steps[state.currentTickIndex];
+        const tick = step ? step.tick : null;
+        const snapshot = replayUntilStep(state.currentTickIndex);
+        state.currentSnapshot = snapshot;
+
+        renderControls();
+        renderMap(snapshot, tick);
+        renderCombatEffects(snapshot);
+        renderSummary(snapshot, tick);
+        renderSelected(snapshot);
+        renderWarnings(snapshot);
+        renderEventLog(step);
+      }
+
+      function replayUntilStep(stepIndex) {
+        const step = state.steps[stepIndex];
+        const currentEvent = step ? step.event : null;
+        const maxSortedIndex = step ? step.sortedIndex : -1;
+        const snapshot = {
+          map: null,
+          units: new Map(),
+          currentEvents: currentEvent ? [currentEvent] : [],
+          invalidApplied: []
+        };
+
+        for (let index = 0; index <= maxSortedIndex; index += 1) {
+          const event = state.sortedEvents[index];
+          const nextTick = eventTick(event);
+          if (nextTick === null) {
+            continue;
+          }
+
+          if (state.invalidEventIndexes.has(event.__index)) {
+            snapshot.invalidApplied.push(event);
+            continue;
+          }
+
+          applyEvent(snapshot, event);
+        }
+
+        return snapshot;
+      }
+
+      function applyEvent(snapshot, event) {
+        if (!supportedEvents.has(event.event)) {
+          return;
+        }
+
+        switch (event.event) {
+          case "MAP_CREATED":
+            snapshot.map = {
+              width: Math.max(1, Math.floor(event.width)),
+              height: Math.max(1, Math.floor(event.height))
+            };
+            break;
+          case "UNIT_SPAWNED":
+            snapshot.units.set(event.unitId, {
+              id: event.unitId,
+              type: event.unitType,
+              team: event.team ?? event.teamId ?? event.side ?? event.owner ?? "neutral",
+              x: Math.floor(event.x),
+              y: Math.floor(event.y),
+              hp: null,
+              alive: true,
+              lastEvent: event.event,
+              marchTarget: null
+            });
+            break;
+          case "MARCH_STARTED":
+            updateUnit(snapshot, event.unitId, {
+              x: Math.floor(event.x),
+              y: Math.floor(event.y),
+              lastEvent: event.event,
+              marchTarget: { x: Math.floor(event.targetX), y: Math.floor(event.targetY) }
+            });
+            break;
+          case "MARCH_ENDED":
+          case "UNIT_MOVED":
+            updateUnit(snapshot, event.unitId, {
+              x: Math.floor(event.x),
+              y: Math.floor(event.y),
+              lastEvent: event.event,
+              marchTarget: null
+            });
+            break;
+          case "UNIT_ATTACKED":
+            updateUnit(snapshot, event.sourceUnitId, { lastEvent: event.event });
+            updateUnit(snapshot, event.targetUnitId, {
+              hp: event.resultingValue,
+              lastEvent: event.event
+            });
+            break;
+          case "UNIT_HEALED":
+            updateUnit(snapshot, event.sourceUnitId, { lastEvent: event.event });
+            updateUnit(snapshot, event.targetUnitId, {
+              hp: event.resultingValue,
+              alive: true,
+              lastEvent: event.event
+            });
+            break;
+          case "UNIT_DIED":
+            updateUnit(snapshot, event.unitId, {
+              alive: false,
+              lastEvent: event.event,
+              marchTarget: null
+            });
+            break;
+          default:
+            break;
+        }
+      }
+
+      function updateUnit(snapshot, unitId, patch) {
+        const unit = snapshot.units.get(unitId);
+        if (!unit) {
+          return;
+        }
+        Object.assign(unit, patch);
+      }
+
+      function renderControls() {
+        const hasTrace = state.steps.length > 0;
+        const atStart = state.currentTickIndex <= 0;
+        const atEnd = state.currentTickIndex >= state.steps.length - 1;
+        const step = hasTrace ? state.steps[state.currentTickIndex] : null;
+        els.reset.disabled = !hasTrace || atStart;
+        els.prev.disabled = !hasTrace || atStart;
+        els.next.disabled = !hasTrace || atEnd;
+        els.play.disabled = !hasTrace || state.steps.length <= 1 || atEnd;
+        els.tick.textContent = hasTrace
+          ? `Tick: ${step.tick} · Step: ${state.currentTickIndex + 1}/${state.steps.length}`
+          : "Tick: none";
+      }
+
+      function renderMap(snapshot, tick) {
+        if (!snapshot.map) {
+          clearCombatEffects();
+          els.map.className = "map-grid empty";
+          els.map.textContent = "MAP_CREATED has not been applied yet.";
+          els.mapMeta.textContent = "";
+          return;
+        }
+
+        const involved = involvedUnitIds(snapshot.currentEvents);
+        const unitsByCell = new Map();
+        for (const unit of snapshot.units.values()) {
+          if (!Number.isFinite(unit.x) || !Number.isFinite(unit.y)) {
+            continue;
+          }
+          const key = `${unit.x},${unit.y}`;
+          if (!unitsByCell.has(key)) {
+            unitsByCell.set(key, []);
+          }
+          unitsByCell.get(key).push(unit);
+        }
+
+        els.map.className = "map-grid";
+        els.map.style.gridTemplateColumns = `repeat(${snapshot.map.width}, minmax(56px, 64px))`;
+        els.map.style.gridTemplateRows = `repeat(${snapshot.map.height}, minmax(56px, auto))`;
+        els.map.replaceChildren();
+        setInlineMeta(els.mapMeta, [
+          `Map: ${snapshot.map.width} x ${snapshot.map.height}`,
+          `Tick events: ${snapshot.currentEvents.length}`,
+          `Visible units: ${snapshot.units.size}`
+        ]);
+
+        for (let y = 0; y < snapshot.map.height; y += 1) {
+          for (let x = 0; x < snapshot.map.width; x += 1) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.x = String(x);
+            cell.dataset.y = String(y);
+            const coord = document.createElement("span");
+            coord.className = "cell-coord";
+            coord.textContent = `${x},${y}`;
+            cell.appendChild(coord);
+
+            const stack = document.createElement("div");
+            stack.className = "unit-stack";
+            const units = unitsByCell.get(`${x},${y}`) || [];
+            units.sort((a, b) => a.id - b.id);
+            for (const unit of units) {
+              stack.appendChild(renderUnitToken(unit, involved.has(unit.id)));
+            }
+            cell.appendChild(stack);
+            els.map.appendChild(cell);
+          }
+        }
+      }
+
+      function renderCombatEffects(snapshot) {
+        clearCombatEffects();
+        if (!snapshot.map || snapshot.currentEvents.length === 0) {
+          return;
+        }
+
+        const mapRect = els.map.getBoundingClientRect();
+        const shellRect = els.mapShell.getBoundingClientRect();
+        const width = Math.max(1, Math.ceil(mapRect.width));
+        const height = Math.max(1, Math.ceil(mapRect.height));
+        const left = mapRect.left - shellRect.left;
+        const top = mapRect.top - shellRect.top;
+        els.overlay.setAttribute("width", String(width));
+        els.overlay.setAttribute("height", String(height));
+        els.overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        els.overlay.style.left = `${left}px`;
+        els.overlay.style.top = `${top}px`;
+        els.overlay.style.width = `${width}px`;
+        els.overlay.style.height = `${height}px`;
+
+        appendCombatMarkers();
+
+        for (const event of snapshot.currentEvents) {
+          if (state.invalidEventIndexes.has(event.__index)) {
+            continue;
+          }
+
+          switch (event.event) {
+            case "UNIT_ATTACKED":
+              drawDirectionalEffect(
+                eventPoint(snapshot, event, "source", event.sourceUnitId),
+                eventPoint(snapshot, event, "target", event.targetUnitId),
+                "attack",
+                combatAmountLabel(event, "attack", "hit")
+              );
+              break;
+            case "UNIT_HEALED":
+              drawDirectionalEffect(
+                eventPoint(snapshot, event, "source", event.sourceUnitId),
+                eventPoint(snapshot, event, "target", event.targetUnitId),
+                "heal",
+                combatAmountLabel(event, "heal", "heal")
+              );
+              break;
+            case "UNIT_MOVED":
+              drawDirectionalEffect(
+                eventPoint(snapshot, event, "from", event.unitId),
+                eventPoint(snapshot, event, "", event.unitId),
+                "move",
+                "move"
+              );
+              break;
+            case "UNIT_DIED": {
+              const reason = String(event.reason || "").toLowerCase();
+              const kind = reason === "destroyed" ? "explosion" : "death";
+              drawPulse(eventPoint(snapshot, event, "", event.unitId), kind, kind === "explosion" ? "boom" : "KO");
+              break;
+            }
+            default:
+              break;
+          }
+        }
+      }
+
+      function clearCombatEffects() {
+        els.overlay.replaceChildren();
+        els.overlay.removeAttribute("width");
+        els.overlay.removeAttribute("height");
+        els.overlay.removeAttribute("viewBox");
+        els.overlay.style.removeProperty("left");
+        els.overlay.style.removeProperty("top");
+        els.overlay.style.removeProperty("width");
+        els.overlay.style.removeProperty("height");
+      }
+
+      function appendCombatMarkers() {
+        const defs = createSvgElement("defs");
+        const markers = {
+          attack: "#dc2626",
+          heal: "#059669",
+          move: "#2563eb"
+        };
+
+        for (const [kind, color] of Object.entries(markers)) {
+          const marker = createSvgElement("marker");
+          marker.setAttribute("id", `combat-arrow-${kind}`);
+          marker.setAttribute("viewBox", "0 0 10 10");
+          marker.setAttribute("refX", "9");
+          marker.setAttribute("refY", "5");
+          marker.setAttribute("markerWidth", "3.5");
+          marker.setAttribute("markerHeight", "3.5");
+          marker.setAttribute("markerUnits", "strokeWidth");
+          marker.setAttribute("orient", "auto");
+
+          const arrow = createSvgElement("path");
+          arrow.setAttribute("d", "M 0 0 L 10 5 L 0 10 Z");
+          arrow.setAttribute("fill", color);
+
+          marker.appendChild(arrow);
+          defs.appendChild(marker);
+        }
+
+        els.overlay.appendChild(defs);
+      }
+
+      function eventPoint(snapshot, event, prefix, unitId) {
+        const xKey = prefix ? `${prefix}X` : "x";
+        const yKey = prefix ? `${prefix}Y` : "y";
+        const fromEvent = cellCenter(event[xKey], event[yKey]);
+        if (fromEvent) {
+          return fromEvent;
+        }
+
+        const unit = snapshot.units.get(unitId);
+        return unit ? cellCenter(unit.x, unit.y) : null;
+      }
+
+      function cellCenter(x, y) {
+        const cellX = finiteNumber(x);
+        const cellY = finiteNumber(y);
+        if (cellX === null || cellY === null) {
+          return null;
+        }
+
+        const cell = els.map.querySelector(`.cell[data-x="${Math.floor(cellX)}"][data-y="${Math.floor(cellY)}"]`);
+        if (!cell) {
+          return null;
+        }
+
+        const mapRect = els.map.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        return {
+          x: cellRect.left - mapRect.left + cellRect.width / 2,
+          y: cellRect.top - mapRect.top + cellRect.height / 2
+        };
+      }
+
+      function drawDirectionalEffect(from, to, kind, label) {
+        if (!from || !to) {
+          return;
+        }
+
+        const distance = Math.hypot(to.x - from.x, to.y - from.y);
+        if (distance < 4) {
+          drawPulse(to, kind, label);
+          return;
+        }
+
+        const trim = Math.min(kind === "move" ? 18 : 24, distance / 3);
+        const dx = (to.x - from.x) / distance;
+        const dy = (to.y - from.y) / distance;
+        const start = { x: from.x + dx * trim, y: from.y + dy * trim };
+        const end = { x: to.x - dx * trim, y: to.y - dy * trim };
+        const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+
+        const link = createSvgElement("path");
+        link.classList.add("combat-link", kind);
+        link.setAttribute("d", `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`);
+        if (kind === "attack" || kind === "heal" || kind === "move") {
+          link.setAttribute("marker-end", `url(#combat-arrow-${kind})`);
+        }
+        els.overlay.appendChild(link);
+
+        const dot = createSvgElement("circle");
+        dot.classList.add("combat-dot", kind);
+        dot.setAttribute("cx", to.x.toFixed(1));
+        dot.setAttribute("cy", to.y.toFixed(1));
+        dot.setAttribute("r", kind === "move" ? "4" : "6");
+        els.overlay.appendChild(dot);
+
+        drawCombatLabel(mid, kind, label);
+      }
+
+      function drawPulse(point, kind, label) {
+        if (!point) {
+          return;
+        }
+
+        const pulse = createSvgElement("circle");
+        pulse.classList.add("combat-pulse", kind);
+        pulse.setAttribute("cx", point.x.toFixed(1));
+        pulse.setAttribute("cy", point.y.toFixed(1));
+        pulse.setAttribute("r", kind === "explosion" ? "24" : "18");
+        els.overlay.appendChild(pulse);
+
+        drawCombatLabel({ x: point.x, y: point.y - 18 }, kind, label);
+      }
+
+      function drawCombatLabel(point, kind, label) {
+        if (!label) {
+          return;
+        }
+
+        const text = createSvgElement("text");
+        text.classList.add("combat-label", kind);
+        text.setAttribute("x", point.x.toFixed(1));
+        text.setAttribute("y", point.y.toFixed(1));
+        text.textContent = label;
+        els.overlay.appendChild(text);
+      }
+
+      function combatAmountLabel(event, kind, fallback) {
+        const amount = finiteNumber(event.amount);
+        if (amount !== null) {
+          return kind === "heal" ? `+${amount}` : `-${amount}`;
+        }
+        return fallback;
+      }
+
+      function createSvgElement(name) {
+        return document.createElementNS("http://www.w3.org/2000/svg", name);
+      }
+
+      function renderUnitToken(unit, highlighted) {
+        const token = document.createElement("button");
+        token.type = "button";
+        token.className = [
+          "unit",
+          unitTypeClass(unit.type),
+          teamClass(unit.team),
+          highlighted ? "highlight" : "",
+          state.selectedUnitId === unit.id ? "selected" : "",
+          unit.alive ? "" : "dead"
+        ].filter(Boolean).join(" ");
+        token.title = unitAccessibleLabel(unit);
+        token.setAttribute("aria-label", unitAccessibleLabel(unit));
+        token.dataset.unitId = String(unit.id);
+
+        const sprite = document.createElement("img");
+        sprite.className = "unit-sprite";
+        sprite.src = unitSpritePath(unit.type);
+        sprite.alt = "";
+        sprite.setAttribute("aria-hidden", "true");
+        sprite.draggable = false;
+        token.appendChild(sprite);
+
+        const badge = document.createElement("span");
+        badge.className = "unit-id";
+        badge.textContent = String(unit.id);
+        token.appendChild(badge);
+
+        token.addEventListener("click", () => {
+          selectUnit(unit.id);
+        });
+        return token;
+      }
+
+      function selectUnit(unitId) {
+        state.selectedUnitId = unitId;
+        updateSelectedUnitStyles();
+        if (state.currentSnapshot) {
+          renderSelected(state.currentSnapshot);
+        }
+      }
+
+      function updateSelectedUnitStyles() {
+        const selectedUnitId = state.selectedUnitId === null ? null : String(state.selectedUnitId);
+        for (const token of els.map.querySelectorAll(".unit")) {
+          token.classList.toggle("selected", selectedUnitId !== null && token.dataset.unitId === selectedUnitId);
+        }
+      }
+
+      function unitTypeClass(type) {
+        const normalized = normalizeUnitType(type);
+        return unitSpritePaths[normalized] ? normalized.toLowerCase() : "unknown";
+      }
+
+      function unitSpritePath(type) {
+        const normalized = normalizeUnitType(type);
+        return unitSpritePaths[normalized] || unitSpritePaths.default;
+      }
+
+      function normalizeUnitType(type) {
+        const value = String(type || "").trim();
+        if (!value) {
+          return "default";
+        }
+        return value.slice(0, 1).toUpperCase() + value.slice(1).toLowerCase();
+      }
+
+      function teamClass(team) {
+        const key = String(team ?? "neutral").trim().toLowerCase();
+        if (teamClassByName.has(key)) {
+          return teamClassByName.get(key);
+        }
+        const numeric = Number(key);
+        if (Number.isInteger(numeric)) {
+          return ["team-blue", "team-red", "team-green", "team-gold"][Math.abs(numeric) % 4];
+        }
+        return "team-neutral";
+      }
+
+      function unitAccessibleLabel(unit) {
+        const type = unit.type || "Unknown unit";
+        const team = unit.team ?? "neutral";
+        const hp = unit.hp === null ? "hit points unknown" : `${unit.hp} hit points`;
+        const stateLabel = unit.alive ? "alive" : "dead";
+        return `${type} #${unit.id}, ${team} team, ${hp}, ${stateLabel}`;
+      }
+
+      function involvedUnitIds(events) {
+        const ids = new Set();
+        for (const event of events) {
+          for (const key of ["unitId", "sourceUnitId", "targetUnitId"]) {
+            if (typeof event[key] === "number") {
+              ids.add(event[key]);
+            }
+          }
+        }
+        return ids;
+      }
+
+      function setInlineMeta(container, values) {
+        container.replaceChildren();
+        for (const value of values) {
+          const item = document.createElement("span");
+          item.textContent = String(value);
+          container.appendChild(item);
+        }
+      }
+
+      function setDefinitionRows(container, rows) {
+        container.replaceChildren();
+        for (const [key, value] of rows) {
+          const row = document.createElement("div");
+          const term = document.createElement("dt");
+          const description = document.createElement("dd");
+          term.textContent = String(key);
+          description.textContent = String(value);
+          row.appendChild(term);
+          row.appendChild(description);
+          container.appendChild(row);
+        }
+      }
+
+      function setWarningRows(warnings) {
+        els.warnings.replaceChildren();
+        for (const warning of warnings) {
+          const item = document.createElement("li");
+          item.textContent = String(warning);
+          els.warnings.appendChild(item);
+        }
+      }
+
+      function setEmptyEventLog() {
+        els.log.replaceChildren();
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        const line = document.createElement("span");
+        button.type = "button";
+        button.disabled = true;
+        line.className = "event-line";
+        line.textContent = "No events loaded.";
+        button.appendChild(line);
+        item.appendChild(button);
+        els.log.appendChild(item);
+      }
+
+      function renderSummary(snapshot, tick) {
+        const alive = [...snapshot.units.values()].filter((unit) => unit.alive).length;
+        const dead = snapshot.units.size - alive;
+        const maxTick = state.ticks.length ? state.ticks[state.ticks.length - 1] : 0;
+        const rows = [
+          ["Current tick", tick ?? "none"],
+          ["Replay step", state.steps.length ? `${state.currentTickIndex + 1}/${state.steps.length}` : "none"],
+          ["Ticks", state.ticks.length],
+          ["Final tick", maxTick],
+          ["Events", state.events.length],
+          ["Spawned", state.totalCounts.get("UNIT_SPAWNED") || 0],
+          ["Alive", alive],
+          ["Dead", dead],
+          ["Moves", state.totalCounts.get("UNIT_MOVED") || 0],
+          ["Marches", state.totalCounts.get("MARCH_STARTED") || 0],
+          ["Attacks", state.totalCounts.get("UNIT_ATTACKED") || 0],
+          ["Heals", state.totalCounts.get("UNIT_HEALED") || 0],
+          ["Deaths", state.totalCounts.get("UNIT_DIED") || 0]
+        ];
+        setDefinitionRows(els.summary, rows);
+      }
+
+      function renderSelected(snapshot) {
+        if (state.selectedUnitId === null) {
+          setDefinitionRows(els.selected, [["Status", "none"]]);
+          return;
+        }
+
+        const unit = snapshot.units.get(state.selectedUnitId);
+        if (!unit) {
+          setDefinitionRows(els.selected, [["Status", "not present"]]);
+          return;
+        }
+
+        const target = unit.marchTarget ? `${unit.marchTarget.x},${unit.marchTarget.y}` : "none";
+        const hp = unit.hp === null ? "unknown" : unit.hp;
+        const rows = [
+          ["ID", unit.id],
+          ["Type", unit.type],
+          ["Team", unit.team ?? "neutral"],
+          ["Position", `${unit.x},${unit.y}`],
+          ["HP", hp],
+          ["State", unit.alive ? "alive" : "dead"],
+          ["March target", target],
+          ["Last event", unit.lastEvent]
+        ];
+        setDefinitionRows(els.selected, rows);
+      }
+
+      function renderWarnings(snapshot) {
+        const warnings = [...state.validationWarnings];
+        for (const event of snapshot.invalidApplied) {
+          warnings.push(`${event.event || "INVALID"} at #${event.__index + 1} was skipped during replay.`);
+        }
+
+        if (warnings.length === 0) {
+          setWarningRows(["No warnings."]);
+          return;
+        }
+
+        setWarningRows(warnings.slice(0, 12));
+      }
+
+      function renderEventLog(currentStep) {
+        els.log.replaceChildren();
+        if (state.sortedEvents.length === 0) {
+          setEmptyEventLog();
+          return;
+        }
+
+        const currentEventIndex = currentStep ? currentStep.event.__index : null;
+        for (const event of state.sortedEvents) {
+          const item = document.createElement("li");
+          const button = document.createElement("button");
+          button.type = "button";
+          const nextTick = eventTick(event);
+          const stepIndex = state.stepIndexByEventIndex.get(event.__index);
+          button.className = event.__index === currentEventIndex ? "current" : stepIndex > state.currentTickIndex ? "future" : "";
+          button.disabled = stepIndex === undefined;
+          button.addEventListener("click", () => jumpToEventIndex(event.__index));
+
+          const line = document.createElement("span");
+          line.className = "event-line";
+
+          const eventName = document.createElement("span");
+          eventName.className = "event-name";
+          eventName.textContent = `T${nextTick ?? "?"} ${event.event || "INVALID"}`;
+          line.appendChild(eventName);
+
+          if (state.invalidEventIndexes.has(event.__index)) {
+            const warning = document.createElement("span");
+            warning.className = "event-warning";
+            warning.textContent = "warning";
+            line.appendChild(warning);
+          }
+
+          const detail = document.createElement("span");
+          detail.className = "event-detail";
+          detail.textContent = formatEvent(event);
+          line.appendChild(detail);
+
+          button.appendChild(line);
+          item.appendChild(button);
+          els.log.appendChild(item);
+        }
+      }
+
+      function formatEvent(event) {
+        switch (event.event) {
+          case "MAP_CREATED":
+            return `map ${event.width}x${event.height}`;
+          case "UNIT_SPAWNED":
+            return `unit #${event.unitId} ${event.unitType} at ${event.x},${event.y}`;
+          case "MARCH_STARTED":
+            return `unit #${event.unitId} from ${event.x},${event.y} to ${event.targetX},${event.targetY}`;
+          case "MARCH_ENDED":
+            return `unit #${event.unitId} ended at ${event.x},${event.y}`;
+          case "UNIT_MOVED":
+            if (finiteNumber(event.fromX) !== null && finiteNumber(event.fromY) !== null) {
+              return `unit #${event.unitId} moved from ${event.fromX},${event.fromY} to ${event.x},${event.y}`;
+            }
+            return `unit #${event.unitId} moved to ${event.x},${event.y}`;
+          case "UNIT_ATTACKED":
+            return `unit #${event.sourceUnitId} hit #${event.targetUnitId} for ${event.amount}; ${formatHpChange(event)}`;
+          case "UNIT_HEALED":
+            return `unit #${event.sourceUnitId} healed #${event.targetUnitId} for ${event.amount}; ${formatHpChange(event)}`;
+          case "UNIT_DIED":
+            return `unit #${event.unitId} died${formatDeathDetail(event)}`;
+          default:
+            return JSON.stringify(stripPrivateFields(event));
+        }
+      }
+
+      function formatHpChange(event) {
+        const before = finiteNumber(event.targetHpBefore);
+        const after = finiteNumber(event.targetHpAfter ?? event.resultingValue);
+        if (before !== null && after !== null) {
+          return `hp ${before} -> ${after}`;
+        }
+        if (after !== null) {
+          return `hp ${after}`;
+        }
+        return "hp unknown";
+      }
+
+      function formatDeathDetail(event) {
+        const parts = [];
+        if (typeof event.reason === "string" && event.reason.length > 0) {
+          parts.push(event.reason);
+        }
+        if (finiteNumber(event.x) !== null && finiteNumber(event.y) !== null) {
+          parts.push(`at ${event.x},${event.y}`);
+        }
+        return parts.length ? ` (${parts.join(", ")})` : "";
+      }
+
+      function stripPrivateFields(event) {
+        const copy = { ...event };
+        delete copy.__index;
+        return copy;
+      }
+
+      function renderEmpty() {
+        stopPlayback();
+        renderControls();
+        els.map.className = "map-grid empty";
+        els.map.removeAttribute("style");
+        els.map.textContent = "No trace loaded.";
+        clearCombatEffects();
+        els.mapMeta.textContent = "";
+        setDefinitionRows(els.summary, [["Status", "not loaded"]]);
+        setDefinitionRows(els.selected, [["Status", "none"]]);
+        setWarningRows(["No warnings."]);
+        setEmptyEventLog();
+      }
+
+      function setStatus(message, level) {
+        els.status.className = `status ${level === "warning" ? "warning" : ""}`.trim();
+        els.status.textContent = message;
+      }
+
+      function setError(message) {
+        els.status.className = "status error";
+        els.status.textContent = message;
+      }
+
+      window.BattleTraceReplayViewer = {
+        loadTraceText: loadTrace,
+        getStateSummary: () => ({
+          events: state.events.length,
+          ticks: state.ticks.length,
+          steps: state.steps.length,
+          currentTick: state.steps[state.currentTickIndex]?.tick ?? null,
+          currentStep: state.currentTickIndex,
+          selectedUnitId: state.selectedUnitId
+        })
+      };
+    })();
+  </script>
+</body>
+</html>

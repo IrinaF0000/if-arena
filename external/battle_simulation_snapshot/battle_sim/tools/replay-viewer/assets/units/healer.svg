@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Healer robot unit">
+  <defs>
+    <linearGradient id="body" x1="17" y1="16" x2="47" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d7fce6"/>
+      <stop offset="1" stop-color="#aef1ef"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="23" y1="24" x2="41" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102436"/>
+      <stop offset="1" stop-color="#203e45"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="32" cy="56" rx="18" ry="4" fill="#8eb5aa" opacity=".35"/>
+  <circle cx="51" cy="15" r="7" fill="#b9fff8" stroke="#59b9b2" stroke-width="2"/>
+  <path d="M51 11v8M47 15h8" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="19" y="19" width="26" height="27" rx="9" fill="url(#body)" stroke="#5aa391" stroke-width="2"/>
+  <rect x="23" y="25" width="18" height="8" rx="4" fill="url(#visor)"/>
+  <circle cx="28" cy="29" r="2" fill="#7ff8ff"/>
+  <circle cx="36" cy="29" r="2" fill="#7ff8ff"/>
+  <path d="M17 36l-7 6" fill="none" stroke="#72b7a5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M45 34l6-14" fill="none" stroke="#72b7a5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 36v8M28 40h8" stroke="#0f766e" stroke-width="3" stroke-linecap="round"/>
+  <rect x="24" y="45" width="6" height="10" rx="3" fill="#86cdbf"/>
+  <rect x="35" y="45" width="6" height="10" rx="3" fill="#86cdbf"/>
+</svg>

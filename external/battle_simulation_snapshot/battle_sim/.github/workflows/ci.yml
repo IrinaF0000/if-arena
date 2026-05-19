@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    name: Linux build and checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run CTest suite
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Check architecture boundaries
+        run: python scripts/check_architecture_boundaries.py
+
+      - name: Run example commands
+        run: ./build/battle_sim commands_example.txt
+
+      - name: Run validation commands
+        run: ./build/battle_sim commands_validation.txt
+
+      - name: Check formatting whitespace
+        run: git diff --check

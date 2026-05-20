@@ -1,4 +1,5 @@
 #include "BattleEngine.hpp"
+#include "ArenaConfig.hpp"
 
 #include <exception>
 #include <iostream>
@@ -100,6 +101,69 @@ namespace
 		const auto afterFinish = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{1, 0}));
 		require(!afterFinish.accepted(), "finished match rejects commands");
 	}
+
+	void acceptsCanonicalObjectiveRunArena()
+	{
+		const auto arena = makeSmallObjectiveRunArenaConfig();
+		const auto validation = validateArenaConfig(arena);
+
+		require(validation.valid(), "canonical 21x13 Objective Run arena is valid");
+		require(arena.dimensions == canonicalObjectiveRunDimensions(), "canonical arena dimensions are 21x13");
+		require(arena.objectiveSpawn == Vec2i{10, 6}, "canonical objective starts at center");
+		require(arena.redBase.has_value() && arena.blueBase.has_value(), "canonical arena has both bases");
+		require(arena.redSpawn.has_value() && arena.blueSpawn.has_value(), "canonical arena has both spawns");
+	}
+
+	void rejectsAsymmetricObstacleLayout()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.obstacles.push_back(Vec2i{1, 1});
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "asymmetric obstacle layout is rejected");
+	}
+
+	void rejectsInvalidArenaDimensions()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.dimensions = ArenaDimensions{20, 13};
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "non-canonical arena dimensions are rejected");
+	}
+
+	void rejectsOutOfBoundsArenaObjects()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.redSpawn = ArenaSpawn{Vec2i{-1, 2}};
+		arena.obstacles.push_back(Vec2i{21, 6});
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "out-of-bounds arena objects are rejected");
+	}
+
+	void rejectsMissingBases()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.redBase.reset();
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "missing base is rejected");
+	}
+
+	void rejectsInvalidObjectiveSpawn()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.objectiveSpawn = Vec2i{9, 6};
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "non-central objective spawn is rejected");
+	}
 }
 
 int main()
@@ -109,6 +173,12 @@ int main()
 		{"appliesDeterministicMoveIntent", appliesDeterministicMoveIntent},
 		{"rejectsInvalidClientAuthority", rejectsInvalidClientAuthority},
 		{"finishesAtConfiguredTickLimit", finishesAtConfiguredTickLimit},
+		{"acceptsCanonicalObjectiveRunArena", acceptsCanonicalObjectiveRunArena},
+		{"rejectsAsymmetricObstacleLayout", rejectsAsymmetricObstacleLayout},
+		{"rejectsInvalidArenaDimensions", rejectsInvalidArenaDimensions},
+		{"rejectsOutOfBoundsArenaObjects", rejectsOutOfBoundsArenaObjects},
+		{"rejectsMissingBases", rejectsMissingBases},
+		{"rejectsInvalidObjectiveSpawn", rejectsInvalidObjectiveSpawn},
 	};
 
 	int failed = 0;

@@ -45,6 +45,33 @@ namespace
 		return config;
 	}
 
+	MatchConfig objectiveRulesMatch(std::uint32_t scoreLimit = 1, double carrierSpeedMultiplier = 1.0)
+	{
+		MatchConfig config;
+		config.width = 21;
+		config.height = 13;
+		config.playerSpeedPerTick = 1.0;
+		config.bases = {
+			BaseZoneConfig{ArenaTeam::Red, Vec2i{10, 4}, 0.5},
+			BaseZoneConfig{ArenaTeam::Blue, Vec2i{10, 8}, 0.5},
+		};
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{10, 6}, 100});
+		config.objective = ObjectiveConfig{Vec2i{10, 6}, 0.75, carrierSpeedMultiplier, 2, 1, scoreLimit};
+		return config;
+	}
+
+	bool hasEvent(const std::vector<BattleEvent>& events, BattleEventType type)
+	{
+		for (const auto& event : events)
+		{
+			if (event.type == type)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void createsMatchSnapshot()
 	{
 		BattleEngine engine(onePlayerMatch());
@@ -194,6 +221,98 @@ namespace
 		        "red forward input maps downward in canonical coordinates");
 	}
 
+	void completesObjectiveRunCaptureAndWin()
+	{
+		BattleEngine engine(objectiveRulesMatch());
+
+		const auto pickup = engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}});
+		require(pickup.accepted(), "carrier can interact to pick up objective at spawn");
+		auto events = engine.tick();
+		require(hasEvent(events, BattleEventType::ObjectivePickedUp), "pickup event emitted");
+		require(engine.snapshot().objective.state == ObjectiveState::Carried, "objective is carried after pickup");
+
+		const auto move = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{0, 1}));
+		require(move.accepted(), "carrier movement accepted");
+		engine.tick();
+		events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::ObjectiveCaptured), "capture event emitted at own base");
+		require(hasEvent(events, BattleEventType::ScoreChanged), "score event emitted at capture");
+		require(hasEvent(events, BattleEventType::MatchFinished), "match finish event emitted at score limit");
+		require(snapshot.finished, "match finishes when score limit is reached");
+		require(snapshot.scores.front().score == 1, "capture increments score");
+		require(snapshot.objective.state == ObjectiveState::Captured, "objective records captured terminal state");
+		require(!engine.dropObjective(PlayerId{1}).accepted(), "finished match rejects server-side objective drop");
+	}
+
+	void appliesCarrierSpeedMultiplier()
+	{
+		BattleEngine engine(objectiveRulesMatch(1, 0.5));
+		require(engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}}).accepted(), "pickup accepted");
+		engine.tick();
+		require(engine.submit(PlayerCommand::move(PlayerId{1}, Direction{1, 0})).accepted(), "carrier move accepted");
+		engine.tick();
+
+		const auto snapshot = engine.snapshot();
+		require(snapshot.players.front().worldPosition == Vec2d{10.5, 6.0}, "carrier speed multiplier slows movement");
+		require(snapshot.objective.position == Vec2d{10.5, 6.0}, "carried objective follows carrier");
+	}
+
+	void rejectsImmediateRepickupDuringLock()
+	{
+		BattleEngine engine(objectiveRulesMatch());
+		require(engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}}).accepted(), "pickup accepted");
+		engine.tick();
+		require(engine.dropObjective(PlayerId{1}).accepted(), "server-side drop accepted for carrier");
+
+		const auto immediate = engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}});
+		require(!immediate.accepted(), "pickup lock rejects immediate re-pickup");
+		const auto events = engine.tick();
+		require(hasEvent(events, BattleEventType::ObjectiveDropped), "drop event emitted on next tick");
+		require(engine.snapshot().objective.state == ObjectiveState::Dropped, "objective remains dropped during lock");
+	}
+
+	void failsCaptureAtEnemyBase()
+	{
+		MatchConfig config;
+		config.width = 21;
+		config.height = 13;
+		config.bases = {
+			BaseZoneConfig{ArenaTeam::Red, Vec2i{1, 1}, 0.5},
+			BaseZoneConfig{ArenaTeam::Blue, Vec2i{10, 6}, 1.0},
+		};
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Red, Vec2i{10, 6}, 100});
+		config.objective = ObjectiveConfig{Vec2i{10, 6}, 0.75, 0.8, 1, 1, 1};
+		BattleEngine engine(config);
+
+		require(engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}}).accepted(),
+		        "red player can pick up objective at enemy base");
+		engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(snapshot.objective.state == ObjectiveState::Carried, "objective remains carried at enemy base");
+		require(snapshot.scores.front().score == 0, "enemy base does not score");
+		require(!snapshot.finished, "enemy base does not finish match");
+	}
+
+	void respawnsObjectiveAfterCaptureDelay()
+	{
+		BattleEngine engine(objectiveRulesMatch(2));
+		require(engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}}).accepted(), "pickup accepted");
+		engine.tick();
+		require(engine.submit(PlayerCommand::move(PlayerId{1}, Direction{0, 1})).accepted(), "carrier movement accepted");
+		engine.tick();
+		engine.tick();
+		require(engine.snapshot().objective.state == ObjectiveState::Respawning, "objective waits to respawn after capture");
+
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+		require(hasEvent(events, BattleEventType::ObjectiveRespawned), "objective respawn event emitted");
+		require(snapshot.objective.state == ObjectiveState::AtSpawn, "objective respawns at center after delay");
+		require(!snapshot.finished, "match continues before score limit");
+	}
+
 	void finishesAtConfiguredTickLimit()
 	{
 		BattleEngine engine(onePlayerMatch());
@@ -299,6 +418,11 @@ int main()
 		{"preventsMovingThroughObstacles", preventsMovingThroughObstacles},
 		{"reportsBaseEntry", reportsBaseEntry},
 		{"transformsPlayerOrientedCoordinates", transformsPlayerOrientedCoordinates},
+		{"completesObjectiveRunCaptureAndWin", completesObjectiveRunCaptureAndWin},
+		{"appliesCarrierSpeedMultiplier", appliesCarrierSpeedMultiplier},
+		{"rejectsImmediateRepickupDuringLock", rejectsImmediateRepickupDuringLock},
+		{"failsCaptureAtEnemyBase", failsCaptureAtEnemyBase},
+		{"respawnsObjectiveAfterCaptureDelay", respawnsObjectiveAfterCaptureDelay},
 		{"finishesAtConfiguredTickLimit", finishesAtConfiguredTickLimit},
 		{"acceptsCanonicalObjectiveRunArena", acceptsCanonicalObjectiveRunArena},
 		{"createsMatchFromCanonicalObjectiveRunArena", createsMatchFromCanonicalObjectiveRunArena},

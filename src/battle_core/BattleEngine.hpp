@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,6 +58,25 @@ namespace if_arena::battle_core
 		double radius{1.5};
 	};
 
+	enum class ObjectiveState
+	{
+		AtSpawn,
+		Dropped,
+		Carried,
+		Respawning,
+		Captured
+	};
+
+	struct ObjectiveConfig
+	{
+		Vec2i spawn{10, 6};
+		double pickupRadius{0.75};
+		double carrierSpeedMultiplier{0.8};
+		std::uint32_t pickupLockTicks{10};
+		std::uint32_t captureRespawnDelayTicks{20};
+		std::uint32_t scoreLimit{3};
+	};
+
 	struct PlayerConfig
 	{
 		PlayerId player{};
@@ -75,6 +95,7 @@ namespace if_arena::battle_core
 		std::vector<PlayerConfig> players;
 		std::vector<Vec2i> obstacles;
 		std::vector<BaseZoneConfig> bases;
+		std::optional<ObjectiveConfig> objective;
 	};
 
 	struct Direction
@@ -128,6 +149,21 @@ namespace if_arena::battle_core
 		bool inOwnBase{};
 	};
 
+	struct ObjectiveSnapshot
+	{
+		ObjectiveState state{ObjectiveState::AtSpawn};
+		Vec2d position{};
+		PlayerId carrier{};
+		std::uint32_t pickupLockTicksRemaining{};
+		std::uint32_t respawnTicksRemaining{};
+	};
+
+	struct ScoreSnapshot
+	{
+		ArenaTeam team{ArenaTeam::Blue};
+		std::uint32_t score{};
+	};
+
 	struct BattleSnapshot
 	{
 		std::uint32_t tick{};
@@ -135,13 +171,20 @@ namespace if_arena::battle_core
 		int height{};
 		bool finished{};
 		std::vector<PlayerSnapshot> players;
+		ObjectiveSnapshot objective;
+		std::vector<ScoreSnapshot> scores;
 	};
 
 	enum class BattleEventType
 	{
 		PlayerMoved,
 		TickAdvanced,
-		MatchFinished
+		MatchFinished,
+		ObjectivePickedUp,
+		ObjectiveDropped,
+		ObjectiveCaptured,
+		ObjectiveRespawned,
+		ScoreChanged
 	};
 
 	struct BattleEvent
@@ -151,6 +194,8 @@ namespace if_arena::battle_core
 		PlayerId player{};
 		Vec2i from{};
 		Vec2i to{};
+		ArenaTeam team{ArenaTeam::Blue};
+		std::uint32_t score{};
 	};
 
 	class BattleEngine
@@ -159,6 +204,7 @@ namespace if_arena::battle_core
 		explicit BattleEngine(MatchConfig config);
 
 		CommandResult submit(PlayerCommand command);
+		CommandResult dropObjective(PlayerId carrier);
 		std::vector<BattleEvent> tick();
 
 		[[nodiscard]] BattleSnapshot snapshot() const;
@@ -180,13 +226,22 @@ namespace if_arena::battle_core
 		std::vector<Vec2i> _obstacles;
 		std::vector<BaseZoneConfig> _bases;
 		std::vector<PendingCommand> _pendingCommands;
+		std::vector<BattleEvent> _systemEvents;
+		std::optional<ObjectiveConfig> _objectiveConfig;
+		ObjectiveSnapshot _objective;
+		std::vector<ScoreSnapshot> _scores;
 
 		[[nodiscard]] PlayerSnapshot* findPlayer(PlayerId player);
 		[[nodiscard]] const PlayerSnapshot* findPlayer(PlayerId player) const;
+		[[nodiscard]] ScoreSnapshot* findScore(ArenaTeam team);
 		[[nodiscard]] bool inBounds(Vec2i position) const;
 		[[nodiscard]] bool inBounds(Vec2d position) const;
 		[[nodiscard]] bool obstacleAt(Vec2i cell) const;
 		[[nodiscard]] bool collidesWithObstacle(Vec2d from, Vec2d to) const;
 		[[nodiscard]] bool isInOwnBase(const PlayerSnapshot& player) const;
+		[[nodiscard]] bool canPickupObjective(const PlayerSnapshot& player) const;
+		void pickUpObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
+		void captureObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
+		void updateObjectiveTimers(std::vector<BattleEvent>& events);
 	};
 }

@@ -76,6 +76,14 @@ BATTLE_TELEGRAM_BOT_TOKEN=...
 BATTLE_LOG_LEVEL=info
 ```
 
+For the local runnable slice, `scripts/run_local_server.sh` uses `config/examples/server.local.json` by default. The app validates config and initializes backend limits, then reports not-yet-implemented listener transports until the TCP/WebSocket integration tasks land.
+
+Validate config only:
+
+```bash
+build/battle_server_app --config config/examples/server.local.json --check-config
+```
+
 ## 8. Docker
 
 Server Docker image should contain only runtime artifacts:

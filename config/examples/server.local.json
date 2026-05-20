@@ -1,4 +1,5 @@
 {
+  "mode": "local",
   "server": {
     "tickRate": 20,
     "snapshotRate": 10,
@@ -28,6 +29,9 @@
     "idleTimeoutMs": 30000,
     "maxInputCommandsPerSecond": 30,
     "maxPendingWriteBytesPerSession": 1048576,
+    "maxPendingOutboundMessages": 64,
+    "maxPendingCommandsPerMatch": 128,
+    "maxCommandsPerTick": 64,
     "maxPendingCommandsPerSession": 64
   },
   "metrics": {

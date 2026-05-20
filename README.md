@@ -127,9 +127,9 @@ docs/
 
 ## Status
 
-This repository has the foundation modules for the playable IF Arena work, but it is not a playable game yet. The current server executable is a foundation target only; the next milestone is to add the canonical Objective Run arena map and deterministic gameplay state in `battle_core`.
+This repository has the foundation modules and an in-process backend match loop for the playable IF Arena work, but networked clients are not playable yet. The current server executable loads config, initializes backend limits, and fails with clear actionable messages when TCP/WebSocket listeners are enabled before their integration tasks land.
 
-Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` foundation executable. Public deployment is not ready until the later server, transport, auth, and client playable slices are complete.
+Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later transport, auth, and client playable slices are complete.
 
 ## CI/CD safety
 

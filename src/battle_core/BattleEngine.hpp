@@ -28,9 +28,39 @@ namespace if_arena::battle_core
 		friend constexpr bool operator==(Vec2i, Vec2i) = default;
 	};
 
+	struct Vec2d
+	{
+		double x{};
+		double y{};
+
+		friend constexpr bool operator==(Vec2d, Vec2d) = default;
+	};
+
+	struct MovementVector
+	{
+		double dx{};
+		double dy{};
+
+		friend constexpr bool operator==(MovementVector, MovementVector) = default;
+	};
+
+	enum class ArenaTeam
+	{
+		Red,
+		Blue
+	};
+
+	struct BaseZoneConfig
+	{
+		ArenaTeam team{ArenaTeam::Blue};
+		Vec2i center{};
+		double radius{1.5};
+	};
+
 	struct PlayerConfig
 	{
 		PlayerId player{};
+		ArenaTeam team{ArenaTeam::Blue};
 		Vec2i spawn{};
 		int heroHp{100};
 	};
@@ -40,7 +70,11 @@ namespace if_arena::battle_core
 		int width{21};
 		int height{13};
 		std::uint32_t maxTicks{1200};
+		double playerSpeedPerTick{1.0};
+		double playerCollisionRadius{0.35};
 		std::vector<PlayerConfig> players;
+		std::vector<Vec2i> obstacles;
+		std::vector<BaseZoneConfig> bases;
 	};
 
 	struct Direction
@@ -85,8 +119,13 @@ namespace if_arena::battle_core
 	{
 		PlayerId player{};
 		EntityId hero{};
+		ArenaTeam team{ArenaTeam::Blue};
+		Vec2i spawn{};
 		Vec2i position{};
+		Vec2d worldPosition{};
+		MovementVector desiredMovement{};
 		int hp{};
+		bool inOwnBase{};
 	};
 
 	struct BattleSnapshot
@@ -134,12 +173,20 @@ namespace if_arena::battle_core
 		int _width{};
 		int _height{};
 		std::uint32_t _maxTicks{};
+		double _playerSpeedPerTick{};
+		double _playerCollisionRadius{};
 		bool _finished{};
 		std::vector<PlayerSnapshot> _players;
+		std::vector<Vec2i> _obstacles;
+		std::vector<BaseZoneConfig> _bases;
 		std::vector<PendingCommand> _pendingCommands;
 
 		[[nodiscard]] PlayerSnapshot* findPlayer(PlayerId player);
 		[[nodiscard]] const PlayerSnapshot* findPlayer(PlayerId player) const;
 		[[nodiscard]] bool inBounds(Vec2i position) const;
+		[[nodiscard]] bool inBounds(Vec2d position) const;
+		[[nodiscard]] bool obstacleAt(Vec2i cell) const;
+		[[nodiscard]] bool collidesWithObstacle(Vec2d from, Vec2d to) const;
+		[[nodiscard]] bool isInOwnBase(const PlayerSnapshot& player) const;
 	};
 }

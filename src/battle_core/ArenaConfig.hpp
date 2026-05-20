@@ -66,6 +66,16 @@ namespace if_arena::battle_core
 		return Vec2i{dimensions.width - 1 - position.x, dimensions.height - 1 - position.y};
 	}
 
+	inline constexpr Vec2i toPlayerView(Vec2i worldPosition, ArenaTeam viewer, ArenaDimensions dimensions)
+	{
+		return viewer == ArenaTeam::Red ? rotate180(worldPosition, dimensions) : worldPosition;
+	}
+
+	inline constexpr Direction inputDirectionToWorld(Direction localDirection, ArenaTeam viewer)
+	{
+		return viewer == ArenaTeam::Red ? Direction{-localDirection.dx, -localDirection.dy} : localDirection;
+	}
+
 	inline ArenaConfig makeSmallObjectiveRunArenaConfig()
 	{
 		ArenaConfig config;

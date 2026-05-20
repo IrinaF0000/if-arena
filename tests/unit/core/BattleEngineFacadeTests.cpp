@@ -25,7 +25,23 @@ namespace
 		config.width = 3;
 		config.height = 3;
 		config.maxTicks = 3;
-		config.players.push_back(PlayerConfig{PlayerId{1}, Vec2i{1, 1}, 100});
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{1, 1}, 100});
+		return config;
+	}
+
+	MatchConfig objectiveRunMatch()
+	{
+		const auto arena = makeSmallObjectiveRunArenaConfig();
+		MatchConfig config;
+		config.width = arena.dimensions.width;
+		config.height = arena.dimensions.height;
+		config.obstacles = arena.obstacles;
+		config.bases = {
+			BaseZoneConfig{ArenaTeam::Red, arena.redBase->center, arena.redBase->radius},
+			BaseZoneConfig{ArenaTeam::Blue, arena.blueBase->center, arena.blueBase->radius},
+		};
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Red, arena.redSpawn->cell, 100});
+		config.players.push_back(PlayerConfig{PlayerId{2}, ArenaTeam::Blue, arena.blueSpawn->cell, 100});
 		return config;
 	}
 
@@ -41,6 +57,8 @@ namespace
 		require(snapshot.players.size() == 1, "new match has one configured player");
 		require(snapshot.players.front().player == PlayerId{1}, "snapshot preserves player id");
 		require(snapshot.players.front().position == Vec2i{1, 1}, "snapshot preserves spawn");
+		require(snapshot.players.front().worldPosition == Vec2d{1.0, 1.0}, "snapshot exposes smooth world position");
+		require(snapshot.players.front().team == ArenaTeam::Blue, "snapshot exposes player team");
 	}
 
 	void appliesDeterministicMoveIntent()
@@ -86,6 +104,96 @@ namespace
 		require(snapshot.players.front().position == Vec2i{1, 1}, "invalid commands do not mutate position");
 	}
 
+	void movesSmoothlyUntilStopped()
+	{
+		auto config = onePlayerMatch();
+		config.playerSpeedPerTick = 0.5;
+		BattleEngine engine(config);
+
+		const auto move = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{1, 0}));
+		require(move.accepted(), "smooth move command accepted");
+		engine.tick();
+		const auto moving = engine.snapshot();
+		require(moving.players.front().worldPosition == Vec2d{1.5, 1.0}, "smooth movement advances by configured speed");
+		require(moving.players.front().desiredMovement == MovementVector{1.0, 0.0}, "move intent becomes desired movement");
+
+		const auto stop = engine.submit(PlayerCommand::stop(PlayerId{1}));
+		require(stop.accepted(), "stop command accepted");
+		engine.tick();
+		const auto stopped = engine.snapshot();
+		require(stopped.players.front().worldPosition == Vec2d{1.5, 1.0}, "stop prevents further movement");
+		require(stopped.players.front().desiredMovement == MovementVector{}, "stop clears desired movement");
+	}
+
+	void preventsLeavingArenaBounds()
+	{
+		MatchConfig config;
+		config.width = 3;
+		config.height = 3;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{0, 1}, 100});
+		BattleEngine engine(config);
+
+		const auto move = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{-1, 0}));
+		require(move.accepted(), "boundary move intent accepted for server-side resolution");
+		engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(snapshot.players.front().position == Vec2i{0, 1}, "player cannot leave arena bounds");
+		require(snapshot.players.front().worldPosition == Vec2d{0.0, 1.0}, "blocked boundary move does not change world position");
+	}
+
+	void preventsMovingThroughObstacles()
+	{
+		MatchConfig config;
+		config.width = 5;
+		config.height = 3;
+		config.playerSpeedPerTick = 2.0;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{1, 1}, 100});
+		config.obstacles.push_back(Vec2i{2, 1});
+		BattleEngine engine(config);
+
+		const auto move = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{1, 0}));
+		require(move.accepted(), "obstacle move intent accepted for server-side resolution");
+		engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(snapshot.players.front().position == Vec2i{1, 1}, "player cannot move through obstacle");
+		require(snapshot.players.front().worldPosition == Vec2d{1.0, 1.0}, "blocked obstacle move does not change world position");
+	}
+
+	void reportsBaseEntry()
+	{
+		MatchConfig config;
+		config.width = 21;
+		config.height = 13;
+		config.bases.push_back(BaseZoneConfig{ArenaTeam::Blue, Vec2i{10, 11}, 0.5});
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{10, 10}, 100});
+		BattleEngine engine(config);
+
+		require(!engine.snapshot().players.front().inOwnBase, "player starts outside own base zone");
+		const auto move = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{0, 1}));
+		require(move.accepted(), "base entry movement accepted");
+		engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(snapshot.players.front().position == Vec2i{10, 11}, "player reaches own base cell");
+		require(snapshot.players.front().inOwnBase, "player is marked inside own base");
+	}
+
+	void transformsPlayerOrientedCoordinates()
+	{
+		const auto dimensions = canonicalObjectiveRunDimensions();
+
+		require(toPlayerView(Vec2i{10, 10}, ArenaTeam::Blue, dimensions) == Vec2i{10, 10},
+		        "blue view keeps canonical bottom spawn");
+		require(toPlayerView(Vec2i{10, 2}, ArenaTeam::Red, dimensions) == Vec2i{10, 10},
+		        "red view rotates own top spawn to bottom");
+		require(inputDirectionToWorld(Direction{0, -1}, ArenaTeam::Blue).dy == -1,
+		        "blue forward input maps upward in canonical coordinates");
+		require(inputDirectionToWorld(Direction{0, -1}, ArenaTeam::Red).dy == 1,
+		        "red forward input maps downward in canonical coordinates");
+	}
+
 	void finishesAtConfiguredTickLimit()
 	{
 		BattleEngine engine(onePlayerMatch());
@@ -112,6 +220,20 @@ namespace
 		require(arena.objectiveSpawn == Vec2i{10, 6}, "canonical objective starts at center");
 		require(arena.redBase.has_value() && arena.blueBase.has_value(), "canonical arena has both bases");
 		require(arena.redSpawn.has_value() && arena.blueSpawn.has_value(), "canonical arena has both spawns");
+	}
+
+	void createsMatchFromCanonicalObjectiveRunArena()
+	{
+		BattleEngine engine(objectiveRunMatch());
+		const auto snapshot = engine.snapshot();
+
+		require(snapshot.width == 21, "canonical arena match exposes width");
+		require(snapshot.height == 13, "canonical arena match exposes height");
+		require(snapshot.players.size() == 2, "canonical arena match has both players");
+		require(snapshot.players.front().team == ArenaTeam::Red, "red player keeps team assignment");
+		require(snapshot.players.back().team == ArenaTeam::Blue, "blue player keeps team assignment");
+		require(snapshot.players.front().spawn == Vec2i{10, 2}, "red spawn comes from canonical arena");
+		require(snapshot.players.back().spawn == Vec2i{10, 10}, "blue spawn comes from canonical arena");
 	}
 
 	void rejectsAsymmetricObstacleLayout()
@@ -172,8 +294,14 @@ int main()
 		{"createsMatchSnapshot", createsMatchSnapshot},
 		{"appliesDeterministicMoveIntent", appliesDeterministicMoveIntent},
 		{"rejectsInvalidClientAuthority", rejectsInvalidClientAuthority},
+		{"movesSmoothlyUntilStopped", movesSmoothlyUntilStopped},
+		{"preventsLeavingArenaBounds", preventsLeavingArenaBounds},
+		{"preventsMovingThroughObstacles", preventsMovingThroughObstacles},
+		{"reportsBaseEntry", reportsBaseEntry},
+		{"transformsPlayerOrientedCoordinates", transformsPlayerOrientedCoordinates},
 		{"finishesAtConfiguredTickLimit", finishesAtConfiguredTickLimit},
 		{"acceptsCanonicalObjectiveRunArena", acceptsCanonicalObjectiveRunArena},
+		{"createsMatchFromCanonicalObjectiveRunArena", createsMatchFromCanonicalObjectiveRunArena},
 		{"rejectsAsymmetricObstacleLayout", rejectsAsymmetricObstacleLayout},
 		{"rejectsInvalidArenaDimensions", rejectsInvalidArenaDimensions},
 		{"rejectsOutOfBoundsArenaObjects", rejectsOutOfBoundsArenaObjects},

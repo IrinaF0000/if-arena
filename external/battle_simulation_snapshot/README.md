@@ -1,17 +1,28 @@
 # battle_simulation_snapshot
 
-Empty placeholder for the existing local battle simulation project.
+Read-only copy of the existing local battle simulation project.
 
-Copy the old project here when you start implementation:
+## Snapshot record
+
+- Imported path: `external/battle_simulation_snapshot/battle_sim/`
+- Imported date: 2026-05-19
+- Source: local `battle_simulation` project copy; the imported README references `https://github.com/IrinaF0000/battle_simulation`
+- Source commit: unavailable in this snapshot because `.git` metadata was not copied
+- Cleanup check: no copied build directories, CMake generated files, or binary/object outputs found during the 0002 import verification
+
+Current top-level shape:
 
 ```text
 external/battle_simulation_snapshot/
-  CMakeLists.txt
-  src/
-  docs/
-  tests/
-  tools/
-  ...
+  README.md
+  AGENTS.md
+  battle_sim/
+    CMakeLists.txt
+    src/
+    docs/
+    tests/
+    tools/
+    ...
 ```
 
 Rules:

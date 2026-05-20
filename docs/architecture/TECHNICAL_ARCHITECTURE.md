@@ -38,6 +38,14 @@ Both clients use the same gameplay model, protocol DTOs, and authoritative backe
 - `battle_transport_tcp` and `battle_transport_ws` are adapters.
 - Qt and Telegram clients never own authoritative game rules.
 
+Initial `battle_core` facade:
+
+- `BattleEngine` owns in-process match state.
+- `MatchConfig` creates authoritative match/player setup.
+- `PlayerCommand` carries player intentions, not authoritative positions, HP, cooldowns, scores, or results.
+- `CommandResult` reports accepted/rejected commands.
+- `BattleSnapshot` and `BattleEvent` expose pure gameplay data for backend publication.
+
 ## Game authority
 
 The server validates:

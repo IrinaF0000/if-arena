@@ -76,6 +76,27 @@ Fields:
 - `sessionSeq`: monotonic per-session sequence number for client-originated gameplay messages.
 - `payload`: type-specific object.
 
+The C++ helper API in `src/battle_protocol/Protocol.hpp` exposes this as `Envelope`.
+`parseEnvelope()` validates the top-level object and returns a `ParseResult`; parser failures are structured `ProtocolError` values and must not escape transport code as uncaught exceptions.
+`serializeEnvelope()` emits the same transport-neutral JSON envelope.
+
+Recognized wire `type` values:
+
+```text
+auth_request
+auth_result
+create_match
+join_match
+match_joined
+input_command
+input_ack
+snapshot
+event_batch
+error
+```
+
+Unknown message types are rejected before payload-specific handling.
+
 ## 4. Size limits
 
 Initial recommended defaults:
@@ -92,6 +113,18 @@ MAX_INPUT_COMMANDS_PER_SECOND = 30
 ```
 
 All limits must be configurable and have conservative public defaults.
+
+Initial C++ parser defaults are:
+
+```text
+maxMessageBytes = 64 KiB
+maxPayloadBytes = 60 KiB
+maxStringBytes = 4096
+maxTypeBytes = 64
+maxRequestIdBytes = 128
+```
+
+Transport layers must still enforce their own frame/message limits before storing or passing payload bytes to the parser.
 
 ## 5. Authentication messages
 

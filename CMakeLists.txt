@@ -74,4 +74,12 @@ endif()
 
 if(BATTLE_BUILD_TESTS)
     enable_testing()
+
+    add_executable(battle_core_tests tests/unit/core/BattleEngineFacadeTests.cpp)
+    target_link_libraries(battle_core_tests PRIVATE battle_core)
+    add_test(NAME battle_core_tests COMMAND battle_core_tests)
+
+    add_executable(battle_protocol_tests tests/unit/protocol/ProtocolEnvelopeTests.cpp)
+    target_link_libraries(battle_protocol_tests PRIVATE battle_protocol)
+    add_test(NAME battle_protocol_tests COMMAND battle_protocol_tests)
 endif()

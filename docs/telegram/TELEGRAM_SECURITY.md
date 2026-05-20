@@ -54,6 +54,13 @@ Development mode may use localhost exceptions only.
 
 Every WebSocket message must pass the same protocol validation as TCP messages.
 
+Current WebSocket transport skeleton behavior:
+
+- rejects oversized messages before protocol parsing;
+- parses inbound text through the shared protocol envelope parser;
+- does not trust or extract Telegram identity in the transport layer;
+- leaves Telegram `initData` validation to backend-owned auth code.
+
 Reject:
 
 - oversized message;

@@ -28,6 +28,10 @@ uint32_be payload_size
 payload_size bytes of UTF-8 JSON
 ```
 
+The standalone C++ codec is `src/battle_transport_tcp/TcpFrameCodec.hpp`.
+`encodeFrame()` writes the big-endian length prefix. `TcpFrameDecoder::feed()` accepts arbitrary byte chunks and may emit zero, one, or many complete payloads.
+Invalid zero-length frames and oversized length prefixes put the decoder into an explicit closed/error state.
+
 TCP-specific requirements:
 
 - never assume one read equals one message;

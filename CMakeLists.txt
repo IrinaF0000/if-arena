@@ -14,12 +14,12 @@ option(BATTLE_BUILD_LOAD_CLIENT "Build load client" ON)
 option(BATTLE_BUILD_TESTS "Build tests" ON)
 
 add_library(battle_core STATIC
-    src/battle_core/placeholder.cpp
+    src/battle_core/BattleEngine.cpp
 )
 target_include_directories(battle_core PUBLIC src/battle_core)
 
 add_library(battle_protocol STATIC
-    src/battle_protocol/placeholder.cpp
+    src/battle_protocol/Protocol.cpp
 )
 target_include_directories(battle_protocol PUBLIC src/battle_protocol)
 
@@ -27,13 +27,13 @@ add_library(battle_backend_api INTERFACE)
 target_include_directories(battle_backend_api INTERFACE src/battle_backend)
 
 add_library(battle_backend STATIC
-    src/battle_backend/placeholder.cpp
+    src/battle_backend/BackendFoundation.cpp
 )
 target_link_libraries(battle_backend PUBLIC battle_backend_api battle_core battle_protocol)
 
 if(BATTLE_BUILD_TCP_TRANSPORT)
     add_library(battle_transport_tcp STATIC
-        src/battle_transport_tcp/placeholder.cpp
+        src/battle_transport_tcp/TcpFrameCodec.cpp
     )
     target_include_directories(battle_transport_tcp PUBLIC src/battle_transport_tcp)
     target_link_libraries(battle_transport_tcp PUBLIC battle_protocol battle_backend_api)
@@ -41,7 +41,7 @@ endif()
 
 if(BATTLE_BUILD_WS_TRANSPORT)
     add_library(battle_transport_ws STATIC
-        src/battle_transport_ws/placeholder.cpp
+        src/battle_transport_ws/WebSocketSession.cpp
     )
     target_include_directories(battle_transport_ws PUBLIC src/battle_transport_ws)
     target_link_libraries(battle_transport_ws PUBLIC battle_protocol battle_backend_api)
@@ -59,18 +59,18 @@ if(BATTLE_BUILD_SERVER_APP)
 endif()
 
 if(BATTLE_BUILD_CLI_CLIENT)
-    add_executable(battle_cli_client src/battle_cli_client/placeholder.cpp)
+    add_executable(battle_cli_client src/battle_cli_client/CliClientMain.cpp)
     target_link_libraries(battle_cli_client PRIVATE battle_protocol)
 endif()
 
 if(BATTLE_BUILD_LOAD_CLIENT)
-    add_executable(battle_load_client tools/load_client/placeholder.cpp)
+    add_executable(battle_load_client tools/load_client/LoadClientMain.cpp)
     target_link_libraries(battle_load_client PRIVATE battle_protocol)
 endif()
 
 if(BATTLE_BUILD_QT_CLIENT)
     # Placeholder target only. Replace with a real Qt Widgets target after Qt dependency setup.
-    add_executable(battle_qt_client src/battle_qt_client/placeholder.cpp)
+    add_executable(battle_qt_client src/battle_qt_client/QtClientMain.cpp)
     target_link_libraries(battle_qt_client PRIVATE battle_protocol)
 endif()
 

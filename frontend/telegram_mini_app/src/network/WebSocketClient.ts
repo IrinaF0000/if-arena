@@ -1,9 +1,11 @@
+import { type IncomingMessage, parseIncomingMessage } from "../protocol/ProtocolTypes";
+
 export type ConnectionState = "disconnected" | "connecting" | "connected" | "closed" | "error";
 
 export type WebSocketClientOptions = {
   url: string;
   onStateChanged: (state: ConnectionState) => void;
-  onMessage: (message: unknown) => void;
+  onMessage: (message: IncomingMessage) => void;
 };
 
 export class WebSocketClient {
@@ -24,7 +26,7 @@ export class WebSocketClient {
     });
 
     this.socket.addEventListener("message", (event: MessageEvent<string>) => {
-      this.options.onMessage(parseIncoming(event.data));
+      this.options.onMessage(parseIncomingMessage(event.data));
     });
 
     this.socket.addEventListener("close", () => {
@@ -54,13 +56,5 @@ export class WebSocketClient {
       return;
     }
     this.socket.send(JSON.stringify(value));
-  }
-}
-
-function parseIncoming(raw: string): unknown {
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    return { version: 1, type: "client_parse_error", payload: {} };
   }
 }

@@ -6,6 +6,7 @@ Owns:
 
 - Telegram bridge;
 - WebSocket client;
+- runtime protocol message guards;
 - Canvas rendering;
 - touch/desktop controls;
 - local player-oriented coordinate transforms;
@@ -19,3 +20,5 @@ Must not contain:
 - direct trust in `initDataUnsafe`.
 
 The Mini App sends raw Telegram `initData` to the backend for validation and then sends only player intentions such as move, aim, attack, dash, and interact.
+
+Inbound WebSocket data is treated as `unknown` until `src/protocol/ProtocolTypes.ts` validates the protocol envelope.

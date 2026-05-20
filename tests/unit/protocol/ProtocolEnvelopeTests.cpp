@@ -97,6 +97,122 @@ namespace
 		require(!result.ok(), "oversized message rejected");
 		require(result.error.code == ProtocolErrorCode::MessageTooLarge, "oversized message error code");
 	}
+
+	Envelope mustParse(std::string_view json)
+	{
+		const auto result = parseEnvelope(json);
+		require(result.ok(), "test envelope parses");
+		return *result.envelope;
+	}
+
+	void playableMessageTypesRoundTrip()
+	{
+		require(messageTypeFromString("handshake") == MessageType::Handshake, "handshake type recognized");
+		require(messageTypeFromString("ping") == MessageType::Ping, "ping type recognized");
+		require(messageTypeFromString("pong") == MessageType::Pong, "pong type recognized");
+		require(messageTypeName(MessageType::Handshake) == "handshake", "handshake name serialized");
+		require(messageTypeName(MessageType::Ping) == "ping", "ping name serialized");
+		require(messageTypeName(MessageType::Pong) == "pong", "pong name serialized");
+	}
+
+	void demoAuthPayloadValidates()
+	{
+		const auto envelope =
+			mustParse("{\"version\":1,\"type\":\"auth_request\",\"payload\":{\"mode\":\"demo\",\"displayName\":\"Ana\"}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::Connected);
+
+		require(error.code == ProtocolErrorCode::None, "demo auth payload validates");
+	}
+
+	void inputCommandPayloadValidatesIntentOnly()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"input_command\",\"sessionSeq\":9,\"payload\":{\"matchId\":\"m1\",\"command\":{\"kind\":\"attack\",\"direction\":{\"x\":1,\"y\":0}}}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::None, "intent-only attack command validates");
+	}
+
+	void authorityFieldsRejected()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"input_command\",\"sessionSeq\":9,\"payload\":{\"matchId\":\"m1\",\"command\":{\"kind\":\"move\",\"direction\":{\"x\":1,\"y\":0},\"hp\":100}}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::InvalidField, "client authority field rejected");
+	}
+
+	void invalidCommandEnumRejected()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"input_command\",\"sessionSeq\":9,\"payload\":{\"matchId\":\"m1\",\"command\":{\"kind\":\"teleport\",\"direction\":{\"x\":1,\"y\":0}}}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::InvalidField, "invalid command kind rejected");
+	}
+
+	void invalidDirectionRejected()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"input_command\",\"sessionSeq\":9,\"payload\":{\"matchId\":\"m1\",\"command\":{\"kind\":\"dash\",\"direction\":{\"x\":2,\"y\":0}}}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::InvalidField, "out-of-range direction rejected");
+	}
+
+	void inputCommandRequiresSessionSeq()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"input_command\",\"payload\":{\"matchId\":\"m1\",\"command\":{\"kind\":\"interact\"}}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::MissingField, "input command without sessionSeq rejected");
+	}
+
+	void commandBeforeJoinRejected()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"input_command\",\"sessionSeq\":1,\"payload\":{\"matchId\":\"m1\",\"command\":{\"kind\":\"interact\"}}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::Authenticated);
+
+		require(error.code == ProtocolErrorCode::InvalidMessageOrder, "command before joining match rejected");
+	}
+
+	void createMatchAfterJoinRejected()
+	{
+		const auto envelope = mustParse(
+			"{\"version\":1,\"type\":\"create_match\",\"payload\":{\"mode\":\"objective_run\",\"scenario\":\"arena_small_objective_run\"}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::InvalidMessageOrder, "create match after joining is rejected");
+	}
+
+	void repeatedAuthRejected()
+	{
+		const auto envelope =
+			mustParse("{\"version\":1,\"type\":\"auth_request\",\"payload\":{\"mode\":\"demo\",\"displayName\":\"Ana\"}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::Authenticated);
+
+		require(error.code == ProtocolErrorCode::InvalidMessageOrder, "repeated auth after authentication rejected");
+	}
+
+	void serverMessagesRejectedFromClient()
+	{
+		const auto envelope = mustParse("{\"version\":1,\"type\":\"snapshot\",\"payload\":{}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::InvalidField, "server-originated message rejected from client");
+	}
 }
 
 int main()
@@ -110,6 +226,17 @@ int main()
 		{"missingFieldRejected", missingFieldRejected},
 		{"invalidFieldTypeRejected", invalidFieldTypeRejected},
 		{"oversizedMessageRejectedBeforeParsing", oversizedMessageRejectedBeforeParsing},
+		{"playableMessageTypesRoundTrip", playableMessageTypesRoundTrip},
+		{"demoAuthPayloadValidates", demoAuthPayloadValidates},
+		{"inputCommandPayloadValidatesIntentOnly", inputCommandPayloadValidatesIntentOnly},
+		{"authorityFieldsRejected", authorityFieldsRejected},
+		{"invalidCommandEnumRejected", invalidCommandEnumRejected},
+		{"invalidDirectionRejected", invalidDirectionRejected},
+		{"inputCommandRequiresSessionSeq", inputCommandRequiresSessionSeq},
+		{"commandBeforeJoinRejected", commandBeforeJoinRejected},
+		{"createMatchAfterJoinRejected", createMatchAfterJoinRejected},
+		{"repeatedAuthRejected", repeatedAuthRejected},
+		{"serverMessagesRejectedFromClient", serverMessagesRejectedFromClient},
 	};
 
 	int failed = 0;

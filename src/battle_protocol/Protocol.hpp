@@ -30,6 +30,9 @@ namespace if_arena::battle_protocol
 		InputAck,
 		Snapshot,
 		EventBatch,
+		Handshake,
+		Ping,
+		Pong,
 		Error
 	};
 
@@ -43,7 +46,15 @@ namespace if_arena::battle_protocol
 		MissingField,
 		InvalidField,
 		UnsupportedVersion,
-		UnknownType
+		UnknownType,
+		InvalidMessageOrder
+	};
+
+	enum class ClientSessionPhase
+	{
+		Connected,
+		Authenticated,
+		InMatch
 	};
 
 	struct ProtocolError
@@ -81,5 +92,7 @@ namespace if_arena::battle_protocol
 	[[nodiscard]] std::optional<MessageType> messageTypeFromString(std::string_view value);
 	[[nodiscard]] std::string_view messageTypeName(MessageType type);
 	[[nodiscard]] ParseResult parseEnvelope(std::string_view input, const ProtocolLimits& limits = {});
+	[[nodiscard]] ProtocolError validateClientEnvelope(const Envelope& envelope, ClientSessionPhase phase,
+	                                                   const ProtocolLimits& limits = {});
 	[[nodiscard]] SerializeResult serializeEnvelope(const Envelope& envelope, const ProtocolLimits& limits = {});
 }

@@ -1,198 +1,38 @@
 # Agent Workflow
 
-## Active files
+Use this as a compact starter. Canonical rules live in focused files; do not duplicate them in prompts or task packets.
 
-- `AGENT_CONTEXT.md`: stable project context.
-- `AGENT_RULES.md`: mandatory rules.
-- `AGENT_PROGRESS.md`: current task packet and progress.
-- `docs/project/IMPLEMENTATION_PLAN.md`: phase plan.
-- `docs/security/SECURITY_REQUIREMENTS.md`: security requirements.
-- `docs/security/THREAT_MODEL.md`: threat model.
-- `docs/review/QUALITY_GATES.md`: completion gates.
-- `docs/review/CODE_REVIEW_CHECKLIST.md`: review checklist.
-- `docs/ci/CI_CD_GUARDRAILS.md`: CI/CD workflow rules.
-- `docs/agent-tasks/`: ready-to-use implementation tasks.
+## Read first
+
+1. Assigned task packet in `docs/agent-tasks/`.
+2. `PROJECT_MAP.md`.
+3. Nearest `AGENTS.md` for changed paths.
+4. Required gates in `docs/review/QUALITY_GATES.md`.
+5. Testing policy in `docs/agent-rules/quality/TESTING.md`.
+6. For role-based work, `docs/agent-rules/process/SEQUENTIAL_AGENT_PIPELINE.md`.
 
 ## Roles
 
-### Coordinator
+- Coordinator: selects one task, defines scope/gates/reviews, owns state and closeout.
+- Implementation-Agent: makes the smallest scoped change, adds tests, does not commit.
+- Verification-Agent: checks diff, tests, gates, Test Impact Matrix, and forbidden paths.
+- Review-Agent: gives an explicit approve/request-changes/block decision for its specialty.
+- Fix-Agent: fixes only listed findings.
+- Commit-Agent: commits only `commit-ready` scoped changes.
 
-- Selects exactly one task.
-- Writes or updates the task packet.
-- Defines allowed files and forbidden files.
-- Determines required quality gates.
-- Determines required specialist reviews.
-- Keeps token budget small by pointing agents to specific files.
+Specialist mapping is defined in `docs/agent-rules/process/SEQUENTIAL_AGENT_PIPELINE.md`.
 
-### Architecture-Agent
+## Standard order
 
-Required when a task changes:
+Follow `docs/agent-rules/process/SEQUENTIAL_AGENT_PIPELINE.md`.
 
-- module boundaries;
-- public APIs;
-- protocol;
-- transport abstraction;
-- ownership/lifetime model;
-- threading model;
-- CMake target dependencies;
-- extraction from the old project.
+## Token-saving rules
 
-Checks:
+- Use `rg` before opening broad code areas.
+- Open only files needed for the task and gates.
+- Do not read `node_modules/`, `build/`, generated assets, or the full old snapshot unless required.
+- Prefer links to canonical docs over copying rules.
 
-- dependency direction;
-- separation of core/backend/transport/client;
-- no rule leakage to clients;
-- no transport leakage to core.
+## Stop conditions
 
-### Security-Agent
-
-Required when a task touches:
-
-- socket/WebSocket handling;
-- protocol parsing;
-- JSON parsing;
-- Telegram auth;
-- session identity;
-- rate limiting;
-- logging;
-- config;
-- deployment;
-- frontend network code.
-
-Checks:
-
-- hostile input;
-- size limits;
-- auth validation;
-- secret redaction;
-- fail-closed behavior;
-- negative tests.
-
-### Performance-Agent
-
-Required when a task touches:
-
-- async I/O;
-- queues;
-- match workers;
-- tick loop;
-- broadcasting;
-- load client;
-- metrics;
-- frontend render loop.
-
-Checks:
-
-- bounded resources;
-- no thread-per-client;
-- no blocking hot paths;
-- latency/throughput measurement;
-- memory growth.
-
-### Frontend-Agent
-
-Required for Telegram Mini App tasks.
-
-Checks:
-
-- strict TypeScript;
-- WebSocket state machine;
-- runtime validation;
-- no secrets;
-- responsive UI;
-- mobile and desktop controls.
-
-### Qt-Agent
-
-Required for Qt UI tasks.
-
-Checks:
-
-- no blocking UI;
-- signal/slot boundaries;
-- separation of network and widgets;
-- rendering clarity;
-- input handling.
-
-
-### CI/CD-Agent
-
-Required when a task touches:
-
-- `.github/workflows/**`;
-- `.github/actions/**`;
-- `.github/CODEOWNERS`;
-- `scripts/ci/**`;
-- `deploy/**`;
-- `docs/ci/**`.
-
-Checks:
-
-- PR CI remains validation-only;
-- main CI remains separate;
-- workflow permissions are least-privilege;
-- production secrets are not exposed to PRs;
-- workflow changes are not mixed with unrelated feature work;
-- required checks and rollback plan are documented.
-
-### Verification-Agent
-
-Runs tests, reviews diffs, and confirms acceptance criteria.
-
-### Fix-Agent
-
-Fixes issues found by review or tests. Must not expand scope.
-
-## Standard workflow
-
-1. Coordinator selects one task.
-2. Coordinator writes task packet from `TASK_PACKET_TEMPLATE.md`.
-3. Implementation-Agent inspects only relevant files.
-4. Implementation-Agent writes short findings summary.
-5. Implementation-Agent makes minimal changes.
-6. Implementation-Agent runs focused checks.
-7. Specialist agents review if required.
-8. Verification-Agent runs required gates.
-9. Fix-Agent resolves issues if needed.
-10. Coordinator updates progress and moves to next task.
-
-## Token-saving workflow
-
-Before reading code:
-
-```text
-1. Read task packet.
-2. Read project map.
-3. Use file tree / rg to locate likely files.
-4. Open only relevant files.
-5. Summarize assumptions.
-```
-
-Before editing docs:
-
-```text
-1. Update only docs affected by the change.
-2. Do not rewrite large docs for small code changes.
-3. Add focused notes instead of duplicating content.
-```
-
-Before asking another agent:
-
-```text
-1. Provide concise context.
-2. List exact files changed.
-3. List exact questions.
-4. Avoid dumping full diffs unless necessary.
-```
-
-## Escalation
-
-Stop and request Coordinator decision if:
-
-- the task requires changing a forbidden file;
-- a module boundary must change;
-- a security requirement conflicts with the requested implementation;
-- a dependency addition is needed;
-- a CI/CD-sensitive path must change;
-- a large rewrite seems necessary;
-- tests reveal old behavior differs from expected behavior.
+Stop for Coordinator decision if the task needs forbidden files, a new dependency, a public boundary change beyond scope, a CI/CD-sensitive path, weakened checks, or hidden security/performance tradeoffs.

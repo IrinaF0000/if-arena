@@ -1,96 +1,20 @@
 # Test Plan
 
-## Test categories
+Canonical project test plan. Agent-specific rules are in `docs/agent-rules/quality/TESTING.md`.
 
-### 1. Core simulation tests
+## MVP coverage target
 
-- deterministic reference scenario;
-- movement validation;
-- attack validation;
-- cooldown updates;
-- objective pickup/drop/capture/score;
-- carrier slowdown;
-- pickup lock;
-- 21x13 map constraints;
-- 180-degree rotational symmetry validation;
-- player-oriented coordinate transforms;
-- tower target selection;
-- mine trigger;
-- drone/crow movement;
-- match end conditions.
+No MVP feature is complete until changed behavior is covered by the Test Impact Matrix: happy path, corner cases, invalid/hostile input, authority checks, and resource bounds where relevant.
 
-### 2. Protocol tests
+## Required suites
 
-- encode/decode valid messages;
-- split frame across reads;
-- multiple frames in one read;
-- partial header;
-- oversized frame;
-- zero-length frame;
-- invalid JSON;
-- unknown message type;
-- missing required fields;
-- wrong field types;
-- invalid enum values;
-- non-finite numeric values.
+- Core gameplay: deterministic scenarios for map validation, movement/collision, objective pickup/drop/capture/score, carrier slowdown, pickup lock, combat/dash/hazards, match end, and player-oriented transforms.
+- Protocol: valid messages plus malformed JSON, unknown type, missing fields, wrong types, invalid enums, non-finite numbers, oversized strings/frames, partial and combined TCP frames.
+- Backend integration: auth/session lifecycle, create/join match, two-client command flow, snapshots/events, ownership rejection, disconnects, slow clients, spam/rate limits, bounded queues.
+- Security: invalid Telegram hash/date/user/init data, hostile payloads, client attempts to claim position, HP, cooldowns, score, team, objective state, or match result.
+- UI clients: Qt and Telegram manual checklists until automated UI coverage exists; include connect, join, movement, actions, disconnect/reconnect, errors, readability, and own-base-at-bottom view.
+- Load/performance: repeatable normal, spam, slow-reader, malformed-input, and mixed-client scenarios; save reports under `reports/load/`.
 
-### 3. Server integration tests
+## Acceptance
 
-- two clients handshake and join match;
-- two clients ready and start match;
-- movement command produces snapshot update;
-- attack command produces damage event;
-- objective pickup produces event;
-- carrier hit produces objective drop event;
-- pickup lock rejects immediate re-pickup;
-- objective capture produces match event;
-- invalid ownership command is rejected;
-- disconnect during match is handled;
-- slow client does not grow memory unbounded;
-- spam client is rate-limited.
-
-### 4. Qt client tests/manual checks
-
-Automated Qt tests are optional for early MVP. Manual checklist required:
-
-- connect/disconnect works;
-- lobby displays match;
-- arena renders own/enemy/hazards/objective;
-- own base is shown at bottom for each player;
-- WASD movement sends input;
-- mouse/Space attack sends input;
-- E interacts with objective;
-- UI remains responsive on server disconnect;
-- errors are visible and non-crashing.
-
-### 5. Load tests
-
-- 100 simulated clients local smoke load;
-- 500 simulated clients local target load;
-- 1000 simulated clients stretch load where hardware allows;
-- slow-client scenario;
-- spam-client scenario;
-- malformed-input scenario.
-
-### 6. Security tests
-
-- oversized frames rejected before allocation;
-- malformed JSON does not crash server;
-- unknown message type handled;
-- command for another player's unit rejected;
-- objective claim from wrong state rejected;
-- client-reported objective/carrier state rejected;
-- local view transform does not affect server authority;
-- rate limit enforced;
-- handshake timeout enforced;
-- idle timeout enforced.
-
-## Acceptance for MVP
-
-MVP test acceptance requires:
-
-- all core/protocol/server unit and integration tests pass;
-- at least one repeatable local load-test report exists;
-- hostile input tests pass;
-- manual Qt gameplay checklist completed;
-- known limitations documented.
+All relevant tests pass, required manual checks are recorded, known gaps are documented, and no test is removed or weakened to hide a defect.

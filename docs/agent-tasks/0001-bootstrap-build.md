@@ -51,6 +51,8 @@ low
 
 ## Required tests/checks
 
+- Follow `docs/agent-rules/quality/TESTING.md`.
+- Record Test Impact Matrix when behavior changes.
 - CMake configure succeeds.
 - CMake build succeeds.
 - Frontend placeholder `npm run typecheck` and `npm run lint` commands are defined.
@@ -67,6 +69,6 @@ low
 
 ## Acceptance criteria
 
-- Scope is not broadened.
-- Required checks pass or blockers are documented.
-- Agent progress is updated with files changed, tests run, and remaining risks.
+- Scope remains narrow.
+- Checks pass or blockers are documented.
+- Run note is updated.

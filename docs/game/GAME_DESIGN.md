@@ -79,7 +79,7 @@ Requirements:
 
 Each player should see their own base at the bottom of the screen and the enemy base at the top. The server keeps canonical world coordinates. Clients transform world coordinates to local screen coordinates and transform local input back into canonical world commands before sending them to the server.
 
-Replay, spectator, and debug tools use canonical orientation.
+Canonical replay/spectator behavior is defined in `docs/architecture/TECHNICAL_ARCHITECTURE.md`.
 
 ## Hazards
 

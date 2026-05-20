@@ -1,14 +1,17 @@
 # Agent Tasks
 
-This directory contains ready-to-use task packets. The Coordinator should copy one task into `AGENT_PROGRESS.md`, adjust exact paths if needed, and assign it to one agent.
+Task packets define task-specific scope. Common rules are canonical in:
+
+- `docs/agent-rules/process/SEQUENTIAL_AGENT_PIPELINE.md`
+- `docs/review/QUALITY_GATES.md`
+- `docs/agent-rules/quality/TESTING.md`
 
 Rules:
 
-- One task per agent run.
-- Do not merge multiple task packets.
-- Do not broaden scope.
-- Follow `docs/agent-seeds/LLM_TOKEN_BUDGET.md`.
-- Complete required quality gates before marking done.
+- One task per run; do not merge tasks or broaden scope.
+- Never stage build outputs, generated dependency directories, or real secret files.
+- Complete required gates, reviews, checks, and Test Impact Matrix before commit.
+- For changed behavior, test happy path, corner cases, invalid/hostile input, authority violations, and resource bounds where relevant.
 
 Recommended order:
 
@@ -24,3 +27,18 @@ Recommended order:
 10. `0010-telegram-mini-app-skeleton.md`
 11. `0011-telegram-auth-validation.md`
 12. `0012-load-client-foundation.md`
+13. `0016-clean-foundation-before-playable-slice.md`
+14. `0017-core-arena-map-and-config.md`
+15. `0018-core-player-movement-and-collision.md`
+16. `0019-core-objective-run-rules.md`
+17. `0020-core-combat-dash-and-hazards.md`
+18. `0021-protocol-playable-game-messages.md`
+19. `0022-backend-match-loop-and-fake-sessions.md`
+20. `0023-server-app-and-local-config.md`
+21. `0024-cli-two-player-playable-flow.md`
+22. `0025-tcp-vertical-slice-integration.md`
+23. `0026-websocket-and-telegram-playable-slice.md`
+24. `0027-qt-playable-client.md`
+25. `0028-load-security-hardening-and-portfolio.md`
+
+Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

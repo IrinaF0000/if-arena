@@ -52,6 +52,8 @@ medium
 
 ## Required tests/checks
 
+- Follow `docs/agent-rules/quality/TESTING.md`.
+- Record Test Impact Matrix when behavior changes.
 - Load client builds.
 - Dry-run mode writes report.
 - No unbounded client buffers.
@@ -67,6 +69,6 @@ medium
 
 ## Acceptance criteria
 
-- Scope is not broadened.
-- Required checks pass or blockers are documented.
-- Agent progress is updated with files changed, tests run, and remaining risks.
+- Scope remains narrow.
+- Checks pass or blockers are documented.
+- Run note is updated.

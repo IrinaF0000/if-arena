@@ -82,6 +82,7 @@ Fields:
 
 The C++ helper API in `src/battle_protocol/Protocol.hpp` exposes this as `Envelope`.
 `parseEnvelope()` validates the top-level object and returns a `ParseResult`; parser failures are structured `ProtocolError` values and must not escape transport code as uncaught exceptions.
+`validateClientEnvelope()` validates client-originated payloads against the current session phase before backend code handles them.
 `serializeEnvelope()` emits the same transport-neutral JSON envelope.
 
 Recognized wire `type` values:
@@ -96,6 +97,9 @@ input_command
 input_ack
 snapshot
 event_batch
+handshake
+ping
+pong
 error
 ```
 
@@ -243,7 +247,7 @@ Client sends intentions only.
     "matchId": "m_1",
     "command": {
       "kind": "move",
-      "direction": { "x": 1.0, "y": 0.0 }
+      "direction": { "x": 1, "y": 0 }
     }
   }
 }
@@ -261,6 +265,8 @@ stop
 ```
 
 Movement and aim directions are sent in canonical world coordinates. A player-oriented client must transform local input into canonical direction before sending the command.
+Direction coordinates are integer unit components in `[-1, 0, 1]`; zero vectors and oversized values are rejected.
+`attack` and `dash` carry intent only. The server decides hits, damage, cooldowns, dash distance, objective drops, and match results.
 
 Forbidden client claims:
 

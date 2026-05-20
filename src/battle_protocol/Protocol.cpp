@@ -13,7 +13,7 @@ namespace if_arena::battle_protocol
 		enum class JsonValueType
 		{
 			String,
-			Number,
+			Integer,
 			Object
 		};
 
@@ -21,7 +21,7 @@ namespace if_arena::battle_protocol
 		{
 			JsonValueType type{JsonValueType::String};
 			std::string stringValue;
-			std::uint64_t numberValue{};
+			std::int64_t integerValue{};
 			std::string rawJson;
 		};
 
@@ -230,24 +230,33 @@ namespace if_arena::battle_protocol
 					}
 					return JsonValue{JsonValueType::Object, {}, 0, std::move(*raw)};
 				}
-				if (std::isdigit(static_cast<unsigned char>(_input[_position])) != 0)
+				if (_input[_position] == '-' || std::isdigit(static_cast<unsigned char>(_input[_position])) != 0)
 				{
-					return parseUnsignedNumber();
+					return parseInteger();
 				}
 
 				fail("unsupported value");
 				return std::nullopt;
 			}
 
-			std::optional<JsonValue> parseUnsignedNumber()
+			std::optional<JsonValue> parseInteger()
 			{
 				const auto start = _position;
+				if (_position < _input.size() && _input[_position] == '-')
+				{
+					++_position;
+				}
+				if (_position >= _input.size() || std::isdigit(static_cast<unsigned char>(_input[_position])) == 0)
+				{
+					fail("invalid number");
+					return std::nullopt;
+				}
 				while (_position < _input.size() && std::isdigit(static_cast<unsigned char>(_input[_position])) != 0)
 				{
 					++_position;
 				}
 
-				std::uint64_t value{};
+				std::int64_t value{};
 				const auto number = _input.substr(start, _position - start);
 				const auto* begin = number.data();
 				const auto* end = begin + number.size();
@@ -257,7 +266,7 @@ namespace if_arena::battle_protocol
 					fail("invalid number");
 					return std::nullopt;
 				}
-				return JsonValue{JsonValueType::Number, {}, value, {}};
+				return JsonValue{JsonValueType::Integer, {}, value, {}};
 			}
 
 			std::optional<std::string> parseComposite()
@@ -341,6 +350,89 @@ namespace if_arena::battle_protocol
 				}
 			}
 			return nullptr;
+		}
+
+		ProtocolError okError()
+		{
+			return ProtocolError{};
+		}
+
+		ProtocolError validationError(ProtocolErrorCode code, std::string message)
+		{
+			return ProtocolError{code, std::move(message)};
+		}
+
+		std::optional<std::vector<JsonMember>> parsePayloadObject(std::string_view payloadJson, const ProtocolLimits& limits,
+		                                                          ProtocolError& error)
+		{
+			std::vector<JsonMember> members;
+			JsonCursor cursor(payloadJson, limits);
+			if (!cursor.parseTopLevelObject(members))
+			{
+				error = validationError(cursor.stringTooLarge() ? ProtocolErrorCode::StringTooLarge
+				                                                : ProtocolErrorCode::MalformedJson,
+				                        "invalid payload object");
+				return std::nullopt;
+			}
+			return members;
+		}
+
+		bool hasForbiddenAuthorityField(const std::vector<JsonMember>& members)
+		{
+			for (const auto& member : members)
+			{
+				if (member.key == "position" || member.key == "hp" || member.key == "cooldown" ||
+				    member.key == "damage" || member.key == "score" || member.key == "team" ||
+				    member.key == "matchResult" || member.key == "objectiveState" || member.key == "playerId")
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		ProtocolError requireStringField(const std::vector<JsonMember>& members, std::string_view key, std::size_t maxBytes)
+		{
+			const auto* value = findMember(members, key);
+			if (value == nullptr)
+			{
+				return validationError(ProtocolErrorCode::MissingField, "required payload field is missing");
+			}
+			if (value->type != JsonValueType::String)
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "payload field has invalid type");
+			}
+			if (value->stringValue.empty() || value->stringValue.size() > maxBytes)
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "payload string field is out of range");
+			}
+			return okError();
+		}
+
+		ProtocolError validateDirectionObject(std::string_view rawJson, const ProtocolLimits& limits)
+		{
+			ProtocolError error;
+			const auto parsed = parsePayloadObject(rawJson, limits, error);
+			if (!parsed.has_value())
+			{
+				return error;
+			}
+			const auto* x = findMember(*parsed, "x");
+			const auto* y = findMember(*parsed, "y");
+			if (x == nullptr || y == nullptr)
+			{
+				return validationError(ProtocolErrorCode::MissingField, "direction is missing coordinates");
+			}
+			if (x->type != JsonValueType::Integer || y->type != JsonValueType::Integer)
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "direction coordinates must be integers");
+			}
+			if (x->integerValue < -1 || x->integerValue > 1 || y->integerValue < -1 || y->integerValue > 1 ||
+			    (x->integerValue == 0 && y->integerValue == 0))
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "direction must be a non-zero unit vector");
+			}
+			return okError();
 		}
 
 		bool isObjectJson(std::string_view value)
@@ -434,6 +526,18 @@ namespace if_arena::battle_protocol
 		{
 			return MessageType::EventBatch;
 		}
+		if (value == "handshake")
+		{
+			return MessageType::Handshake;
+		}
+		if (value == "ping")
+		{
+			return MessageType::Ping;
+		}
+		if (value == "pong")
+		{
+			return MessageType::Pong;
+		}
 		if (value == "error")
 		{
 			return MessageType::Error;
@@ -463,6 +567,12 @@ namespace if_arena::battle_protocol
 			return "snapshot";
 		case MessageType::EventBatch:
 			return "event_batch";
+		case MessageType::Handshake:
+			return "handshake";
+		case MessageType::Ping:
+			return "ping";
+		case MessageType::Pong:
+			return "pong";
 		case MessageType::Error:
 			return "error";
 		}
@@ -491,11 +601,12 @@ namespace if_arena::battle_protocol
 		{
 			return parseFailure(ProtocolErrorCode::MissingField, "required envelope field is missing");
 		}
-		if (version->type != JsonValueType::Number || type->type != JsonValueType::String || payload->type != JsonValueType::Object)
+		if (version->type != JsonValueType::Integer || type->type != JsonValueType::String ||
+		    payload->type != JsonValueType::Object)
 		{
 			return parseFailure(ProtocolErrorCode::InvalidField, "required envelope field has invalid type");
 		}
-		if (version->numberValue != CurrentProtocolVersion)
+		if (version->integerValue != static_cast<std::int64_t>(CurrentProtocolVersion))
 		{
 			return parseFailure(ProtocolErrorCode::UnsupportedVersion, "unsupported protocol version");
 		}
@@ -534,14 +645,172 @@ namespace if_arena::battle_protocol
 
 		if (const auto* sessionSeq = findMember(members, "sessionSeq"); sessionSeq != nullptr)
 		{
-			if (sessionSeq->type != JsonValueType::Number)
+			if (sessionSeq->type != JsonValueType::Integer || sessionSeq->integerValue < 0)
 			{
 				return parseFailure(ProtocolErrorCode::InvalidField, "sessionSeq must be a number");
 			}
-			envelope.sessionSeq = sessionSeq->numberValue;
+			envelope.sessionSeq = static_cast<std::uint64_t>(sessionSeq->integerValue);
 		}
 
 		return ParseResult{std::move(envelope), {}};
+	}
+
+	ProtocolError validateClientEnvelope(const Envelope& envelope, ClientSessionPhase phase, const ProtocolLimits& limits)
+	{
+		const auto rejectOrder = [] {
+			return validationError(ProtocolErrorCode::InvalidMessageOrder, "message is not allowed in current session phase");
+		};
+		const auto rejectServerMessage = [] {
+			return validationError(ProtocolErrorCode::InvalidField, "server-originated message is not accepted from clients");
+		};
+
+		switch (envelope.type)
+		{
+		case MessageType::AuthResult:
+		case MessageType::MatchJoined:
+		case MessageType::InputAck:
+		case MessageType::Snapshot:
+		case MessageType::EventBatch:
+		case MessageType::Error:
+			return rejectServerMessage();
+		case MessageType::CreateMatch:
+		case MessageType::JoinMatch:
+			if (phase != ClientSessionPhase::Authenticated)
+			{
+				return rejectOrder();
+			}
+			break;
+		case MessageType::AuthRequest:
+		case MessageType::Handshake:
+			if (phase != ClientSessionPhase::Connected)
+			{
+				return rejectOrder();
+			}
+			break;
+		case MessageType::InputCommand:
+			if (phase != ClientSessionPhase::InMatch)
+			{
+				return rejectOrder();
+			}
+			if (!envelope.sessionSeq.has_value())
+			{
+				return validationError(ProtocolErrorCode::MissingField, "input command requires sessionSeq");
+			}
+			break;
+		case MessageType::Ping:
+		case MessageType::Pong:
+			break;
+		}
+
+		ProtocolError error;
+		const auto payload = parsePayloadObject(envelope.payloadJson, limits, error);
+		if (!payload.has_value())
+		{
+			return error;
+		}
+
+		if (envelope.type == MessageType::Handshake || envelope.type == MessageType::Ping ||
+		    envelope.type == MessageType::Pong)
+		{
+			return okError();
+		}
+
+		if (envelope.type == MessageType::AuthRequest)
+		{
+			if (auto field = requireStringField(*payload, "mode", 32); field.code != ProtocolErrorCode::None)
+			{
+				return field;
+			}
+			const auto* mode = findMember(*payload, "mode");
+			if (mode->stringValue == "demo")
+			{
+				return requireStringField(*payload, "displayName", 64);
+			}
+			if (mode->stringValue == "telegram")
+			{
+				return requireStringField(*payload, "initData", 4096);
+			}
+			return validationError(ProtocolErrorCode::InvalidField, "unknown auth mode");
+		}
+
+		if (envelope.type == MessageType::CreateMatch)
+		{
+			if (auto field = requireStringField(*payload, "mode", 32); field.code != ProtocolErrorCode::None)
+			{
+				return field;
+			}
+			if (auto field = requireStringField(*payload, "scenario", 64); field.code != ProtocolErrorCode::None)
+			{
+				return field;
+			}
+			const auto* mode = findMember(*payload, "mode");
+			const auto* scenario = findMember(*payload, "scenario");
+			if (mode->stringValue != "objective_run" || scenario->stringValue != "arena_small_objective_run")
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "unsupported match configuration");
+			}
+			return okError();
+		}
+
+		if (envelope.type == MessageType::JoinMatch)
+		{
+			return requireStringField(*payload, "matchCode", 32);
+		}
+
+		if (envelope.type == MessageType::InputCommand)
+		{
+			if (auto field = requireStringField(*payload, "matchId", 64); field.code != ProtocolErrorCode::None)
+			{
+				return field;
+			}
+			const auto* command = findMember(*payload, "command");
+			if (command == nullptr)
+			{
+				return validationError(ProtocolErrorCode::MissingField, "input command is missing command object");
+			}
+			if (command->type != JsonValueType::Object)
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "command must be an object");
+			}
+
+			const auto commandPayload = parsePayloadObject(command->rawJson, limits, error);
+			if (!commandPayload.has_value())
+			{
+				return error;
+			}
+			if (hasForbiddenAuthorityField(*commandPayload))
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "client command contains authority field");
+			}
+			if (auto field = requireStringField(*commandPayload, "kind", 32); field.code != ProtocolErrorCode::None)
+			{
+				return field;
+			}
+			const auto* kind = findMember(*commandPayload, "kind");
+			const bool needsDirection =
+				kind->stringValue == "move" || kind->stringValue == "aim" || kind->stringValue == "attack" ||
+				kind->stringValue == "dash";
+			if (needsDirection)
+			{
+				const auto* direction = findMember(*commandPayload, "direction");
+				if (direction == nullptr)
+				{
+					return validationError(ProtocolErrorCode::MissingField, "command direction is missing");
+				}
+				if (direction->type != JsonValueType::Object)
+				{
+					return validationError(ProtocolErrorCode::InvalidField, "command direction must be an object");
+				}
+				return validateDirectionObject(direction->rawJson, limits);
+			}
+			if (kind->stringValue == "interact" || kind->stringValue == "stop")
+			{
+				return okError();
+			}
+			return validationError(ProtocolErrorCode::InvalidField, "unknown command kind");
+		}
+
+		return okError();
 	}
 
 	SerializeResult serializeEnvelope(const Envelope& envelope, const ProtocolLimits& limits)

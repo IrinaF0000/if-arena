@@ -41,6 +41,13 @@ Movement is fixed-step and server-authoritative:
 - ticks advance smooth world positions deterministically;
 - arena bounds and obstacle cells block movement in core before snapshots are emitted.
 
+Objective Run rules are also server-authoritative:
+
+- optional match objective config defines spawn, pickup radius, carrier slowdown, pickup lock, respawn delay, and score limit;
+- `interact` commands are validated against objective state, distance, and pickup lock before pickup;
+- server-side systems can drop the current carrier through the core facade for later combat/hazard tasks;
+- captures are validated against the carrier's own base, update score, respawn or end the match, and emit deterministic events.
+
 `ArenaConfig.hpp` defines the Objective Run arena model for the playable slice:
 
 - canonical 21x13 arena dimensions;

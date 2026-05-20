@@ -56,6 +56,13 @@ namespace if_arena::battle_core
 			return dx * dx + dy * dy;
 		}
 
+		double distanceSquared(Vec2d lhs, Vec2d rhs)
+		{
+			const double dx = lhs.x - rhs.x;
+			const double dy = lhs.y - rhs.y;
+			return dx * dx + dy * dy;
+		}
+
 		double distancePointToSegmentSquared(Vec2i point, Vec2d from, Vec2d to)
 		{
 			const double segmentX = to.x - from.x;
@@ -96,7 +103,8 @@ namespace if_arena::battle_core
 		  _playerSpeedPerTick(config.playerSpeedPerTick),
 		  _playerCollisionRadius(config.playerCollisionRadius),
 		  _obstacles(std::move(config.obstacles)),
-		  _bases(std::move(config.bases))
+		  _bases(std::move(config.bases)),
+		  _objectiveConfig(config.objective)
 	{
 		if (_width <= 0 || _height <= 0)
 		{
@@ -131,6 +139,37 @@ namespace if_arena::battle_core
 			{
 				throw std::invalid_argument("base radius must be positive");
 			}
+		}
+		if (_objectiveConfig.has_value())
+		{
+			if (!inBounds(_objectiveConfig->spawn))
+			{
+				throw std::invalid_argument("objective spawn must be inside match bounds");
+			}
+			if (obstacleAt(_objectiveConfig->spawn))
+			{
+				throw std::invalid_argument("objective spawn must not be inside an obstacle");
+			}
+			if (!std::isfinite(_objectiveConfig->pickupRadius) || _objectiveConfig->pickupRadius <= 0.0)
+			{
+				throw std::invalid_argument("objective pickup radius must be positive");
+			}
+			if (!std::isfinite(_objectiveConfig->carrierSpeedMultiplier) ||
+			    _objectiveConfig->carrierSpeedMultiplier <= 0.0 || _objectiveConfig->carrierSpeedMultiplier > 1.0)
+			{
+				throw std::invalid_argument("objective carrier speed multiplier must be in (0, 1]");
+			}
+			if (_objectiveConfig->scoreLimit == 0)
+			{
+				throw std::invalid_argument("objective score limit must be positive");
+			}
+			_objective = ObjectiveSnapshot{
+				ObjectiveState::AtSpawn,
+				Vec2d{static_cast<double>(_objectiveConfig->spawn.x), static_cast<double>(_objectiveConfig->spawn.y)},
+				PlayerId{},
+				0,
+				0,
+			};
 		}
 
 		std::uint32_t nextHeroId = 1;
@@ -170,6 +209,10 @@ namespace if_arena::battle_core
 			};
 			snapshot.inOwnBase = isInOwnBase(snapshot);
 			_players.push_back(snapshot);
+			if (findScore(player.team) == nullptr)
+			{
+				_scores.push_back(ScoreSnapshot{player.team, 0});
+			}
 			++nextHeroId;
 		}
 	}
@@ -184,9 +227,13 @@ namespace if_arena::battle_core
 		{
 			return rejectedResult("unknown player");
 		}
-		if (command.type == PlayerCommandType::Attack || command.type == PlayerCommandType::Interact)
+		if (command.type == PlayerCommandType::Attack)
 		{
 			return rejectedResult("command type is not implemented yet");
+		}
+		if (command.type == PlayerCommandType::Interact && !canPickupObjective(*findPlayer(command.player)))
+		{
+			return rejectedResult("objective cannot be picked up");
 		}
 		if (command.type == PlayerCommandType::Move && !isUnitStep(command.direction))
 		{
@@ -194,6 +241,37 @@ namespace if_arena::battle_core
 		}
 
 		_pendingCommands.push_back(PendingCommand{command});
+		return acceptedResult();
+	}
+
+	CommandResult BattleEngine::dropObjective(PlayerId carrier)
+	{
+		if (_finished)
+		{
+			return rejectedResult("match is finished");
+		}
+		if (!_objectiveConfig.has_value())
+		{
+			return rejectedResult("objective is not enabled");
+		}
+		if (_objective.state != ObjectiveState::Carried || !(_objective.carrier == carrier))
+		{
+			return rejectedResult("player is not carrying objective");
+		}
+
+		const auto* player = findPlayer(carrier);
+		if (player == nullptr)
+		{
+			return rejectedResult("unknown player");
+		}
+
+		_objective.state = ObjectiveState::Dropped;
+		_objective.carrier = PlayerId{};
+		_objective.position = player->worldPosition;
+		_objective.pickupLockTicksRemaining = _objectiveConfig->pickupLockTicks;
+		_objective.respawnTicksRemaining = 0;
+		_systemEvents.push_back(BattleEvent{BattleEventType::ObjectiveDropped, _tick, carrier, player->position,
+		                                    player->position, player->team, 0});
 		return acceptedResult();
 	}
 
@@ -206,6 +284,9 @@ namespace if_arena::battle_core
 		}
 
 		++_tick;
+		events.insert(events.end(), _systemEvents.begin(), _systemEvents.end());
+		_systemEvents.clear();
+		updateObjectiveTimers(events);
 		for (const auto& pending : _pendingCommands)
 		{
 			auto* player = findPlayer(pending.command.player);
@@ -224,6 +305,10 @@ namespace if_arena::battle_core
 			{
 				player->desiredMovement = normalize(pending.command.direction);
 			}
+			if (pending.command.type == PlayerCommandType::Interact && canPickupObjective(*player))
+			{
+				pickUpObjective(*player, events);
+			}
 		}
 		_pendingCommands.clear();
 
@@ -236,9 +321,13 @@ namespace if_arena::battle_core
 			}
 
 			const Vec2i from = player.position;
+			const double speedMultiplier =
+				_objective.state == ObjectiveState::Carried && _objective.carrier == player.player && _objectiveConfig.has_value()
+					? _objectiveConfig->carrierSpeedMultiplier
+					: 1.0;
 			const Vec2d target{
-				player.worldPosition.x + player.desiredMovement.dx * _playerSpeedPerTick,
-				player.worldPosition.y + player.desiredMovement.dy * _playerSpeedPerTick,
+				player.worldPosition.x + player.desiredMovement.dx * _playerSpeedPerTick * speedMultiplier,
+				player.worldPosition.y + player.desiredMovement.dy * _playerSpeedPerTick * speedMultiplier,
 			};
 			if (!inBounds(target) || collidesWithObstacle(player.worldPosition, target))
 			{
@@ -249,6 +338,14 @@ namespace if_arena::battle_core
 			player.worldPosition = target;
 			player.position = nearestCell(target);
 			player.inOwnBase = isInOwnBase(player);
+			if (_objective.state == ObjectiveState::Carried && _objective.carrier == player.player)
+			{
+				_objective.position = player.worldPosition;
+				if (player.inOwnBase)
+				{
+					captureObjective(player, events);
+				}
+			}
 			if (player.position != from)
 			{
 				events.push_back(BattleEvent{BattleEventType::PlayerMoved, _tick, player.player, from, player.position});
@@ -267,7 +364,7 @@ namespace if_arena::battle_core
 
 	BattleSnapshot BattleEngine::snapshot() const
 	{
-		return BattleSnapshot{_tick, _width, _height, _finished, _players};
+		return BattleSnapshot{_tick, _width, _height, _finished, _players, _objective, _scores};
 	}
 
 	PlayerSnapshot* BattleEngine::findPlayer(PlayerId player)
@@ -289,6 +386,18 @@ namespace if_arena::battle_core
 			if (candidate.player == player)
 			{
 				return &candidate;
+			}
+		}
+		return nullptr;
+	}
+
+	ScoreSnapshot* BattleEngine::findScore(ArenaTeam team)
+	{
+		for (auto& score : _scores)
+		{
+			if (score.team == team)
+			{
+				return &score;
 			}
 		}
 		return nullptr;
@@ -329,5 +438,96 @@ namespace if_arena::battle_core
 			return false;
 		}
 		return distanceSquared(player.worldPosition, base->center) <= base->radius * base->radius;
+	}
+
+	bool BattleEngine::canPickupObjective(const PlayerSnapshot& player) const
+	{
+		if (!_objectiveConfig.has_value())
+		{
+			return false;
+		}
+		if (_objective.state != ObjectiveState::AtSpawn && _objective.state != ObjectiveState::Dropped)
+		{
+			return false;
+		}
+		if (_objective.pickupLockTicksRemaining > 0)
+		{
+			return false;
+		}
+
+		const double pickupRadiusSquared = _objectiveConfig->pickupRadius * _objectiveConfig->pickupRadius;
+		return distanceSquared(player.worldPosition, _objective.position) <= pickupRadiusSquared;
+	}
+
+	void BattleEngine::pickUpObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events)
+	{
+		_objective.state = ObjectiveState::Carried;
+		_objective.carrier = player.player;
+		_objective.position = player.worldPosition;
+		_objective.pickupLockTicksRemaining = 0;
+		_objective.respawnTicksRemaining = 0;
+		events.push_back(BattleEvent{BattleEventType::ObjectivePickedUp, _tick, player.player, player.position,
+		                             player.position, player.team, 0});
+	}
+
+	void BattleEngine::captureObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events)
+	{
+		auto* score = findScore(player.team);
+		if (score == nullptr || !_objectiveConfig.has_value())
+		{
+			return;
+		}
+
+		++score->score;
+		events.push_back(BattleEvent{BattleEventType::ObjectiveCaptured, _tick, player.player, player.position,
+		                             player.position, player.team, score->score});
+		events.push_back(BattleEvent{BattleEventType::ScoreChanged, _tick, player.player, player.position, player.position,
+		                             player.team, score->score});
+
+		_objective.carrier = PlayerId{};
+		_objective.position =
+			Vec2d{static_cast<double>(_objectiveConfig->spawn.x), static_cast<double>(_objectiveConfig->spawn.y)};
+		if (score->score >= _objectiveConfig->scoreLimit)
+		{
+			_objective.state = ObjectiveState::Captured;
+			_objective.respawnTicksRemaining = 0;
+			_finished = true;
+			events.push_back(BattleEvent{BattleEventType::MatchFinished, _tick, player.player, player.position,
+			                             player.position, player.team, score->score});
+			return;
+		}
+
+		_objective.state = ObjectiveState::Respawning;
+		_objective.respawnTicksRemaining = _objectiveConfig->captureRespawnDelayTicks;
+		if (_objective.respawnTicksRemaining == 0)
+		{
+			_objective.state = ObjectiveState::AtSpawn;
+			events.push_back(BattleEvent{BattleEventType::ObjectiveRespawned, _tick, {}, _objectiveConfig->spawn,
+			                             _objectiveConfig->spawn, {}, 0});
+		}
+	}
+
+	void BattleEngine::updateObjectiveTimers(std::vector<BattleEvent>& events)
+	{
+		if (!_objectiveConfig.has_value())
+		{
+			return;
+		}
+		if (_objective.pickupLockTicksRemaining > 0)
+		{
+			--_objective.pickupLockTicksRemaining;
+		}
+		if (_objective.state == ObjectiveState::Respawning && _objective.respawnTicksRemaining > 0)
+		{
+			--_objective.respawnTicksRemaining;
+			if (_objective.respawnTicksRemaining == 0)
+			{
+				_objective.state = ObjectiveState::AtSpawn;
+				_objective.position =
+					Vec2d{static_cast<double>(_objectiveConfig->spawn.x), static_cast<double>(_objectiveConfig->spawn.y)};
+				events.push_back(BattleEvent{BattleEventType::ObjectiveRespawned, _tick, {}, _objectiveConfig->spawn,
+				                             _objectiveConfig->spawn, {}, 0});
+			}
+		}
 	}
 }

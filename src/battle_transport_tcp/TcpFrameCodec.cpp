@@ -1,6 +1,7 @@
 #include "TcpFrameCodec.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <utility>
 
 namespace if_arena::battle_transport_tcp

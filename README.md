@@ -127,7 +127,9 @@ docs/
 
 ## Status
 
-This repository is a skeleton. Placeholder files are intentionally present so agents can implement one small vertical slice at a time.
+This repository has the foundation modules for the playable IF Arena work, but it is not a playable game yet. The current server executable is a foundation target only; the next milestone is to add the canonical Objective Run arena map and deterministic gameplay state in `battle_core`.
+
+Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` foundation executable. Public deployment is not ready until the later server, transport, auth, and client playable slices are complete.
 
 ## CI/CD safety
 

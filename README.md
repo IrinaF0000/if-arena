@@ -131,6 +131,15 @@ This repository has the foundation modules and an in-process backend match loop 
 
 Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later transport, auth, and client playable slices are complete.
 
+CLI fake-connect smoke:
+
+```bash
+cmake --build build --target battle_cli_client --parallel
+build/battle_cli_client --fake-connect --create --match-id local-match --script tests/integration/server/cli_scenario_b.script
+```
+
+This prints validated protocol intentions and fake snapshot/event transcript lines without opening TCP. Real TCP play is the next vertical slice.
+
 ## CI/CD safety
 
 PR and main workflows are intentionally separated. PR CI validates C++, TypeScript, repository structure, and secret-scanning without deployment or production secrets. Main CI repeats validation on the merged tree and may build non-sensitive artifacts. Workflow changes are protected by `docs/ci/CI_CD_GUARDRAILS.md`.

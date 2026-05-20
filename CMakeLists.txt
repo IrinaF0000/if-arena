@@ -100,4 +100,8 @@ if(BATTLE_BUILD_TESTS)
         target_link_libraries(battle_transport_ws_tests PRIVATE battle_transport_ws)
         add_test(NAME battle_transport_ws_tests COMMAND battle_transport_ws_tests)
     endif()
+
+    add_executable(battle_security_tests tests/security/TelegramAuthTests.cpp)
+    target_link_libraries(battle_security_tests PRIVATE battle_backend)
+    add_test(NAME battle_security_tests COMMAND battle_security_tests)
 endif()

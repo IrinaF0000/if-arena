@@ -33,3 +33,12 @@ This module must remain reusable and testable without sockets.
 - `BattleEvent` reports deterministic state changes from `tick()`.
 
 Clients and transports must not construct authoritative state directly; they send intentions to backend code that later calls this facade.
+
+`ArenaConfig.hpp` defines the Objective Run arena model for the playable slice:
+
+- canonical 21x13 arena dimensions;
+- base zones, player spawn cells, obstacle cells, and objective spawn cell;
+- 180-degree rotational symmetry helpers;
+- validation for bounds, required objects, duplicate/blocked cells, and symmetric layout.
+
+The arena config is pure core data. It does not parse files, read environment variables, or depend on transport/client code.

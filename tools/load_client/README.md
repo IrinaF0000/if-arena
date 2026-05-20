@@ -14,6 +14,14 @@ It is part of the portfolio story. It should produce reproducible reports, not j
 battle_load_client --server 127.0.0.1 --port 5555 --clients 100 --matches 50 --ramp-up 10 --duration 180 --scenario gameplay --output reports/load_100.json
 ```
 
+Current foundation usage:
+
+```text
+battle_load_client --dry-run --endpoint 127.0.0.1:4000 --clients 100 --duration 60 --command-rate 10 --scenario connect_only --output reports/load/dry-run-report.md
+```
+
+Dry-run mode does not open sockets. It validates bounded options and writes the initial markdown report format.
+
 ## Required scenarios
 
 - `connect_only`
@@ -42,3 +50,4 @@ battle_load_client --server 127.0.0.1 --port 5555 --clients 100 --matches 50 --r
 - Make tests reproducible by supporting a random seed.
 - Do not hide failures. Report them clearly.
 - Do not use unrealistic client behavior unless the scenario explicitly says so.
+- Keep generated client-side buffers bounded by configuration.

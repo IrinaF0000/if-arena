@@ -34,6 +34,12 @@ stable slow-client behavior
 
 ## Load client modes
 
+Current foundation:
+
+- `battle_load_client --dry-run` validates bounded client/duration/rate options.
+- Dry-run writes a markdown report without opening sockets.
+- Live TCP/WebSocket load generation is future work.
+
 ### Normal clients
 
 - Connect.

@@ -23,11 +23,13 @@ add_library(battle_protocol STATIC
 )
 target_include_directories(battle_protocol PUBLIC src/battle_protocol)
 
+add_library(battle_backend_api INTERFACE)
+target_include_directories(battle_backend_api INTERFACE src/battle_backend)
+
 add_library(battle_backend STATIC
     src/battle_backend/placeholder.cpp
 )
-target_include_directories(battle_backend PUBLIC src/battle_backend)
-target_link_libraries(battle_backend PUBLIC battle_core battle_protocol)
+target_link_libraries(battle_backend PUBLIC battle_backend_api battle_core battle_protocol)
 
 if(BATTLE_BUILD_TCP_TRANSPORT)
     add_library(battle_transport_tcp STATIC
@@ -82,4 +84,8 @@ if(BATTLE_BUILD_TESTS)
     add_executable(battle_protocol_tests tests/unit/protocol/ProtocolEnvelopeTests.cpp)
     target_link_libraries(battle_protocol_tests PRIVATE battle_protocol)
     add_test(NAME battle_protocol_tests COMMAND battle_protocol_tests)
+
+    add_executable(battle_backend_tests tests/unit/backend/SessionRegistryTests.cpp)
+    target_link_libraries(battle_backend_tests PRIVATE battle_backend)
+    add_test(NAME battle_backend_tests COMMAND battle_backend_tests)
 endif()

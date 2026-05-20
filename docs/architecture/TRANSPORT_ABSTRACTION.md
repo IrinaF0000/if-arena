@@ -35,6 +35,15 @@ backend -> abstract send/close callback
 backend must not know socket details
 ```
 
+Current C++ backend names:
+
+- `IOutboundSession`: abstract send/close callback implemented by transport adapters or fake tests.
+- `BackendSession`: transport-neutral per-connection state, auth state, backend-owned player identity, and bounded outbound queue.
+- `SessionRegistry`: creates, finds, closes, and counts sessions.
+- `BackendLimits`: per-session and registry bounds for active sessions and pending outbound messages/bytes.
+
+Transport code must not set authoritative gameplay state. It forwards validated protocol messages into backend code; backend authentication assigns `PlayerId`.
+
 ## Shared responsibilities
 
 Both transports must enforce:
@@ -46,6 +55,8 @@ Both transports must enforce:
 - bounded outgoing queue;
 - safe disconnect;
 - metrics labeling by transport.
+
+The initial backend queue policy is fail-closed: if a session exceeds pending message or byte limits, backend closes the abstract outbound session with `QueueOverflow`.
 
 ## Transport-specific responsibilities
 

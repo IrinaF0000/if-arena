@@ -48,6 +48,12 @@ Objective Run rules are also server-authoritative:
 - server-side systems can drop the current carrier through the core facade for later combat/hazard tasks;
 - captures are validated against the carrier's own base, update score, respawn or end the match, and emit deterministic events.
 
+Combat, dash, and MVP hazards are core-owned:
+
+- attack commands carry an aim direction only; hit detection, damage, cooldowns, and objective drops are resolved by `BattleEngine`;
+- dash commands carry a direction only; dash distance, cooldowns, arena bounds, and obstacle-safe movement are resolved by core;
+- mine and tower hazards are deterministic match config values and emit telegraph/hit events before applying server-owned damage.
+
 `ArenaConfig.hpp` defines the Objective Run arena model for the playable slice:
 
 - canonical 21x13 arena dimensions;

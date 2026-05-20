@@ -19,6 +19,20 @@ namespace
 		}
 	}
 
+	template <typename Fn>
+	void requireThrows(Fn&& fn, const std::string& message)
+	{
+		try
+		{
+			fn();
+		}
+		catch (const std::invalid_argument&)
+		{
+			return;
+		}
+		throw std::runtime_error(message);
+	}
+
 	MatchConfig onePlayerMatch()
 	{
 		MatchConfig config;
@@ -57,6 +71,17 @@ namespace
 		};
 		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{10, 6}, 100});
 		config.objective = ObjectiveConfig{Vec2i{10, 6}, 0.75, carrierSpeedMultiplier, 2, 1, scoreLimit};
+		return config;
+	}
+
+	MatchConfig combatMatch()
+	{
+		MatchConfig config;
+		config.width = 7;
+		config.height = 5;
+		config.combat = CombatConfig{40, 2.0, 2, 3.0, 2};
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{1, 2}, 100});
+		config.players.push_back(PlayerConfig{PlayerId{2}, ArenaTeam::Red, Vec2i{3, 2}, 100});
 		return config;
 	}
 
@@ -122,8 +147,8 @@ namespace
 		const auto oversizedMove = engine.submit(PlayerCommand::move(PlayerId{1}, Direction{2, 0}));
 		require(!oversizedMove.accepted(), "oversized movement intent rejected");
 
-		const auto unsupportedAttack = engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Attack, {}});
-		require(!unsupportedAttack.accepted(), "unimplemented attack command rejected");
+		const auto invalidAttack = engine.submit(PlayerCommand::attack(PlayerId{1}, Direction{}));
+		require(!invalidAttack.accepted(), "invalid attack aim rejected");
 
 		const auto events = engine.tick();
 		const auto snapshot = engine.snapshot();
@@ -313,6 +338,117 @@ namespace
 		require(!snapshot.finished, "match continues before score limit");
 	}
 
+	void appliesAttackHitAndCooldown()
+	{
+		BattleEngine engine(combatMatch());
+
+		const auto attack = engine.submit(PlayerCommand::attack(PlayerId{1}, Direction{1, 0}));
+		require(attack.accepted(), "valid attack intent accepted");
+		const auto duplicate = engine.submit(PlayerCommand::attack(PlayerId{1}, Direction{1, 0}));
+		require(!duplicate.accepted(), "duplicate same-tick attack rejected by cooldown policy");
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::AttackHit), "attack hit event emitted");
+		require(snapshot.players.back().hp == 60, "server applies attack damage");
+		require(snapshot.players.front().attackCooldownTicksRemaining == 2, "attack cooldown is set by server");
+	}
+
+	void rejectsInvalidAttackAim()
+	{
+		BattleEngine engine(combatMatch());
+
+		require(!engine.submit(PlayerCommand::attack(PlayerId{1}, Direction{})).accepted(), "zero attack aim rejected");
+		require(!engine.submit(PlayerCommand::attack(PlayerId{1}, Direction{2, 0})).accepted(),
+		        "oversized attack aim rejected");
+	}
+
+	void dashesWithoutLeavingArena()
+	{
+		MatchConfig config;
+		config.width = 5;
+		config.height = 3;
+		config.combat = CombatConfig{20, 1.5, 2, 5.0, 2};
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{1, 1}, 100});
+		BattleEngine engine(config);
+
+		const auto dash = engine.submit(PlayerCommand::dash(PlayerId{1}, Direction{-1, 0}));
+		require(dash.accepted(), "dash intent accepted");
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::PlayerDashed), "dash event emitted");
+		require(snapshot.players.front().worldPosition.x == 0.0, "dash clamps to arena edge");
+		require(snapshot.players.front().dashCooldownTicksRemaining == 2, "dash cooldown is set by server");
+	}
+
+	void hazardsHitDeterministically()
+	{
+		MatchConfig config;
+		config.width = 5;
+		config.height = 5;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{2, 2}, 100});
+		config.hazards.push_back(HazardConfig{HazardKind::Mine, Vec2i{2, 2}, 0.8, 1.0, 18, 3});
+		BattleEngine engine(config);
+
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::HazardTelegraphed), "hazard telegraph event emitted");
+		require(hasEvent(events, BattleEventType::HazardHit), "hazard hit event emitted");
+		require(snapshot.players.front().hp == 82, "hazard damage applied deterministically");
+		require(snapshot.hazards.front().triggered, "mine records triggered state");
+	}
+
+	void hitOnCarrierDropsObjective()
+	{
+		MatchConfig config;
+		config.width = 21;
+		config.height = 13;
+		config.combat = CombatConfig{10, 2.0, 2, 2.0, 2};
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{10, 6}, 100});
+		config.players.push_back(PlayerConfig{PlayerId{2}, ArenaTeam::Red, Vec2i{10, 5}, 100});
+		config.objective = ObjectiveConfig{Vec2i{10, 6}, 0.75, 1.0, 2, 1, 1};
+		BattleEngine engine(config);
+
+		require(engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}}).accepted(), "pickup accepted");
+		engine.tick();
+		require(engine.submit(PlayerCommand::attack(PlayerId{2}, Direction{0, 1})).accepted(), "opponent attack accepted");
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::AttackHit), "carrier hit event emitted");
+		require(hasEvent(events, BattleEventType::ObjectiveDropped), "objective drops when carrier is hit");
+		require(snapshot.objective.state == ObjectiveState::Dropped, "objective state becomes dropped after carrier hit");
+		require(snapshot.objective.pickupLockTicksRemaining > 0, "drop starts pickup lock");
+	}
+
+	void defeatedPlayersCannotAct()
+	{
+		auto config = combatMatch();
+		config.combat.attackDamage = 100;
+		BattleEngine engine(config);
+
+		require(engine.submit(PlayerCommand::attack(PlayerId{1}, Direction{1, 0})).accepted(), "finishing attack accepted");
+		const auto events = engine.tick();
+		require(hasEvent(events, BattleEventType::PlayerDefeated), "defeat event emitted");
+		require(!engine.submit(PlayerCommand::attack(PlayerId{2}, Direction{-1, 0})).accepted(),
+		        "defeated player cannot attack");
+		require(!engine.submit(PlayerCommand::dash(PlayerId{2}, Direction{-1, 0})).accepted(),
+		        "defeated player cannot dash");
+	}
+
+	void rejectsUnboundedCombatConfig()
+	{
+		MatchConfig config;
+		config.width = 5;
+		config.height = 5;
+		config.combat.dashDistance = 500.0;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{2, 2}, 100});
+
+		requireThrows([&config] { BattleEngine engine(config); }, "unbounded dash distance is rejected");
+	}
+
 	void finishesAtConfiguredTickLimit()
 	{
 		BattleEngine engine(onePlayerMatch());
@@ -423,6 +559,13 @@ int main()
 		{"rejectsImmediateRepickupDuringLock", rejectsImmediateRepickupDuringLock},
 		{"failsCaptureAtEnemyBase", failsCaptureAtEnemyBase},
 		{"respawnsObjectiveAfterCaptureDelay", respawnsObjectiveAfterCaptureDelay},
+		{"appliesAttackHitAndCooldown", appliesAttackHitAndCooldown},
+		{"rejectsInvalidAttackAim", rejectsInvalidAttackAim},
+		{"dashesWithoutLeavingArena", dashesWithoutLeavingArena},
+		{"hazardsHitDeterministically", hazardsHitDeterministically},
+		{"hitOnCarrierDropsObjective", hitOnCarrierDropsObjective},
+		{"defeatedPlayersCannotAct", defeatedPlayersCannotAct},
+		{"rejectsUnboundedCombatConfig", rejectsUnboundedCombatConfig},
 		{"finishesAtConfiguredTickLimit", finishesAtConfiguredTickLimit},
 		{"acceptsCanonicalObjectiveRunArena", acceptsCanonicalObjectiveRunArena},
 		{"createsMatchFromCanonicalObjectiveRunArena", createsMatchFromCanonicalObjectiveRunArena},

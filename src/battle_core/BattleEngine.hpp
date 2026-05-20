@@ -77,6 +77,31 @@ namespace if_arena::battle_core
 		std::uint32_t scoreLimit{3};
 	};
 
+	struct CombatConfig
+	{
+		int attackDamage{25};
+		double attackRange{1.25};
+		std::uint32_t attackCooldownTicks{3};
+		double dashDistance{2.0};
+		std::uint32_t dashCooldownTicks{5};
+	};
+
+	enum class HazardKind
+	{
+		Mine,
+		Tower
+	};
+
+	struct HazardConfig
+	{
+		HazardKind kind{HazardKind::Mine};
+		Vec2i position{};
+		double radius{0.8};
+		double range{3.5};
+		int damage{10};
+		std::uint32_t cooldownTicks{10};
+	};
+
 	struct PlayerConfig
 	{
 		PlayerId player{};
@@ -96,6 +121,8 @@ namespace if_arena::battle_core
 		std::vector<Vec2i> obstacles;
 		std::vector<BaseZoneConfig> bases;
 		std::optional<ObjectiveConfig> objective;
+		CombatConfig combat;
+		std::vector<HazardConfig> hazards;
 	};
 
 	struct Direction
@@ -109,7 +136,8 @@ namespace if_arena::battle_core
 		Move,
 		Stop,
 		Attack,
-		Interact
+		Interact,
+		Dash
 	};
 
 	struct PlayerCommand
@@ -120,6 +148,8 @@ namespace if_arena::battle_core
 
 		static PlayerCommand move(PlayerId player, Direction direction);
 		static PlayerCommand stop(PlayerId player);
+		static PlayerCommand attack(PlayerId player, Direction direction);
+		static PlayerCommand dash(PlayerId player, Direction direction);
 	};
 
 	enum class CommandStatus
@@ -147,6 +177,16 @@ namespace if_arena::battle_core
 		MovementVector desiredMovement{};
 		int hp{};
 		bool inOwnBase{};
+		std::uint32_t attackCooldownTicksRemaining{};
+		std::uint32_t dashCooldownTicksRemaining{};
+	};
+
+	struct HazardSnapshot
+	{
+		HazardKind kind{HazardKind::Mine};
+		Vec2i position{};
+		std::uint32_t cooldownTicksRemaining{};
+		bool triggered{};
 	};
 
 	struct ObjectiveSnapshot
@@ -173,6 +213,7 @@ namespace if_arena::battle_core
 		std::vector<PlayerSnapshot> players;
 		ObjectiveSnapshot objective;
 		std::vector<ScoreSnapshot> scores;
+		std::vector<HazardSnapshot> hazards;
 	};
 
 	enum class BattleEventType
@@ -184,7 +225,13 @@ namespace if_arena::battle_core
 		ObjectiveDropped,
 		ObjectiveCaptured,
 		ObjectiveRespawned,
-		ScoreChanged
+		ScoreChanged,
+		AttackHit,
+		AttackMissed,
+		PlayerDashed,
+		HazardTelegraphed,
+		HazardHit,
+		PlayerDefeated
 	};
 
 	struct BattleEvent
@@ -196,6 +243,8 @@ namespace if_arena::battle_core
 		Vec2i to{};
 		ArenaTeam team{ArenaTeam::Blue};
 		std::uint32_t score{};
+		PlayerId target{};
+		int damage{};
 	};
 
 	class BattleEngine
@@ -230,6 +279,9 @@ namespace if_arena::battle_core
 		std::optional<ObjectiveConfig> _objectiveConfig;
 		ObjectiveSnapshot _objective;
 		std::vector<ScoreSnapshot> _scores;
+		CombatConfig _combat;
+		std::vector<HazardConfig> _hazardConfigs;
+		std::vector<HazardSnapshot> _hazards;
 
 		[[nodiscard]] PlayerSnapshot* findPlayer(PlayerId player);
 		[[nodiscard]] const PlayerSnapshot* findPlayer(PlayerId player) const;
@@ -240,8 +292,16 @@ namespace if_arena::battle_core
 		[[nodiscard]] bool collidesWithObstacle(Vec2d from, Vec2d to) const;
 		[[nodiscard]] bool isInOwnBase(const PlayerSnapshot& player) const;
 		[[nodiscard]] bool canPickupObjective(const PlayerSnapshot& player) const;
+		[[nodiscard]] bool hasPendingCommand(PlayerId player, PlayerCommandType type) const;
+		[[nodiscard]] Vec2d collisionSafeTarget(Vec2d from, Vec2d desired) const;
 		void pickUpObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
 		void captureObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
+		void dropObjectiveFromSystem(PlayerSnapshot& carrier, std::vector<BattleEvent>& events);
+		void applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events);
+		void performAttack(PlayerSnapshot& attacker, Direction direction, std::vector<BattleEvent>& events);
+		void performDash(PlayerSnapshot& player, Direction direction, std::vector<BattleEvent>& events);
+		void updatePlayerCooldowns();
+		void updateHazards(std::vector<BattleEvent>& events);
 		void updateObjectiveTimers(std::vector<BattleEvent>& events);
 	};
 }

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <stdexcept>
 #include <utility>
@@ -23,6 +24,11 @@ namespace if_arena::battle_core
 		bool isUnitStep(Direction direction)
 		{
 			return std::abs(direction.dx) <= 1 && std::abs(direction.dy) <= 1;
+		}
+
+		bool hasDirection(Direction direction)
+		{
+			return direction.dx != 0 || direction.dy != 0;
 		}
 
 		bool isZero(MovementVector movement)
@@ -63,7 +69,7 @@ namespace if_arena::battle_core
 			return dx * dx + dy * dy;
 		}
 
-		double distancePointToSegmentSquared(Vec2i point, Vec2d from, Vec2d to)
+		double distancePointToSegmentSquared(Vec2d point, Vec2d from, Vec2d to)
 		{
 			const double segmentX = to.x - from.x;
 			const double segmentY = to.y - from.y;
@@ -73,11 +79,16 @@ namespace if_arena::battle_core
 				return distanceSquared(from, point);
 			}
 
-			const double pointX = static_cast<double>(point.x) - from.x;
-			const double pointY = static_cast<double>(point.y) - from.y;
+			const double pointX = point.x - from.x;
+			const double pointY = point.y - from.y;
 			const double projection = std::clamp((pointX * segmentX + pointY * segmentY) / lengthSquared, 0.0, 1.0);
 			const Vec2d closest{from.x + projection * segmentX, from.y + projection * segmentY};
 			return distanceSquared(closest, point);
+		}
+
+		double distancePointToSegmentSquared(Vec2i point, Vec2d from, Vec2d to)
+		{
+			return distancePointToSegmentSquared(Vec2d{static_cast<double>(point.x), static_cast<double>(point.y)}, from, to);
 		}
 	}
 
@@ -89,6 +100,16 @@ namespace if_arena::battle_core
 	PlayerCommand PlayerCommand::stop(PlayerId player)
 	{
 		return PlayerCommand{player, PlayerCommandType::Stop, {}};
+	}
+
+	PlayerCommand PlayerCommand::attack(PlayerId player, Direction direction)
+	{
+		return PlayerCommand{player, PlayerCommandType::Attack, direction};
+	}
+
+	PlayerCommand PlayerCommand::dash(PlayerId player, Direction direction)
+	{
+		return PlayerCommand{player, PlayerCommandType::Dash, direction};
 	}
 
 	bool CommandResult::accepted() const
@@ -104,7 +125,9 @@ namespace if_arena::battle_core
 		  _playerCollisionRadius(config.playerCollisionRadius),
 		  _obstacles(std::move(config.obstacles)),
 		  _bases(std::move(config.bases)),
-		  _objectiveConfig(config.objective)
+		  _objectiveConfig(config.objective),
+		  _combat(config.combat),
+		  _hazardConfigs(std::move(config.hazards))
 	{
 		if (_width <= 0 || _height <= 0)
 		{
@@ -121,6 +144,22 @@ namespace if_arena::battle_core
 		if (!std::isfinite(_playerCollisionRadius) || _playerCollisionRadius < 0.0)
 		{
 			throw std::invalid_argument("playerCollisionRadius must be non-negative");
+		}
+		if (_combat.attackDamage <= 0)
+		{
+			throw std::invalid_argument("attack damage must be positive");
+		}
+		if (!std::isfinite(_combat.attackRange) || _combat.attackRange <= 0.0)
+		{
+			throw std::invalid_argument("attack range must be positive");
+		}
+		if (!std::isfinite(_combat.dashDistance) || _combat.dashDistance <= 0.0)
+		{
+			throw std::invalid_argument("dash distance must be positive");
+		}
+		if (_combat.dashDistance > static_cast<double>(std::max(_width, _height)))
+		{
+			throw std::invalid_argument("dash distance must fit inside the arena");
 		}
 		for (const auto& obstacle : _obstacles)
 		{
@@ -139,6 +178,30 @@ namespace if_arena::battle_core
 			{
 				throw std::invalid_argument("base radius must be positive");
 			}
+		}
+		if (_hazardConfigs.size() > static_cast<std::size_t>(_width * _height))
+		{
+			throw std::invalid_argument("hazard count exceeds arena cell count");
+		}
+		for (const auto& hazard : _hazardConfigs)
+		{
+			if (!inBounds(hazard.position))
+			{
+				throw std::invalid_argument("hazard position must be inside match bounds");
+			}
+			if (!std::isfinite(hazard.radius) || hazard.radius <= 0.0)
+			{
+				throw std::invalid_argument("hazard radius must be positive");
+			}
+			if (!std::isfinite(hazard.range) || hazard.range <= 0.0)
+			{
+				throw std::invalid_argument("hazard range must be positive");
+			}
+			if (hazard.damage <= 0)
+			{
+				throw std::invalid_argument("hazard damage must be positive");
+			}
+			_hazards.push_back(HazardSnapshot{hazard.kind, hazard.position, 0, false});
 		}
 		if (_objectiveConfig.has_value())
 		{
@@ -206,6 +269,8 @@ namespace if_arena::battle_core
 				MovementVector{},
 				player.heroHp,
 				false,
+				0,
+				0,
 			};
 			snapshot.inOwnBase = isInOwnBase(snapshot);
 			_players.push_back(snapshot);
@@ -227,11 +292,34 @@ namespace if_arena::battle_core
 		{
 			return rejectedResult("unknown player");
 		}
+		const auto* player = findPlayer(command.player);
+		if (player->hp <= 0)
+		{
+			return rejectedResult("player is defeated");
+		}
 		if (command.type == PlayerCommandType::Attack)
 		{
-			return rejectedResult("command type is not implemented yet");
+			if (!hasDirection(command.direction) || !isUnitStep(command.direction))
+			{
+				return rejectedResult("attack direction must be a non-zero unit step");
+			}
+			if (player->attackCooldownTicksRemaining > 0 || hasPendingCommand(command.player, PlayerCommandType::Attack))
+			{
+				return rejectedResult("attack is on cooldown");
+			}
 		}
-		if (command.type == PlayerCommandType::Interact && !canPickupObjective(*findPlayer(command.player)))
+		if (command.type == PlayerCommandType::Dash)
+		{
+			if (!hasDirection(command.direction) || !isUnitStep(command.direction))
+			{
+				return rejectedResult("dash direction must be a non-zero unit step");
+			}
+			if (player->dashCooldownTicksRemaining > 0 || hasPendingCommand(command.player, PlayerCommandType::Dash))
+			{
+				return rejectedResult("dash is on cooldown");
+			}
+		}
+		if (command.type == PlayerCommandType::Interact && !canPickupObjective(*player))
 		{
 			return rejectedResult("objective cannot be picked up");
 		}
@@ -284,6 +372,7 @@ namespace if_arena::battle_core
 		}
 
 		++_tick;
+		updatePlayerCooldowns();
 		events.insert(events.end(), _systemEvents.begin(), _systemEvents.end());
 		_systemEvents.clear();
 		updateObjectiveTimers(events);
@@ -291,6 +380,10 @@ namespace if_arena::battle_core
 		{
 			auto* player = findPlayer(pending.command.player);
 			if (player == nullptr)
+			{
+				continue;
+			}
+			if (player->hp <= 0)
 			{
 				continue;
 			}
@@ -305,6 +398,14 @@ namespace if_arena::battle_core
 			{
 				player->desiredMovement = normalize(pending.command.direction);
 			}
+			if (pending.command.type == PlayerCommandType::Attack)
+			{
+				performAttack(*player, pending.command.direction, events);
+			}
+			if (pending.command.type == PlayerCommandType::Dash)
+			{
+				performDash(*player, pending.command.direction, events);
+			}
 			if (pending.command.type == PlayerCommandType::Interact && canPickupObjective(*player))
 			{
 				pickUpObjective(*player, events);
@@ -314,6 +415,10 @@ namespace if_arena::battle_core
 
 		for (auto& player : _players)
 		{
+			if (player.hp <= 0)
+			{
+				continue;
+			}
 			if (isZero(player.desiredMovement))
 			{
 				player.inOwnBase = isInOwnBase(player);
@@ -351,6 +456,7 @@ namespace if_arena::battle_core
 				events.push_back(BattleEvent{BattleEventType::PlayerMoved, _tick, player.player, from, player.position});
 			}
 		}
+		updateHazards(events);
 
 		events.push_back(BattleEvent{BattleEventType::TickAdvanced, _tick, {}, {}, {}});
 		if (_tick >= _maxTicks)
@@ -364,7 +470,7 @@ namespace if_arena::battle_core
 
 	BattleSnapshot BattleEngine::snapshot() const
 	{
-		return BattleSnapshot{_tick, _width, _height, _finished, _players, _objective, _scores};
+		return BattleSnapshot{_tick, _width, _height, _finished, _players, _objective, _scores, _hazards};
 	}
 
 	PlayerSnapshot* BattleEngine::findPlayer(PlayerId player)
@@ -504,6 +610,201 @@ namespace if_arena::battle_core
 			_objective.state = ObjectiveState::AtSpawn;
 			events.push_back(BattleEvent{BattleEventType::ObjectiveRespawned, _tick, {}, _objectiveConfig->spawn,
 			                             _objectiveConfig->spawn, {}, 0});
+		}
+	}
+
+	void BattleEngine::dropObjectiveFromSystem(PlayerSnapshot& carrier, std::vector<BattleEvent>& events)
+	{
+		if (!_objectiveConfig.has_value() || _objective.state != ObjectiveState::Carried ||
+		    !(_objective.carrier == carrier.player))
+		{
+			return;
+		}
+
+		_objective.state = ObjectiveState::Dropped;
+		_objective.carrier = PlayerId{};
+		_objective.position = carrier.worldPosition;
+		_objective.pickupLockTicksRemaining = _objectiveConfig->pickupLockTicks;
+		_objective.respawnTicksRemaining = 0;
+		events.push_back(BattleEvent{BattleEventType::ObjectiveDropped, _tick, carrier.player, carrier.position,
+		                             carrier.position, carrier.team, 0, {}, 0});
+	}
+
+	void BattleEngine::applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events)
+	{
+		if (target.hp <= 0)
+		{
+			return;
+		}
+
+		target.hp = std::max(0, target.hp - damage);
+		if (_objective.state == ObjectiveState::Carried && _objective.carrier == target.player)
+		{
+			dropObjectiveFromSystem(target, events);
+		}
+		if (target.hp == 0)
+		{
+			target.desiredMovement = MovementVector{};
+			events.push_back(BattleEvent{BattleEventType::PlayerDefeated, _tick, target.player, target.position,
+			                             target.position, target.team, 0, {}, damage});
+		}
+	}
+
+	void BattleEngine::performAttack(PlayerSnapshot& attacker, Direction direction, std::vector<BattleEvent>& events)
+	{
+		attacker.attackCooldownTicksRemaining = _combat.attackCooldownTicks;
+		const MovementVector aim = normalize(direction);
+		const Vec2d attackEnd{
+			attacker.worldPosition.x + aim.dx * _combat.attackRange,
+			attacker.worldPosition.y + aim.dy * _combat.attackRange,
+		};
+		const double hitDistance = 0.5 + _playerCollisionRadius;
+		const double hitDistanceSquared = hitDistance * hitDistance;
+
+		PlayerSnapshot* target = nullptr;
+		double bestDistanceSquared = _combat.attackRange * _combat.attackRange + 1.0;
+		for (auto& candidate : _players)
+		{
+			if (candidate.player == attacker.player || candidate.team == attacker.team || candidate.hp <= 0)
+			{
+				continue;
+			}
+			const double pathDistanceSquared =
+				distancePointToSegmentSquared(candidate.worldPosition, attacker.worldPosition, attackEnd);
+			const double sourceDistanceSquared = distanceSquared(attacker.worldPosition, candidate.worldPosition);
+			if (pathDistanceSquared <= hitDistanceSquared && sourceDistanceSquared <= bestDistanceSquared)
+			{
+				target = &candidate;
+				bestDistanceSquared = sourceDistanceSquared;
+			}
+		}
+
+		if (target == nullptr)
+		{
+			events.push_back(BattleEvent{BattleEventType::AttackMissed, _tick, attacker.player, attacker.position,
+			                             nearestCell(attackEnd), attacker.team, 0, {}, 0});
+			return;
+		}
+
+		events.push_back(BattleEvent{BattleEventType::AttackHit, _tick, attacker.player, attacker.position,
+		                             target->position, attacker.team, 0, target->player, _combat.attackDamage});
+		applyDamage(*target, _combat.attackDamage, events);
+	}
+
+	Vec2d BattleEngine::collisionSafeTarget(Vec2d from, Vec2d desired) const
+	{
+		if (inBounds(desired) && !collidesWithObstacle(from, desired))
+		{
+			return desired;
+		}
+
+		const double distance = std::sqrt(distanceSquared(from, desired));
+		const int steps = std::max(1, static_cast<int>(std::ceil(distance * 4.0)));
+		Vec2d lastSafe = from;
+		for (int step = 1; step <= steps; ++step)
+		{
+			const double t = static_cast<double>(step) / static_cast<double>(steps);
+			const Vec2d candidate{
+				from.x + (desired.x - from.x) * t,
+				from.y + (desired.y - from.y) * t,
+			};
+			if (!inBounds(candidate) || collidesWithObstacle(lastSafe, candidate))
+			{
+				break;
+			}
+			lastSafe = candidate;
+		}
+		return lastSafe;
+	}
+
+	void BattleEngine::performDash(PlayerSnapshot& player, Direction direction, std::vector<BattleEvent>& events)
+	{
+		player.dashCooldownTicksRemaining = _combat.dashCooldownTicks;
+		const MovementVector dash = normalize(direction);
+		const Vec2d target{
+			player.worldPosition.x + dash.dx * _combat.dashDistance,
+			player.worldPosition.y + dash.dy * _combat.dashDistance,
+		};
+		const Vec2d safeTarget = collisionSafeTarget(player.worldPosition, target);
+		const Vec2i from = player.position;
+		player.worldPosition = safeTarget;
+		player.position = nearestCell(safeTarget);
+		player.inOwnBase = isInOwnBase(player);
+		if (_objective.state == ObjectiveState::Carried && _objective.carrier == player.player)
+		{
+			_objective.position = player.worldPosition;
+		}
+		if (player.position != from)
+		{
+			events.push_back(BattleEvent{BattleEventType::PlayerDashed, _tick, player.player, from, player.position,
+			                             player.team, 0, {}, 0});
+		}
+	}
+
+	bool BattleEngine::hasPendingCommand(PlayerId player, PlayerCommandType type) const
+	{
+		return std::any_of(_pendingCommands.begin(), _pendingCommands.end(), [&](const PendingCommand& pending) {
+			return pending.command.player == player && pending.command.type == type;
+		});
+	}
+
+	void BattleEngine::updatePlayerCooldowns()
+	{
+		for (auto& player : _players)
+		{
+			if (player.attackCooldownTicksRemaining > 0)
+			{
+				--player.attackCooldownTicksRemaining;
+			}
+			if (player.dashCooldownTicksRemaining > 0)
+			{
+				--player.dashCooldownTicksRemaining;
+			}
+		}
+	}
+
+	void BattleEngine::updateHazards(std::vector<BattleEvent>& events)
+	{
+		for (std::size_t index = 0; index < _hazardConfigs.size(); ++index)
+		{
+			auto& config = _hazardConfigs[index];
+			auto& hazard = _hazards[index];
+			if (hazard.cooldownTicksRemaining > 0)
+			{
+				--hazard.cooldownTicksRemaining;
+				if (config.kind == HazardKind::Mine && hazard.cooldownTicksRemaining == 0)
+				{
+					hazard.triggered = false;
+				}
+				continue;
+			}
+
+			PlayerSnapshot* target = nullptr;
+			for (auto& candidate : _players)
+			{
+				if (candidate.hp <= 0)
+				{
+					continue;
+				}
+				const double range = config.kind == HazardKind::Mine ? config.radius : config.range;
+				if (distanceSquared(candidate.worldPosition, config.position) <= range * range)
+				{
+					target = &candidate;
+					break;
+				}
+			}
+			if (target == nullptr)
+			{
+				continue;
+			}
+
+			hazard.triggered = true;
+			hazard.cooldownTicksRemaining = config.cooldownTicks;
+			events.push_back(BattleEvent{BattleEventType::HazardTelegraphed, _tick, {}, config.position, config.position,
+			                             target->team, 0, target->player, 0});
+			events.push_back(BattleEvent{BattleEventType::HazardHit, _tick, {}, config.position, target->position,
+			                             target->team, 0, target->player, config.damage});
+			applyDamage(*target, config.damage, events);
 		}
 	}
 

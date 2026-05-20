@@ -13,7 +13,5 @@ regexes = [
 ]
 paths = [
   '''(^|/)\.env\.example$''',
-  '''frontend/telegram_mini_app/\.env\.example$''',
-  '''docs/.*''',
-  '''.*\.md$'''
+  '''frontend/telegram_mini_app/\.env\.example$'''
 ]

@@ -28,6 +28,14 @@ For Telegram auth requests:
 
 Invalid validation must fail closed.
 
+Current backend helper:
+
+- `src/battle_backend/security/TelegramAuth.hpp` provides `TelegramAuthValidator`.
+- The bot token is supplied through `TelegramAuthConfig`; it must come from secure runtime configuration, never frontend code or committed files.
+- Validation checks raw init data size, required `hash`, required and fresh `auth_date`, and Telegram HMAC-SHA256 signature.
+- `redactTelegramInitDataForLog()` returns generic redaction text for auth logs.
+- Replay/duplicate protection is not implemented yet and remains required before production auth.
+
 ## 3. Transport requirements
 
 Public Mini App traffic must use:

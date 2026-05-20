@@ -66,6 +66,11 @@ battle_core -> trusted internal library
 - Redact raw init data from logs.
 - Fail closed on validation failure.
 
+Implementation note:
+
+- `TelegramAuthValidator` currently performs backend-side size, HMAC-SHA256 hash, and freshness checks using a bot token supplied by secure runtime configuration.
+- Replay protection and session-token issuance are still required follow-up work.
+
 ### 3.5 Session and authorization
 
 - Backend generates session ids.

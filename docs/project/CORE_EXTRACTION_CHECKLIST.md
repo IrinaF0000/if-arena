@@ -2,21 +2,21 @@
 
 ## Before extraction
 
-- [ ] Old project copied into `external/battle_simulation_snapshot/`.
-- [ ] Build artifacts removed from snapshot.
-- [ ] Current old project behavior understood.
-- [ ] Reference scenario selected.
-- [ ] Expected reference output/replay identified.
+- [x] Old project copied into `external/battle_simulation_snapshot/`.
+- [x] Build artifacts removed from snapshot.
+- [x] Current old project behavior understood at audit level; see `docs/agent-notes/0003-core-extraction-audit.md`.
+- [x] Reference scenario selected: old `tests/DeterministicScenarioTests.cpp::canonicalLegacyScenarioMatchesGoldenEventLog`.
+- [x] Expected reference output/replay identified: golden legacy event log in `tests/DeterministicScenarioTests.cpp` and sample JSON replay at `tools/replay-viewer/traces/basic-battle.json`.
 
 ## Extract modules
 
-- [ ] World/state model.
-- [ ] Unit/entity/component model.
+- [x] World/state model.
+- [x] Unit/entity/component model.
 - [ ] Action/rule execution.
-- [ ] Tick/update loop.
+- [x] Tick/update loop.
 - [ ] Scenario loading.
 - [ ] Feature pack/archetype loading.
-- [ ] Event generation.
+- [x] Event generation.
 - [ ] Replay/trace support, if reusable.
 
 ## Do not put into `battle_core`
@@ -31,27 +31,27 @@
 
 ## Add public facade
 
-- [ ] `BattleEngine` or equivalent.
-- [ ] `MatchConfig`.
-- [ ] `PlayerCommand`.
-- [ ] `CommandResult`.
-- [ ] `BattleSnapshot`.
-- [ ] `BattleEvent`.
-- [ ] `tick()` or fixed-step update method.
+- [x] `BattleEngine` or equivalent.
+- [x] `MatchConfig`.
+- [x] `PlayerCommand`.
+- [x] `CommandResult`.
+- [x] `BattleSnapshot`.
+- [x] `BattleEvent`.
+- [x] `tick()` or fixed-step update method.
 
 ## Add arena support
 
-- [ ] Player ownership.
+- [x] Player ownership.
 - [ ] Hero archetype.
 - [ ] Objective entity.
 - [ ] Hazard entities.
 - [ ] Move/attack/interact validation.
-- [ ] Match result state.
+- [x] Match result state.
 
 ## Acceptance
 
-- [ ] `battle_core` builds as static library.
+- [x] `battle_core` builds as static library.
 - [ ] Reference scenario deterministic test passes.
-- [ ] Local in-process arena match test passes.
-- [ ] No TCP/Qt dependencies in `battle_core`.
-- [ ] Documentation updated.
+- [x] Local in-process arena match test passes.
+- [x] No TCP/Qt dependencies in `battle_core`.
+- [x] Documentation updated.

@@ -4,6 +4,16 @@
 
 Use the existing local `battle_simulation` project as source material without modifying the original repository.
 
+## Current import status
+
+The original project snapshot is present at:
+
+```text
+external/battle_simulation_snapshot/battle_sim/
+```
+
+It was recorded on 2026-05-19 from a local `battle_simulation` project copy. The imported project README references `https://github.com/IrinaF0000/battle_simulation`; exact source commit metadata is unavailable because `.git` metadata was not copied.
+
 ## Recommended approach
 
 1. Create a new repository from this skeleton.

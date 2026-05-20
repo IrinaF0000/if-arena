@@ -1,6 +1,7 @@
 import { createTelegramBridge } from "./telegram/TelegramBridge";
 import { ArenaCanvas } from "./game/ArenaCanvas";
 import { WebSocketClient } from "./network/WebSocketClient";
+import { TouchControls } from "./ui/TouchControls";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -35,6 +36,7 @@ const arena = new ArenaCanvas(canvas);
 arena.renderPlaceholder();
 
 const stateLabel = document.querySelector<HTMLParagraphElement>("#connection-state");
+const touchControls = new TouchControls();
 const client = new WebSocketClient({
   url: "ws://127.0.0.1:8081/ws",
   onStateChanged: (state) => {
@@ -43,7 +45,9 @@ const client = new WebSocketClient({
     }
   },
   onMessage: (message) => {
-    console.log("message", message);
+    if (stateLabel && message.type === "client_parse_error") {
+      stateLabel.textContent = `Protocol error: ${message.payload.reason}`;
+    }
   }
 });
 
@@ -51,4 +55,16 @@ document.querySelector<HTMLButtonElement>("#connect")?.addEventListener("click",
   client.connect();
   const initData = bridge.getRawInitData();
   client.sendAuthRequest(initData);
+});
+
+document.querySelector<HTMLButtonElement>("#attack")?.addEventListener("click", () => {
+  touchControls.recordAction("attack");
+});
+
+document.querySelector<HTMLButtonElement>("#dash")?.addEventListener("click", () => {
+  touchControls.recordAction("dash");
+});
+
+document.querySelector<HTMLButtonElement>("#interact")?.addEventListener("click", () => {
+  touchControls.recordAction("interact");
 });

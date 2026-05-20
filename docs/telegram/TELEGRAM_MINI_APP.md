@@ -44,6 +44,7 @@ The Mini App may:
 
 - read `window.Telegram.WebApp.initData`;
 - send raw `initData` to backend;
+- validate inbound WebSocket envelopes before rendering;
 - render game snapshots;
 - collect player input;
 - send input commands;

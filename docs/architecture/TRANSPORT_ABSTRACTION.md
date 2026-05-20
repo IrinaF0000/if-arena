@@ -72,6 +72,15 @@ WebSocket:
 - WSS deployment;
 - Telegram auth flow.
 
+Current WebSocket skeleton:
+
+- `WebSocketSessionAdapter` implements backend `IOutboundSession`.
+- Each received WebSocket text message is treated as one protocol payload.
+- Message size is checked before protocol parsing.
+- Payload validation uses `battle_protocol::parseEnvelope()`.
+- The transport skeleton does not validate Telegram identity; it only forwards auth payloads toward backend-owned validation.
+- No concrete WebSocket library is selected yet.
+
 ## Forbidden duplication
 
 Do not duplicate:

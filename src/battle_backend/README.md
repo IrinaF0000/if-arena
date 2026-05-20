@@ -27,3 +27,15 @@ Does not own raw socket/WebSocket details. Does not render UI.
 
 Client messages are rejected until backend authentication assigns a `PlayerId`.
 Slow or overflowing outbound queues close the abstract outbound session with `QueueOverflow`.
+
+## Match loop model
+
+`MatchLoop.hpp` adds the transport-neutral in-process match manager:
+
+- `MatchId`, deterministic join codes, and session-owned player membership.
+- `MatchManager::createMatch` and `joinMatch` start a two-player Objective Run match without sockets.
+- `submitCommand` accepts intentions only, maps the backend-owned session player to `battle_core`, and rejects wrong sessions, claimed-player mismatches, duplicate or out-of-order sequence numbers, rate-limit excess, and bounded queue overflow.
+- `tick` is the deterministic driver for tests and future workers: it drains a bounded command queue, applies commands to `BattleEngine`, and queues event/snapshot payloads for each matched session.
+- `MatchMetrics` tracks active/created matches, accepted/applied/rejected commands, snapshot/event broadcasts, disconnects, and queue overflows.
+
+The current playable slice is intentionally two-player only. Slow sessions are handled by the existing bounded outbound queue: if snapshots/events accumulate past configured message or byte limits, the session is closed with `QueueOverflow`.

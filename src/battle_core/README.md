@@ -34,11 +34,19 @@ This module must remain reusable and testable without sockets.
 
 Clients and transports must not construct authoritative state directly; they send intentions to backend code that later calls this facade.
 
+Movement is fixed-step and server-authoritative:
+
+- players have canonical world positions, desired movement, team, spawn, and own-base state;
+- move commands set desired movement and stop commands clear it;
+- ticks advance smooth world positions deterministically;
+- arena bounds and obstacle cells block movement in core before snapshots are emitted.
+
 `ArenaConfig.hpp` defines the Objective Run arena model for the playable slice:
 
 - canonical 21x13 arena dimensions;
 - base zones, player spawn cells, obstacle cells, and objective spawn cell;
 - 180-degree rotational symmetry helpers;
+- player-view coordinate/input transform helpers that keep server coordinates canonical;
 - validation for bounds, required objects, duplicate/blocked cells, and symmetric layout.
 
 The arena config is pure core data. It does not parse files, read environment variables, or depend on transport/client code.

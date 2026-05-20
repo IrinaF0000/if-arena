@@ -130,6 +130,8 @@ network sessions -> command queue -> match worker -> battle_core tick -> snapsho
 
 The match worker applies accepted commands on tick boundaries or deterministic processing steps.
 
+The in-process playable slice exposes this as `battle_backend::MatchManager`. It creates a two-player Objective Run match through a deterministic join code, owns the session-to-player mapping, rejects any client-claimed player mismatch, and publishes event/snapshot payloads through bounded outbound session queues. The current test driver calls `tick` directly; later transports should feed the same manager rather than owning match state.
+
 ## Tick loop
 
 Initial settings:

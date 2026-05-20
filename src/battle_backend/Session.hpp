@@ -52,7 +52,13 @@ namespace if_arena::battle_backend
 		Closed,
 		QueueFull,
 		CapacityReached,
-		NotFound
+		NotFound,
+		InvalidMatch,
+		MatchNotStarted,
+		MatchFull,
+		InvalidOwnership,
+		InvalidSequence,
+		RateLimited
 	};
 
 	struct BackendResult
@@ -74,6 +80,12 @@ namespace if_arena::battle_backend
 		std::size_t maxSessions{1024};
 		std::size_t maxPendingOutboundMessages{64};
 		std::size_t maxPendingOutboundBytes{1024u * 1024u};
+		std::size_t maxMatches{128};
+		std::size_t maxPlayersPerMatch{2};
+		std::size_t maxPendingCommandsPerMatch{128};
+		std::size_t maxPendingCommandsPerSession{16};
+		std::size_t maxCommandsPerSessionPerTick{4};
+		std::size_t maxCommandsPerTick{64};
 	};
 
 	struct SessionMetrics

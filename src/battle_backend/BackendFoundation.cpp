@@ -1,4 +1,6 @@
 #include "Session.hpp"
+#include "MatchLoop.hpp"
+#include "ArenaConfig.hpp"
 #include "security/TelegramAuth.hpp"
 
 #include <algorithm>
@@ -7,9 +9,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <iomanip>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <span>
+#include <stdexcept>
 #include <utility>
 
 namespace if_arena::battle_backend
@@ -24,6 +28,32 @@ namespace if_arena::battle_backend
 		BackendResult rejected(BackendRejectReason reason)
 		{
 			return BackendResult{false, reason};
+		}
+
+		std::optional<battle_core::PlayerId> corePlayerIdFrom(PlayerId player)
+		{
+			if (player.value == 0 || player.value > std::numeric_limits<std::uint32_t>::max())
+			{
+				return std::nullopt;
+			}
+			return battle_core::PlayerId{static_cast<std::uint32_t>(player.value)};
+		}
+
+		std::string snapshotPayload(MatchId match, const battle_core::BattleSnapshot& snapshot)
+		{
+			std::ostringstream output;
+			output << "{\"type\":\"Snapshot\",\"match\":" << match.value << ",\"tick\":" << snapshot.tick
+			       << ",\"players\":" << snapshot.players.size() << ",\"finished\":" << (snapshot.finished ? "true" : "false")
+			       << "}";
+			return output.str();
+		}
+
+		std::string eventBatchPayload(MatchId match, std::uint32_t tick, std::size_t eventCount)
+		{
+			std::ostringstream output;
+			output << "{\"type\":\"EventBatch\",\"match\":" << match.value << ",\"tick\":" << tick
+			       << ",\"events\":" << eventCount << "}";
+			return output.str();
 		}
 	}
 
@@ -222,6 +252,451 @@ namespace if_arena::battle_backend
 			result.outboundQueueOverflows += session.queueOverflowCount();
 		}
 		return result;
+	}
+
+	bool CreateMatchResult::accepted() const
+	{
+		return result.accepted;
+	}
+
+	bool JoinMatchResult::accepted() const
+	{
+		return result.accepted;
+	}
+
+	MatchManager::MatchManager(SessionRegistry& sessions, BackendLimits limits)
+		: _sessions(sessions),
+		  _limits(limits)
+	{
+		_limits.maxPlayersPerMatch = 2;
+	}
+
+	CreateMatchResult MatchManager::createMatch(SessionId owner)
+	{
+		auto* session = _sessions.find(owner);
+		if (session == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return CreateMatchResult{rejected(BackendRejectReason::NotFound), std::nullopt, {}};
+		}
+		if (session->authState() == SessionAuthState::Closed)
+		{
+			++_metrics.commandsRejected;
+			return CreateMatchResult{rejected(BackendRejectReason::Closed), std::nullopt, {}};
+		}
+		if (!session->player().has_value())
+		{
+			++_metrics.commandsRejected;
+			return CreateMatchResult{rejected(BackendRejectReason::AuthRequired), std::nullopt, {}};
+		}
+		if (_matches.size() >= _limits.maxMatches)
+		{
+			++_metrics.commandsRejected;
+			return CreateMatchResult{rejected(BackendRejectReason::CapacityReached), std::nullopt, {}};
+		}
+		if (findMatchBySession(owner) != nullptr)
+		{
+			++_metrics.commandsRejected;
+			return CreateMatchResult{rejected(BackendRejectReason::InvalidOwnership), std::nullopt, {}};
+		}
+		const auto corePlayer = corePlayerIdFrom(*session->player());
+		if (!corePlayer.has_value())
+		{
+			++_metrics.commandsRejected;
+			return CreateMatchResult{rejected(BackendRejectReason::InvalidOwnership), std::nullopt, {}};
+		}
+
+		const MatchId match{_nextMatchId++};
+		MatchRecord record;
+		record.id = match;
+		record.joinCode = "M" + std::to_string(match.value);
+		record.participants.push_back(Participant{
+			owner,
+			*session->player(),
+			*corePlayer,
+			battle_core::ArenaTeam::Blue,
+			0,
+			0,
+		});
+		_matches.push_back(std::move(record));
+		++_metrics.activeMatches;
+		++_metrics.matchesCreated;
+		return CreateMatchResult{accepted(), match, _matches.back().joinCode};
+	}
+
+	JoinMatchResult MatchManager::joinMatch(SessionId sessionId, std::string_view joinCode)
+	{
+		auto* session = _sessions.find(sessionId);
+		if (session == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::NotFound), std::nullopt, std::nullopt};
+		}
+		if (session->authState() == SessionAuthState::Closed)
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::Closed), std::nullopt, std::nullopt};
+		}
+		if (!session->player().has_value())
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::AuthRequired), std::nullopt, std::nullopt};
+		}
+		if (findMatchBySession(sessionId) != nullptr)
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::InvalidOwnership), std::nullopt, std::nullopt};
+		}
+
+		auto* match = findMatchByJoinCode(joinCode);
+		if (match == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::InvalidMatch), std::nullopt, std::nullopt};
+		}
+		if (match->participants.size() >= _limits.maxPlayersPerMatch || match->engine.has_value())
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::MatchFull), std::nullopt, std::nullopt};
+		}
+		const auto corePlayer = corePlayerIdFrom(*session->player());
+		if (!corePlayer.has_value())
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{rejected(BackendRejectReason::InvalidOwnership), std::nullopt, std::nullopt};
+		}
+
+		const auto team = match->participants.empty() ? battle_core::ArenaTeam::Blue : battle_core::ArenaTeam::Red;
+		match->participants.push_back(Participant{
+			sessionId,
+			*session->player(),
+			*corePlayer,
+			team,
+			0,
+			0,
+		});
+
+		const auto started = startMatchIfReady(*match);
+		if (!started.accepted)
+		{
+			++_metrics.commandsRejected;
+			return JoinMatchResult{started, std::nullopt, std::nullopt};
+		}
+		return JoinMatchResult{accepted(), match->id, session->player()};
+	}
+
+	BackendResult MatchManager::submitCommand(SessionId sessionId, MatchId matchId, std::uint64_t sessionSeq,
+	                                          BackendCommand command, std::optional<PlayerId> claimedPlayer)
+	{
+		auto* session = _sessions.find(sessionId);
+		if (session == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::NotFound);
+		}
+		if (session->authState() == SessionAuthState::Closed)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::Closed);
+		}
+
+		auto* match = findMatch(matchId);
+		if (match == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::InvalidMatch);
+		}
+		if (!match->engine.has_value())
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::MatchNotStarted);
+		}
+
+		auto* participant = findParticipant(*match, sessionId);
+		if (participant == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::InvalidOwnership);
+		}
+		if (claimedPlayer.has_value() && !(*claimedPlayer == participant->player))
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::InvalidOwnership);
+		}
+		if (sessionSeq == 0 || sessionSeq <= participant->lastSessionSeq)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::InvalidSequence);
+		}
+		if (participant->commandsThisTick >= _limits.maxCommandsPerSessionPerTick)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::RateLimited);
+		}
+		if (match->queuedCommands.size() >= _limits.maxPendingCommandsPerMatch ||
+		    pendingForSession(*match, sessionId) >= _limits.maxPendingCommandsPerSession)
+		{
+			++_metrics.commandsRejected;
+			++_metrics.queueOverflows;
+			return rejected(BackendRejectReason::QueueFull);
+		}
+
+		auto coreCommand = toCoreCommand(*participant, command);
+		if (!coreCommand.has_value())
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::InvalidMatch);
+		}
+
+		participant->lastSessionSeq = sessionSeq;
+		++participant->commandsThisTick;
+		match->queuedCommands.push_back(QueuedCommand{sessionId, *coreCommand});
+		++_metrics.commandsAccepted;
+		return accepted();
+	}
+
+	BackendResult MatchManager::tick(MatchId matchId)
+	{
+		auto* match = findMatch(matchId);
+		if (match == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::InvalidMatch);
+		}
+		if (!match->engine.has_value())
+		{
+			++_metrics.commandsRejected;
+			return rejected(BackendRejectReason::MatchNotStarted);
+		}
+
+		const auto commandsToApply = std::min(_limits.maxCommandsPerTick, match->queuedCommands.size());
+		for (std::size_t index = 0; index < commandsToApply; ++index)
+		{
+			const auto result = match->engine->submit(match->queuedCommands[index].command);
+			if (result.accepted())
+			{
+				++_metrics.commandsApplied;
+			}
+			else
+			{
+				++_metrics.commandsRejected;
+			}
+		}
+		match->queuedCommands.erase(match->queuedCommands.begin(),
+		                            match->queuedCommands.begin() + static_cast<std::ptrdiff_t>(commandsToApply));
+
+		const auto events = match->engine->tick();
+		const auto snapshot = match->engine->snapshot();
+		if (!events.empty())
+		{
+			broadcast(*match, eventBatchPayload(match->id, snapshot.tick, events.size()), false);
+		}
+		broadcast(*match, snapshotPayload(match->id, snapshot), true);
+		for (auto& participant : match->participants)
+		{
+			participant.commandsThisTick = 0;
+		}
+		return accepted();
+	}
+
+	BackendResult MatchManager::disconnect(SessionId sessionId, DisconnectReason reason)
+	{
+		auto* session = _sessions.find(sessionId);
+		if (session == nullptr)
+		{
+			return rejected(BackendRejectReason::NotFound);
+		}
+		const bool wasOpen = session->authState() != SessionAuthState::Closed;
+		const auto result = _sessions.closeSession(sessionId, reason);
+		if (result.accepted && wasOpen)
+		{
+			++_metrics.disconnects;
+		}
+		for (auto& match : _matches)
+		{
+			match.queuedCommands.erase(
+				std::remove_if(match.queuedCommands.begin(), match.queuedCommands.end(),
+				               [sessionId](const QueuedCommand& command) { return command.session == sessionId; }),
+				match.queuedCommands.end());
+		}
+		return result;
+	}
+
+	std::optional<MatchView> MatchManager::view(MatchId matchId) const
+	{
+		const auto* match = findMatch(matchId);
+		if (match == nullptr)
+		{
+			return std::nullopt;
+		}
+		return MatchView{
+			match->id,
+			match->joinCode,
+			match->engine.has_value(),
+			match->participants.size(),
+			match->queuedCommands.size(),
+			match->engine.has_value() ? std::optional<battle_core::BattleSnapshot>{match->engine->snapshot()} : std::nullopt,
+		};
+	}
+
+	MatchMetrics MatchManager::metrics() const
+	{
+		return _metrics;
+	}
+
+	MatchManager::MatchRecord* MatchManager::findMatch(MatchId match)
+	{
+		const auto found = std::find_if(_matches.begin(), _matches.end(), [match](const MatchRecord& candidate) {
+			return candidate.id == match;
+		});
+		return found == _matches.end() ? nullptr : &*found;
+	}
+
+	const MatchManager::MatchRecord* MatchManager::findMatch(MatchId match) const
+	{
+		const auto found = std::find_if(_matches.begin(), _matches.end(), [match](const MatchRecord& candidate) {
+			return candidate.id == match;
+		});
+		return found == _matches.end() ? nullptr : &*found;
+	}
+
+	MatchManager::MatchRecord* MatchManager::findMatchByJoinCode(std::string_view joinCode)
+	{
+		const auto found = std::find_if(_matches.begin(), _matches.end(), [joinCode](const MatchRecord& candidate) {
+			return candidate.joinCode == joinCode;
+		});
+		return found == _matches.end() ? nullptr : &*found;
+	}
+
+	const MatchManager::MatchRecord* MatchManager::findMatchBySession(SessionId session) const
+	{
+		const auto found = std::find_if(_matches.begin(), _matches.end(), [session](const MatchRecord& candidate) {
+			return std::any_of(candidate.participants.begin(), candidate.participants.end(),
+			                   [session](const Participant& participant) { return participant.session == session; });
+		});
+		return found == _matches.end() ? nullptr : &*found;
+	}
+
+	MatchManager::Participant* MatchManager::findParticipant(MatchRecord& match, SessionId session)
+	{
+		const auto found = std::find_if(match.participants.begin(), match.participants.end(),
+		                                [session](const Participant& participant) { return participant.session == session; });
+		return found == match.participants.end() ? nullptr : &*found;
+	}
+
+	const MatchManager::Participant* MatchManager::findParticipant(const MatchRecord& match, SessionId session) const
+	{
+		const auto found = std::find_if(match.participants.begin(), match.participants.end(),
+		                                [session](const Participant& participant) { return participant.session == session; });
+		return found == match.participants.end() ? nullptr : &*found;
+	}
+
+	std::size_t MatchManager::pendingForSession(const MatchRecord& match, SessionId session) const
+	{
+		return static_cast<std::size_t>(std::count_if(match.queuedCommands.begin(), match.queuedCommands.end(),
+		                                              [session](const QueuedCommand& command) {
+			                                              return command.session == session;
+		                                              }));
+	}
+
+	battle_core::MatchConfig MatchManager::makeMatchConfig(const MatchRecord& match) const
+	{
+		const auto arena = battle_core::makeSmallObjectiveRunArenaConfig();
+		const auto validation = battle_core::validateArenaConfig(arena);
+		if (!validation.valid())
+		{
+			throw std::invalid_argument("backend arena config is invalid");
+		}
+
+		battle_core::MatchConfig config;
+		config.width = arena.dimensions.width;
+		config.height = arena.dimensions.height;
+		config.obstacles = arena.obstacles;
+		config.bases = {
+			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Red, arena.redBase->center, arena.redBase->radius},
+			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Blue, arena.blueBase->center, arena.blueBase->radius},
+		};
+		config.objective = battle_core::ObjectiveConfig{*arena.objectiveSpawn, 0.75, 0.8, 10, 20, 1};
+		config.combat.attackDamage = 25;
+		config.combat.attackRange = 1.25;
+		config.combat.attackCooldownTicks = 3;
+		config.combat.dashDistance = 2.0;
+		config.combat.dashCooldownTicks = 5;
+
+		config.players.reserve(match.participants.size());
+		for (const auto& participant : match.participants)
+		{
+			const auto spawn = participant.team == battle_core::ArenaTeam::Blue ? arena.blueSpawn : arena.redSpawn;
+			if (!spawn.has_value())
+			{
+				throw std::invalid_argument("backend arena spawn is missing");
+			}
+			config.players.push_back(battle_core::PlayerConfig{participant.corePlayer, participant.team, spawn->cell, 100});
+		}
+		return config;
+	}
+
+	std::optional<battle_core::PlayerCommand> MatchManager::toCoreCommand(const Participant& participant,
+	                                                                      BackendCommand command) const
+	{
+		const battle_core::Direction direction = battle_core::inputDirectionToWorld(command.direction, participant.team);
+		switch (command.kind)
+		{
+		case BackendCommandKind::Move:
+			return battle_core::PlayerCommand::move(participant.corePlayer, direction);
+		case BackendCommandKind::Stop:
+			return battle_core::PlayerCommand::stop(participant.corePlayer);
+		case BackendCommandKind::Attack:
+			return battle_core::PlayerCommand::attack(participant.corePlayer, direction);
+		case BackendCommandKind::Interact:
+			return battle_core::PlayerCommand{participant.corePlayer, battle_core::PlayerCommandType::Interact, {}};
+		case BackendCommandKind::Dash:
+			return battle_core::PlayerCommand::dash(participant.corePlayer, direction);
+		}
+		return std::nullopt;
+	}
+
+	BackendResult MatchManager::startMatchIfReady(MatchRecord& match)
+	{
+		if (match.engine.has_value() || match.participants.size() < _limits.maxPlayersPerMatch)
+		{
+			return accepted();
+		}
+		match.engine.emplace(makeMatchConfig(match));
+		return accepted();
+	}
+
+	void MatchManager::broadcast(MatchRecord& match, std::string payload, bool countAsSnapshot)
+	{
+		for (const auto& participant : match.participants)
+		{
+			auto* session = _sessions.find(participant.session);
+			if (session == nullptr || session->authState() == SessionAuthState::Closed)
+			{
+				continue;
+			}
+			const auto before = session->authState();
+			const auto result = session->enqueueOutbound(payload);
+			if (result.accepted)
+			{
+				if (countAsSnapshot)
+				{
+					++_metrics.snapshotsBroadcast;
+				}
+				else
+				{
+					++_metrics.eventBatchesBroadcast;
+				}
+			}
+			else if (result.reason == BackendRejectReason::QueueFull)
+			{
+				++_metrics.queueOverflows;
+				if (before != SessionAuthState::Closed && session->authState() == SessionAuthState::Closed)
+				{
+					++_metrics.disconnects;
+				}
+			}
+		}
 	}
 }
 

@@ -14,6 +14,12 @@ Initial implementation may use structured periodic logs:
 
 Later, add HTTP `/metrics` or Prometheus exporter.
 
+Current local state:
+
+- `battle_server_app` prints startup/config summaries and periodic aggregate metrics.
+- Load reports under `reports/load/` capture client-side counts and latency samples for reproducible local smoke runs.
+- There is no production metrics endpoint yet.
+
 ## Required labels
 
 Use labels consistently:
@@ -53,6 +59,18 @@ Log at warning level:
 - rate limited;
 - slow client disconnected;
 - queue limit reached.
+
+Load-test reports should record:
+
+- commit hash or branch under test;
+- server config path or inline limits;
+- transport;
+- scenario;
+- clients started/connected;
+- commands sent and acknowledgements received;
+- rejected commands and protocol errors;
+- p50/p95/p99 latency when measured;
+- limitations of the run.
 
 Log at error level:
 

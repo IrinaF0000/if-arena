@@ -45,6 +45,7 @@ battle_core -> trusted internal library
 - Apply idle timeout.
 - Bound outgoing queue.
 - Disconnect or degrade slow clients.
+- Negative local checks cover malformed JSON, unknown message type, invalid session phase, and forbidden authority fields.
 
 ### 3.3 WebSocket transport
 
@@ -124,6 +125,8 @@ Must bound:
 - Telegram init data length;
 - reconnect attempts.
 
+Current local limits are configured through `config/examples/server.local.json` and mirrored in load/security smoke scripts. Public deployment must set stricter environment-specific limits before exposing either transport.
+
 ### 3.8 Logging
 
 - No raw auth data.
@@ -162,6 +165,12 @@ Public demo:
 - Do not commit secrets.
 - Use environment variables or secret manager for bot token.
 - Disable development demo auth unless explicitly intended.
+
+Current status:
+
+- Local demo mode enables demo auth for CLI, Qt, and local browser testing.
+- Telegram auth validation exists backend-side, but replay protection and production session-token issuance remain follow-up work.
+- Raw TCP is suitable for local portfolio demos; exposing it publicly requires firewalling, conservative limits, and explicit operations review.
 
 ## 6. References
 

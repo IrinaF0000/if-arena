@@ -66,8 +66,11 @@ Current WebSocket transport skeleton behavior:
 
 - rejects oversized messages before protocol parsing;
 - parses inbound text through the shared protocol envelope parser;
+- validates message order by session phase before backend handling;
+- fails closed on malformed, unknown, oversized, or out-of-order messages;
+- provides explicit handshake and idle timeout checks;
 - does not trust or extract Telegram identity in the transport layer;
-- leaves Telegram `initData` validation to backend-owned auth code.
+- leaves Telegram `initData` validation to backend-owned auth code before authentication is marked complete.
 
 Reject:
 

@@ -129,7 +129,7 @@ docs/
 
 This repository has the foundation modules, an in-process backend match loop, and a local raw TCP vertical slice for the playable IF Arena work. Two local CLI/TCP clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
 
-Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later WebSocket, Telegram auth, Qt client, load, and security-hardening slices are complete.
+Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later Qt client, load, and security-hardening slices are complete.
 
 Local raw TCP smoke:
 
@@ -144,6 +144,16 @@ For repeatable hostile-input coverage after building, run:
 
 ```bash
 python tests/integration/server/tcp_vertical_slice_smoke.py
+python tests/frontend/websocket_local_smoke.py
+```
+
+Telegram Mini App frontend checks:
+
+```bash
+cd frontend/telegram_mini_app
+npm run typecheck
+npm run lint
+npm run build
 ```
 
 ## CI/CD safety

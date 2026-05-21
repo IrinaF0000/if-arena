@@ -2,10 +2,13 @@
 #include "Protocol.hpp"
 #include "Session.hpp"
 #include "TcpFrameCodec.hpp"
+#include "WebSocketSession.hpp"
+#include "security/TelegramAuth.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstdlib>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -42,6 +45,11 @@ namespace
 	using if_arena::battle_transport_tcp::TcpEndpoint;
 	using if_arena::battle_transport_tcp::TcpListener;
 	using if_arena::battle_transport_tcp::TcpReadStatus;
+	using if_arena::battle_transport_ws::WebSocketConnection;
+	using if_arena::battle_transport_ws::WebSocketEndpoint;
+	using if_arena::battle_transport_ws::WebSocketListener;
+	using if_arena::battle_transport_ws::WebSocketReadStatus;
+	using if_arena::battle_transport_ws::WebSocketSessionAdapter;
 
 	struct TransportConfig
 	{
@@ -808,6 +816,31 @@ namespace
 		std::mutex _mutex;
 	};
 
+	class WebSocketBackendOutbound final : public IOutboundSession
+	{
+	public:
+		explicit WebSocketBackendOutbound(WebSocketConnection& connection)
+			: _connection(connection)
+		{
+		}
+
+		bool send(std::string_view payload) override
+		{
+			std::lock_guard lock(_mutex);
+			return _connection.sendText(payload).ok;
+		}
+
+		void close(DisconnectReason) override
+		{
+			std::lock_guard lock(_mutex);
+			_connection.close();
+		}
+
+	private:
+		WebSocketConnection& _connection;
+		std::mutex _mutex;
+	};
+
 	std::string backendReasonName(if_arena::battle_backend::BackendRejectReason reason)
 	{
 		using if_arena::battle_backend::BackendRejectReason;
@@ -865,7 +898,24 @@ namespace
 		                          "{\"code\":" + jsonString(code) + ",\"message\":" + jsonString(message) + "}");
 	}
 
-	void flushAllSessions(TcpRuntimeState& state)
+	bool sendServerEnvelope(WebSocketConnection& connection, MessageType type, std::string payload)
+	{
+		const auto serialized = serializeEnvelope(serverEnvelope(type, std::move(payload)));
+		if (!serialized.ok())
+		{
+			return false;
+		}
+		return connection.sendText(*serialized.json).ok;
+	}
+
+	bool sendError(WebSocketConnection& connection, std::string code, std::string message)
+	{
+		return sendServerEnvelope(connection, MessageType::Error,
+		                          "{\"code\":" + jsonString(code) + ",\"message\":" + jsonString(message) + "}");
+	}
+
+	template <typename RuntimeState>
+	void flushAllSessions(RuntimeState& state)
 	{
 		for (const auto sessionId : state.liveSessions)
 		{
@@ -1112,6 +1162,208 @@ namespace
 		}
 	}
 
+	bool validateWebSocketAuth(const ServerConfig& config, const Envelope& envelope)
+	{
+		const auto mode = stringField(envelope.payloadJson, "mode");
+		if (!mode.has_value())
+		{
+			return false;
+		}
+		if (*mode == "demo")
+		{
+			return config.demoAuthEnabled;
+		}
+		if (*mode != "telegram" || !config.telegramAuthEnabled || config.telegramBotTokenEnv.empty())
+		{
+			return false;
+		}
+		const auto initData = stringField(envelope.payloadJson, "initData");
+		if (!initData.has_value())
+		{
+			return false;
+		}
+		const char* token = std::getenv(config.telegramBotTokenEnv.c_str());
+		if (token == nullptr || std::string_view{token}.empty())
+		{
+			return false;
+		}
+		const auto now = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+		                                                std::chrono::system_clock::now().time_since_epoch())
+		                                                .count());
+		const if_arena::battle_backend::security::TelegramAuthValidator validator{
+			if_arena::battle_backend::security::TelegramAuthConfig{
+				token,
+				now,
+				300,
+				4096,
+			},
+		};
+		return validator.validate(*initData).ok();
+	}
+
+	struct WebSocketRuntimeState
+	{
+		SessionRegistry& sessions;
+		MatchManager& matches;
+		BackendLimits limits;
+		const ServerConfig& config;
+		std::mutex mutex;
+		std::uint64_t nextConnectionId{1};
+		std::vector<SessionId> liveSessions;
+	};
+
+	void handleWebSocketClient(WebSocketConnection connection, WebSocketRuntimeState& state)
+	{
+		WebSocketBackendOutbound outbound{connection};
+		WebSocketSessionAdapter adapter;
+		SessionId sessionId{};
+		{
+			std::lock_guard lock(state.mutex);
+			const auto created = state.sessions.createSession(ConnectionId{state.nextConnectionId++}, outbound);
+			if (!created.accepted() || !created.session.has_value())
+			{
+				sendError(connection, "capacity_reached", "server session capacity reached");
+				return;
+			}
+			sessionId = *created.session;
+			state.liveSessions.push_back(sessionId);
+		}
+
+		std::optional<MatchId> currentMatch;
+		while (connection.valid())
+		{
+			auto read = connection.readText();
+			if (read.status == WebSocketReadStatus::TimedOut)
+			{
+				const auto timeout = adapter.checkTimeout(WebSocketSessionAdapter::Clock::now());
+				if (timeout.action == if_arena::battle_transport_ws::WebSocketLifecycleAction::SendPing)
+				{
+					sendServerEnvelope(connection, MessageType::Ping, "{}");
+				}
+				if (timeout.action == if_arena::battle_transport_ws::WebSocketLifecycleAction::Close)
+				{
+					sendError(connection, "timeout", timeout.error.has_value() ? timeout.error->message : "timeout");
+					break;
+				}
+				continue;
+			}
+			if (read.status == WebSocketReadStatus::Closed)
+			{
+				break;
+			}
+			if (read.status == WebSocketReadStatus::Error)
+			{
+				break;
+			}
+
+			auto received = adapter.receiveText(read.text);
+			if (!received.ok())
+			{
+				sendError(connection, "protocol_error", received.error.has_value() ? received.error->message : "invalid message");
+				break;
+			}
+
+			if (received.envelope->type == MessageType::AuthRequest)
+			{
+				if (!validateWebSocketAuth(state.config, *received.envelope))
+				{
+					sendError(connection, "auth_failed", "authentication failed");
+					break;
+				}
+				std::lock_guard lock(state.mutex);
+				auto* session = state.sessions.find(sessionId);
+				if (session == nullptr || !session->authenticate(PlayerId{sessionId.value}).accepted)
+				{
+					sendError(connection, "auth_failed", "backend authentication failed");
+					break;
+				}
+				adapter.markAuthenticated();
+				sendServerEnvelope(connection, MessageType::AuthResult,
+				                   "{\"accepted\":true,\"sessionId\":\"" + std::to_string(sessionId.value) + "\"}");
+				continue;
+			}
+
+			if (received.envelope->type == MessageType::CreateMatch)
+			{
+				std::lock_guard lock(state.mutex);
+				const auto created = state.matches.createMatch(sessionId);
+				if (!created.accepted() || !created.match.has_value())
+				{
+					sendError(connection, "create_match_rejected", backendReasonName(created.result.reason));
+					continue;
+				}
+				currentMatch = *created.match;
+				adapter.markInMatch();
+				sendServerEnvelope(connection, MessageType::MatchJoined,
+				                   "{\"matchId\":\"" + std::to_string(created.match->value) + "\",\"matchCode\":\"" +
+				                    created.joinCode + "\"}");
+				continue;
+			}
+
+			if (received.envelope->type == MessageType::JoinMatch)
+			{
+				const auto joinCode = stringField(received.envelope->payloadJson, "matchCode");
+				if (!joinCode.has_value())
+				{
+					sendError(connection, "join_match_rejected", "missing match code");
+					continue;
+				}
+				std::lock_guard lock(state.mutex);
+				const auto joined = state.matches.joinMatch(sessionId, *joinCode);
+				if (!joined.accepted() || !joined.match.has_value())
+				{
+					sendError(connection, "join_match_rejected", backendReasonName(joined.result.reason));
+					continue;
+				}
+				currentMatch = *joined.match;
+				adapter.markInMatch();
+				sendServerEnvelope(connection, MessageType::MatchJoined,
+				                   "{\"matchId\":\"" + std::to_string(joined.match->value) + "\",\"matchCode\":\"" +
+				                    *joinCode + "\"}");
+				state.matches.tick(*currentMatch);
+				flushAllSessions(state);
+				continue;
+			}
+
+			if (received.envelope->type == MessageType::InputCommand)
+			{
+				MatchId match{};
+				const auto command = parseBackendCommand(*received.envelope, match);
+				if (!command.has_value() || !received.envelope->sessionSeq.has_value())
+				{
+					sendError(connection, "input_rejected", "invalid input command payload");
+					continue;
+				}
+				std::lock_guard lock(state.mutex);
+				const auto submitted = state.matches.submitCommand(sessionId, match, *received.envelope->sessionSeq, *command);
+				sendServerEnvelope(connection, MessageType::InputAck,
+				                   "{\"accepted\":" + std::string{submitted.accepted ? "true" : "false"} +
+				                    ",\"reason\":\"" + backendReasonName(submitted.reason) + "\"}");
+				if (submitted.accepted)
+				{
+					state.matches.tick(match);
+					flushAllSessions(state);
+				}
+				continue;
+			}
+
+			if (received.envelope->type == MessageType::Ping)
+			{
+				sendServerEnvelope(connection, MessageType::Pong, "{}");
+				continue;
+			}
+			if (received.envelope->type == MessageType::Pong)
+			{
+				adapter.markPongReceived();
+			}
+		}
+
+		{
+			std::lock_guard lock(state.mutex);
+			state.matches.disconnect(sessionId, DisconnectReason::ClientClosed);
+		}
+	}
+
 	int runTcpServer(const ServerConfig& config, const BackendLimits& limits, SessionRegistry& sessions,
 	                 MatchManager& matches, std::size_t maxClients)
 	{
@@ -1170,6 +1422,68 @@ namespace
 		std::cout << "TCP listener stopped acceptedClients=" << accepted << '\n';
 		return 0;
 	}
+
+	int runWebSocketServer(const ServerConfig& config, const BackendLimits& limits, SessionRegistry& sessions,
+	                       MatchManager& matches, std::size_t maxClients)
+	{
+		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, 1000u});
+		WebSocketEndpoint endpoint;
+		endpoint.host = config.websocket.host;
+		endpoint.port = static_cast<std::uint16_t>(config.websocket.port);
+		endpoint.path = config.websocket.path;
+		endpoint.limits.maxMessageBytes = config.websocket.maxBytes;
+		endpoint.limits.maxPendingBytes = config.maxPendingWriteBytesPerSession;
+		endpoint.limits.maxPendingMessages = config.maxPendingOutboundMessages;
+		endpoint.limits.handshakeTimeout = std::chrono::milliseconds{config.handshakeTimeoutMs};
+		endpoint.limits.idleTimeout = std::chrono::milliseconds{config.idleTimeoutMs};
+		endpoint.receiveTimeoutMs = socketPollTimeoutMs;
+		endpoint.sendTimeoutMs = config.idleTimeoutMs;
+
+		std::optional<if_arena::battle_transport_ws::WebSocketSocketError> error;
+		auto listener = WebSocketListener::bindAndListen(endpoint, error);
+		if (!listener.has_value())
+		{
+			std::cerr << "error: failed to start WebSocket listener: "
+			          << (error.has_value() ? error->message : "unknown error") << '\n';
+			return 1;
+		}
+
+		std::cout << "WebSocket listener started host=" << config.websocket.host << " port=" << config.websocket.port
+		          << " path=" << config.websocket.path << " maxMessageBytes=" << config.websocket.maxBytes << '\n';
+		WebSocketRuntimeState state{sessions, matches, limits, config};
+		std::vector<std::thread> workers;
+		std::size_t accepted = 0;
+		while (maxClients == 0 || accepted < maxClients)
+		{
+			std::optional<if_arena::battle_transport_ws::WebSocketSocketError> acceptError;
+			auto client = listener->accept(acceptError);
+			if (!client.has_value())
+			{
+				if (acceptError.has_value() &&
+				    acceptError->code == if_arena::battle_transport_ws::WebSocketSocketErrorCode::TimedOut)
+				{
+					continue;
+				}
+				std::cerr << "error: WebSocket accept failed: "
+				          << (acceptError.has_value() ? acceptError->message : "unknown error") << '\n';
+				return 1;
+			}
+			++accepted;
+			workers.emplace_back([connection = std::move(*client), &state]() mutable {
+				handleWebSocketClient(std::move(connection), state);
+			});
+		}
+
+		for (auto& worker : workers)
+		{
+			if (worker.joinable())
+			{
+				worker.join();
+			}
+		}
+		std::cout << "WebSocket listener stopped acceptedClients=" << accepted << '\n';
+		return 0;
+	}
 }
 
 int main(int argc, char** argv)
@@ -1211,13 +1525,13 @@ int main(int argc, char** argv)
 	}
 
 	std::vector<std::string> startupErrors;
-	if (config.websocket.enabled)
+	if (config.tcp.enabled && config.websocket.enabled)
 	{
-		std::cout << "WebSocket listener is not implemented in this task yet; skipping until task 0026.\n";
+		std::cout << "Both TCP and WebSocket are enabled; starting TCP listener for compatibility. Disable TCP in config to run the local WebSocket listener.\n";
 	}
-	if (!config.tcp.enabled)
+	if (!config.tcp.enabled && !config.websocket.enabled)
 	{
-		addError(startupErrors, "TCP transport is disabled; raw TCP vertical slice has no listener to run");
+		addError(startupErrors, "no transports are enabled; server has no listener to run");
 	}
 	if (!startupErrors.empty())
 	{
@@ -1225,7 +1539,8 @@ int main(int argc, char** argv)
 		return failWithErrors(startupErrors);
 	}
 
-	const int tcpResult = runTcpServer(config, limits, sessions, matches, options.maxClients);
+	const int result = config.tcp.enabled ? runTcpServer(config, limits, sessions, matches, options.maxClients)
+	                                     : runWebSocketServer(config, limits, sessions, matches, options.maxClients);
 	std::cout << "Shutdown complete.\n";
-	return tcpResult;
+	return result;
 }

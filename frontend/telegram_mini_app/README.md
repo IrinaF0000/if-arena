@@ -19,9 +19,27 @@ Must not contain:
 - authoritative game rules;
 - direct trust in `initDataUnsafe`.
 
-The Mini App sends raw Telegram `initData` to the backend for validation and then sends only player intentions such as move, aim, attack, dash, and interact.
+The Mini App sends raw Telegram `initData` to the backend for validation after the WebSocket `open` event and then sends only player intentions such as move, aim, attack, dash, and interact.
 
 Inbound WebSocket data is treated as `unknown` until `src/protocol/ProtocolTypes.ts` validates the protocol envelope.
+
+## Local commands
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
+
+The frontend reads `VITE_WS_URL` when provided and otherwise connects to `ws://127.0.0.1:8081/ws` for local development.
+
+Controls:
+
+- `WASD` or arrow keys send movement intentions.
+- Space sends attack.
+- Shift sends dash.
+- `E` sends interact.
+- On-screen buttons provide touch fallback.
 
 ## Dependency policy
 

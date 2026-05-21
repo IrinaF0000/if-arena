@@ -1,7 +1,10 @@
-import { createTelegramBridge } from "./telegram/TelegramBridge";
 import { ArenaCanvas } from "./game/ArenaCanvas";
 import { WebSocketClient } from "./network/WebSocketClient";
+import type { ConnectionState } from "./network/WebSocketClient";
+import type { IncomingMessage } from "./protocol/ProtocolTypes";
+import { createTelegramBridge } from "./telegram/TelegramBridge";
 import { TouchControls } from "./ui/TouchControls";
+import "./style.css";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -10,16 +13,34 @@ if (!root) {
 
 root.innerHTML = `
   <main class="app-shell">
-    <header>
-      <h1>IF Arena</h1>
-      <p id="connection-state">Disconnected</p>
+    <header class="topbar">
+      <div>
+        <h1>IF Arena</h1>
+        <p id="match-line">No match</p>
+      </div>
+      <p id="connection-state" class="status-pill">disconnected</p>
     </header>
-    <canvas id="arena" width="960" height="540"></canvas>
-    <section class="controls">
+    <section class="play-surface">
+      <canvas id="arena" width="960" height="540"></canvas>
+    </section>
+    <section class="toolbar">
       <button id="connect">Connect</button>
+      <button id="create-match">Create</button>
+      <label class="join-field">
+        <span>Code</span>
+        <input id="join-code" autocomplete="off" maxlength="32" placeholder="M1" />
+      </label>
+      <button id="join-match">Join</button>
+    </section>
+    <section class="controls" aria-label="Player controls">
+      <button id="move-up">↑</button>
+      <button id="move-left">←</button>
+      <button id="move-down">↓</button>
+      <button id="move-right">→</button>
       <button id="attack">Attack</button>
       <button id="dash">Dash</button>
       <button id="interact">Interact</button>
+      <button id="stop">Stop</button>
     </section>
   </main>
 `;
@@ -27,44 +48,97 @@ root.innerHTML = `
 const bridge = createTelegramBridge();
 bridge.ready();
 
-const canvas = document.querySelector<HTMLCanvasElement>("#arena");
-if (!canvas) {
-  throw new Error("Missing arena canvas");
-}
-
+const canvas = requireElement<HTMLCanvasElement>("#arena");
+const stateLabel = requireElement<HTMLParagraphElement>("#connection-state");
+const matchLine = requireElement<HTMLParagraphElement>("#match-line");
+const joinCodeInput = requireElement<HTMLInputElement>("#join-code");
 const arena = new ArenaCanvas(canvas);
-arena.renderPlaceholder();
 
-const stateLabel = document.querySelector<HTMLParagraphElement>("#connection-state");
-const touchControls = new TouchControls();
+const wsUrl = configuredWsUrl();
 const client = new WebSocketClient({
-  url: "ws://127.0.0.1:8081/ws",
-  onStateChanged: (state) => {
-    if (stateLabel) {
-      stateLabel.textContent = state;
-    }
-  },
-  onMessage: (message) => {
-    if (stateLabel && message.type === "client_parse_error") {
-      stateLabel.textContent = `Protocol error: ${message.payload.reason}`;
-    }
-  }
+  url: wsUrl,
+  displayName: "Telegram Demo Player",
+  onStateChanged: (state) => updateConnectionState(state),
+  onMessage: (message) => handleMessage(message)
 });
+
+const controls = new TouchControls({
+  sendCommand: (kind, direction) => client.sendCommand(kind, direction)
+});
+controls.bindKeyboard(window);
+controls.bindButton(document.querySelector<HTMLButtonElement>("#move-up"), "move", { x: 0, y: -1 });
+controls.bindButton(document.querySelector<HTMLButtonElement>("#move-left"), "move", { x: -1, y: 0 });
+controls.bindButton(document.querySelector<HTMLButtonElement>("#move-down"), "move", { x: 0, y: 1 });
+controls.bindButton(document.querySelector<HTMLButtonElement>("#move-right"), "move", { x: 1, y: 0 });
+controls.bindButton(document.querySelector<HTMLButtonElement>("#attack"), "attack", { x: 0, y: -1 });
+controls.bindButton(document.querySelector<HTMLButtonElement>("#dash"), "dash", { x: 0, y: -1 });
+controls.bindButton(document.querySelector<HTMLButtonElement>("#interact"), "interact");
+controls.bindButton(document.querySelector<HTMLButtonElement>("#stop"), "stop");
 
 document.querySelector<HTMLButtonElement>("#connect")?.addEventListener("click", () => {
   client.connect();
-  const initData = bridge.getRawInitData();
-  client.sendAuthRequest(initData);
+  client.sendAuthRequest(bridge.getRawInitData());
 });
 
-document.querySelector<HTMLButtonElement>("#attack")?.addEventListener("click", () => {
-  touchControls.recordAction("attack");
+document.querySelector<HTMLButtonElement>("#create-match")?.addEventListener("click", () => {
+  client.createMatch();
 });
 
-document.querySelector<HTMLButtonElement>("#dash")?.addEventListener("click", () => {
-  touchControls.recordAction("dash");
+document.querySelector<HTMLButtonElement>("#join-match")?.addEventListener("click", () => {
+  client.joinMatch(joinCodeInput.value);
 });
 
-document.querySelector<HTMLButtonElement>("#interact")?.addEventListener("click", () => {
-  touchControls.recordAction("interact");
-});
+updateConnectionState("disconnected");
+arena.render();
+
+function handleMessage(message: IncomingMessage): void {
+  switch (message.type) {
+    case "auth_result": {
+      const accepted = message.payload.accepted === true || message.payload.ok === true;
+      stateLabel.textContent = accepted ? "authenticated" : "auth rejected";
+      arena.setStatus(stateLabel.textContent);
+      break;
+    }
+    case "match_joined":
+      matchLine.textContent = `Match ${message.payload.matchId} | Code ${message.payload.matchCode}`;
+      joinCodeInput.value = message.payload.matchCode;
+      break;
+    case "snapshot":
+      arena.setSnapshot(message.payload);
+      break;
+    case "input_ack":
+      if (!message.payload.accepted) {
+        stateLabel.textContent = `input ${message.payload.reason ?? "rejected"}`;
+        arena.setStatus(stateLabel.textContent);
+      }
+      break;
+    case "error":
+      stateLabel.textContent = `error: ${message.payload.code}`;
+      arena.setStatus(stateLabel.textContent);
+      break;
+    case "client_parse_error":
+      stateLabel.textContent = `protocol: ${message.payload.reason}`;
+      arena.setStatus(stateLabel.textContent);
+      break;
+    case "event_batch":
+      break;
+  }
+}
+
+function updateConnectionState(state: ConnectionState): void {
+  stateLabel.textContent = state;
+  arena.setStatus(state);
+}
+
+function requireElement<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Missing element ${selector}`);
+  }
+  return element;
+}
+
+function configuredWsUrl(): string {
+  const meta = import.meta as ImportMeta & { env?: { VITE_WS_URL?: string } };
+  return meta.env?.VITE_WS_URL ?? "ws://127.0.0.1:8081/ws";
+}

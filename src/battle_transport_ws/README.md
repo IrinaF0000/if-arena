@@ -12,14 +12,19 @@ Must use shared protocol validation.
 Must not trust Telegram identity by itself.
 Must not implement gameplay rules.
 
-## Session skeleton
+## Session adapter
 
-`WebSocketSession.hpp` provides the current no-socket skeleton:
+`WebSocketSession.hpp` provides the current local socket/session adapter:
 
 - `WebSocketSessionAdapter` implements backend `IOutboundSession`.
 - Inbound text messages are size-checked, then validated through `battle_protocol::parseEnvelope()`.
-- Oversized inbound messages fail closed with a protocol disconnect reason.
-- Malformed protocol messages return explicit errors and do not log raw payloads.
-- Outbound sends are bounded by the same message size limit.
+- Inbound messages are phase-validated with `validateClientEnvelope()` before backend code may handle them.
+- Oversized, malformed, unknown, or out-of-order messages fail closed with a protocol disconnect reason.
+- Handshake and idle timeout checks are explicit and testable.
+- Outbound sends are bounded by message count and pending byte limits.
+- The adapter stores sent payloads for deterministic tests; a concrete socket endpoint must flush those payloads to the WebSocket library/socket.
+- `WebSocketListener` performs the local HTTP Upgrade handshake and returns `WebSocketConnection` objects.
+- `WebSocketFrameDecoder` decodes masked client text frames and rejects oversized, unmasked, fragmented, or unsupported frames.
+- `encodeWebSocketTextFrame()` emits unmasked server text frames.
 
-No WebSocket library is selected yet. A later integration packet should add the actual async WebSocket endpoint and keep this adapter boundary.
+Telegram identity is still backend-owned. The transport accepts raw auth envelopes and must pass Telegram `initData` to backend validation before marking a session authenticated.

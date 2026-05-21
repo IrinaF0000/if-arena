@@ -24,12 +24,14 @@ Current implementation:
 - `ui/ArenaView.*` renders only validated authoritative snapshots and converts mouse input into local intention directions.
 - `game/CoordinateTransform.*` contains the player-oriented view helpers covered by `battle_qt_client_transform_tests`.
 
-Build with Qt installed:
+Build on Windows with the Qt MinGW kit:
 
-```bash
-cmake -S . -B build-qt -DBATTLE_BUILD_QT_CLIENT=ON -DBATTLE_BUILD_TESTS=ON
-cmake --build build-qt --parallel
-build-qt/battle_qt_client
+```powershell
+$env:Path = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;$env:Path"
+cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
+cmake --build build-qt-mingw --parallel
+ctest --test-dir build-qt-mingw --output-on-failure
+build-qt-mingw\battle_qt_client.exe
 ```
 
 The default repository build keeps `BATTLE_BUILD_QT_CLIENT=OFF` so non-Qt CI environments still compile the backend, transports, CLI, load client, and tests. The Qt target links to `battle_protocol` and Qt Widgets/Network; it does not link to `battle_core`.

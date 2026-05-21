@@ -68,7 +68,7 @@ Task 0025 wires the local raw TCP path into backend sessions:
 - Authoritative snapshots/events are produced by `battle_backend` and sent back through the backend outbound queue, not by client code.
 - Malformed JSON, unknown message types, oversized frames, handshake timeout, idle timeout, and bounded outbound queues fail closed.
 
-This slice is local/demo infrastructure. Public hardening, async I/O, richer metrics, and WebSocket/Telegram integration remain later tasks.
+This slice is local/demo infrastructure. Public hardening, async I/O scaling, richer metrics, and production deployment remain later tasks.
 
 ## Transport-specific responsibilities
 
@@ -84,14 +84,14 @@ WebSocket:
 - WSS deployment;
 - Telegram auth flow.
 
-Current WebSocket skeleton:
+Current local WebSocket slice:
 
 - `WebSocketSessionAdapter` implements backend `IOutboundSession`.
 - Each received WebSocket text message is treated as one protocol payload.
 - Message size is checked before protocol parsing.
 - Payload validation uses `battle_protocol::parseEnvelope()`.
-- The transport skeleton does not validate Telegram identity; it only forwards auth payloads toward backend-owned validation.
-- No concrete WebSocket library is selected yet.
+- The transport does not validate Telegram identity; it forwards auth payloads toward backend-owned validation.
+- `battle_server_app` includes a local HTTP Upgrade listener for Telegram Mini App/browser development when TCP is disabled and WebSocket is enabled in config.
 
 ## Forbidden duplication
 

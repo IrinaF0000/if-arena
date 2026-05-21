@@ -40,5 +40,6 @@ Recommended order:
 23. `0026-websocket-and-telegram-playable-slice.md`
 24. `0027-qt-playable-client.md`
 25. `0028-load-security-hardening-and-portfolio.md`
+26. `0030-release-stabilization-and-qt-verification.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

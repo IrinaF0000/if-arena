@@ -38,10 +38,10 @@ IF Arena has:
 
 Mitigations:
 
-- strict parser;
-- boundary exception handling;
-- negative tests;
-- generic errors.
+- shared protocol parser for TCP and WebSocket envelopes;
+- TCP/WebSocket frame/message size checks before normal payload handling;
+- negative tests for malformed JSON, unknown message type, invalid order, and client authority fields;
+- generic structured errors.
 
 ### Oversized messages exhaust memory
 
@@ -76,6 +76,7 @@ Mitigations:
 - commands are intentions only;
 - server validates ownership and rules;
 - server owns all game state.
+- `tests/security/tcp_protocol_negative.py` exercises command-before-auth and forbidden authority fields through the TCP server.
 
 ### Telegram identity spoofing
 
@@ -85,6 +86,7 @@ Mitigations:
 - ignore initDataUnsafe for authority;
 - check auth_date freshness;
 - store no bot token in frontend.
+- demo auth remains local/development only and must be disabled for public Telegram deployments.
 
 ### Secrets leaked in logs
 
@@ -105,10 +107,10 @@ Mitigations:
 
 ## 5. Open questions
 
-- Exact library for WebSocket implementation.
-- Exact Telegram initData validation implementation location.
 - Public deployment platform and TLS termination path.
 - Whether replay protection for Telegram auth is needed for MVP or only freshness check.
+- Large slow-reader soak and mixed TCP/WebSocket load tests.
+- Snapshot coalescing versus disconnect-only slow-client policy.
 
 ## 6. Review cadence
 

@@ -164,6 +164,33 @@ cmake --build build-qt --parallel
 build-qt/battle_qt_client
 ```
 
+Load and security smoke:
+
+```bash
+build/battle_load_client --dry-run --scenario gameplay --clients 20 --duration 30 --command-rate 5 --seed 42 --output reports/load/dry-run-gameplay.md
+python tests/load/load_client_dry_run.py
+python tests/load/local_tcp_load_scenarios.py
+python tests/security/tcp_protocol_negative.py
+python scripts/ci/scan_secrets.py
+```
+
+## Known limitations
+
+- The server is a local portfolio/demo backend, not a production deployment.
+- Raw TCP is intended for local CLI/Qt/load testing unless a deployment review adds firewalling, TLS strategy where applicable, and stricter operations controls.
+- Telegram auth is backend-validated, but replay protection and production session-token issuance remain follow-up work.
+- WebSocket support is local HTTP Upgrade only in this slice; public Telegram usage requires WSS/HTTPS termination.
+- Large slow-reader soaks, mixed TCP/WebSocket load, snapshot coalescing, and production metrics export are future hardening tasks.
+- Qt target requires a local Qt SDK and is disabled in default non-Qt builds.
+
+## Portfolio Summary
+
+- C++20 authoritative game backend with transport-independent protocol validation.
+- Raw TCP and WebSocket local transports with bounded frames/messages and session phase checks.
+- CLI, Qt Widgets, and Telegram Mini App clients that send player intentions only.
+- Deterministic Objective Run core, backend match loop, and reproducible local smoke/load reports.
+- Security notes, secret scanning, scoped agent workflow, and honest release limitations are documented.
+
 ## CI/CD safety
 
 PR and main workflows are intentionally separated. PR CI validates C++, TypeScript, repository structure, and secret-scanning without deployment or production secrets. Main CI repeats validation on the merged tree and may build non-sensitive artifacts. Workflow changes are protected by `docs/ci/CI_CD_GUARDRAILS.md`.

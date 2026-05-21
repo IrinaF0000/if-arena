@@ -11,16 +11,10 @@ It is part of the portfolio story. It should produce reproducible reports, not j
 ## Example usage
 
 ```text
-battle_load_client --server 127.0.0.1 --port 5555 --clients 100 --matches 50 --ramp-up 10 --duration 180 --scenario gameplay --output reports/load_100.json
+battle_load_client --dry-run --endpoint 127.0.0.1:5555 --clients 100 --duration 60 --command-rate 10 --scenario gameplay --seed 42 --output reports/load/dry-run-report.md
 ```
 
-Current foundation usage:
-
-```text
-battle_load_client --dry-run --endpoint 127.0.0.1:4000 --clients 100 --duration 60 --command-rate 10 --scenario connect_only --output reports/load/dry-run-report.md
-```
-
-Dry-run mode does not open sockets. It validates bounded options and writes the initial markdown report format.
+Dry-run mode does not open sockets. It validates bounded options and writes the markdown report format for a named scenario. Live local raw TCP smoke lives in `tests/load/local_tcp_load_scenarios.py`.
 
 ## Required scenarios
 
@@ -28,8 +22,8 @@ Dry-run mode does not open sockets. It validates bounded options and writes the 
 - `create_and_join`
 - `gameplay`
 - `slow_readers`
-- `spam_clients`
-- `malformed_clients`
+- `command_spam`
+- `invalid_payloads`
 
 ## Required metrics
 
@@ -38,7 +32,7 @@ Dry-run mode does not open sockets. It validates bounded options and writes the 
 - connection failures;
 - commands sent;
 - acknowledgements received;
-- average latency;
+- p50 latency;
 - p95 latency;
 - p99 latency;
 - disconnects;
@@ -51,3 +45,4 @@ Dry-run mode does not open sockets. It validates bounded options and writes the 
 - Do not hide failures. Report them clearly.
 - Do not use unrealistic client behavior unless the scenario explicitly says so.
 - Keep generated client-side buffers bounded by configuration.
+- Do not present dry-run counts as throughput.

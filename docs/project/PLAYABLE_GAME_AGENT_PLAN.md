@@ -40,6 +40,13 @@ Task: `0028`.
 
 Finish with load/security hardening, reproducible demo instructions, honest limitations, and portfolio-ready documentation. Any scenario that remains incomplete must be explicitly marked as later stretch scope in README and supporting docs.
 
+Current hardening closeout scope:
+
+- local TCP and dry-run load scenarios are reproducible;
+- security notes cover TCP, WebSocket, Telegram auth, demo auth, and remaining risks;
+- README records quickstarts, known limitations, and a portfolio summary;
+- large production soaks, public deployment, WSS/TLS operations, and replay protection remain outside the playable-local slice.
+
 ## Task Order
 
 1. `0016` clean foundation before playable slice.

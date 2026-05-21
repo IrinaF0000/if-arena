@@ -78,9 +78,26 @@ if(BATTLE_BUILD_LOAD_CLIENT)
 endif()
 
 if(BATTLE_BUILD_QT_CLIENT)
-    # Placeholder target only. Replace with a real Qt Widgets target after Qt dependency setup.
-    add_executable(battle_qt_client src/battle_qt_client/QtClientMain.cpp)
-    target_link_libraries(battle_qt_client PRIVATE battle_protocol)
+    find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
+    add_executable(battle_qt_client
+        src/battle_qt_client/QtClientMain.cpp
+        src/battle_qt_client/game/ClientTypes.cpp
+        src/battle_qt_client/game/ClientTypes.hpp
+        src/battle_qt_client/game/CoordinateTransform.cpp
+        src/battle_qt_client/game/CoordinateTransform.hpp
+        src/battle_qt_client/game/ProtocolJson.cpp
+        src/battle_qt_client/game/ProtocolJson.hpp
+        src/battle_qt_client/network/NetworkClient.cpp
+        src/battle_qt_client/network/NetworkClient.hpp
+        src/battle_qt_client/ui/ArenaView.cpp
+        src/battle_qt_client/ui/ArenaView.hpp
+        src/battle_qt_client/ui/MainWindow.cpp
+        src/battle_qt_client/ui/MainWindow.hpp
+    )
+    set_target_properties(battle_qt_client PROPERTIES AUTOMOC ON)
+    target_include_directories(battle_qt_client PRIVATE src/battle_qt_client)
+    target_link_libraries(battle_qt_client PRIVATE battle_protocol Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
 endif()
 
 if(BATTLE_BUILD_TESTS)
@@ -113,4 +130,11 @@ if(BATTLE_BUILD_TESTS)
     add_executable(battle_security_tests tests/security/TelegramAuthTests.cpp)
     target_link_libraries(battle_security_tests PRIVATE battle_backend)
     add_test(NAME battle_security_tests COMMAND battle_security_tests)
+
+    add_executable(battle_qt_client_transform_tests
+        src/battle_qt_client/game/CoordinateTransform.cpp
+        src/battle_qt_client/tests/CoordinateTransformTests.cpp
+    )
+    target_include_directories(battle_qt_client_transform_tests PRIVATE src/battle_qt_client)
+    add_test(NAME battle_qt_client_transform_tests COMMAND battle_qt_client_transform_tests)
 endif()

@@ -1,8 +1,11 @@
-// Placeholder for future Qt Widgets client target.
-#include "network/NetworkClient.hpp"
+#include "ui/MainWindow.hpp"
 
-int main()
+#include <QApplication>
+
+int main(int argc, char** argv)
 {
-	if_arena::battle_qt_client::network::NetworkClient client;
-	return client.canSendIntent() ? 1 : 0;
+	QApplication app(argc, argv);
+	if_arena::battle_qt_client::ui::MainWindow window;
+	window.show();
+	return QApplication::exec();
 }

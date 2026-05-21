@@ -17,6 +17,8 @@ Each player should see their own base at the bottom of the screen and the enemy 
 | E | Interact/pick up/capture |
 | Esc | Cancel/menu |
 
+Qt also exposes visible connect/disconnect, create, and join controls. Rejected backend commands must be shown in the event log or error surface without changing the rendered authoritative snapshot.
+
 ## Telegram Mini App controls
 
 Mobile:

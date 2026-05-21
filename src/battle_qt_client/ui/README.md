@@ -1,3 +1,10 @@
 # Qt UI
 
-Connection panel, lobby, arena scene, HUD, event log.
+Qt Widgets UI for the local playable client.
+
+- `MainWindow` owns connection controls, create/join lobby controls, HUD labels, error surface, event log, and keyboard input.
+- `ArenaView` paints authoritative snapshots only: map grid, local/enemy base bands, objective, hazards, players, outlines, HP bars, and local/enemy labels.
+- Keyboard controls send intentions through `NetworkClient`: W/A/S/D or arrows move, Space attacks, Shift dashes, E interacts, Esc disconnects.
+- Mouse movement sends aim intentions and left click sends attack intentions.
+
+The UI never mutates authoritative positions, HP, score, objective state, or match result.

@@ -1,99 +1,105 @@
 #pragma once
 
+#include "Protocol.hpp"
+#include "game/ClientTypes.hpp"
+
+#include <QJsonObject>
+#include <QObject>
+#include <QTcpSocket>
+#include <QTimer>
+
 #include <cstdint>
-#include <string>
-#include <string_view>
-#include <utility>
 
 namespace if_arena::battle_qt_client::network
 {
-	struct ServerEndpoint
-	{
-		std::string host{"127.0.0.1"};
-		std::uint16_t port{4000};
-	};
-
 	enum class ConnectionState
 	{
 		Disconnected,
 		Connecting,
 		Connected,
+		Authenticated,
+		InMatch,
 		Disconnecting,
 		Error
 	};
 
-	enum class ClientIntentKind
+	struct ServerEndpoint
 	{
-		Move,
-		Aim,
-		Attack,
-		Dash,
-		Interact,
-		Stop
+		QString host{"127.0.0.1"};
+		quint16 port{5555};
 	};
 
-	struct ClientIntent
+	class NetworkClient : public QObject
 	{
-		ClientIntentKind kind{ClientIntentKind::Stop};
-		float x{};
-		float y{};
-	};
+		Q_OBJECT
 
-	class NetworkClient
-	{
 	public:
-		[[nodiscard]] ConnectionState state() const
+		enum class ProtocolPhase
 		{
-			return _state;
-		}
+			Connected,
+			Authenticated,
+			InMatch
+		};
 
-		[[nodiscard]] const ServerEndpoint& endpoint() const
-		{
-			return _endpoint;
-		}
+		explicit NetworkClient(QObject* parent = nullptr);
 
-		[[nodiscard]] std::string_view lastError() const
-		{
-			return _lastError;
-		}
+		[[nodiscard]] ConnectionState state() const;
+		[[nodiscard]] QString stateText() const;
+		[[nodiscard]] QString sessionId() const;
+		[[nodiscard]] QString matchId() const;
+		[[nodiscard]] QString matchCode() const;
+		[[nodiscard]] QString lastError() const;
+		[[nodiscard]] bool canSendIntent() const;
 
-		[[nodiscard]] bool canSendIntent() const
-		{
-			return _state == ConnectionState::Connected;
-		}
+	public slots:
+		void connectTo(ServerEndpoint endpoint, QString displayName);
+		void disconnectFromServer();
+		void createMatch();
+		void joinMatch(QString matchCode);
+		void sendIntent(if_arena::battle_qt_client::game::ClientIntent intent);
 
-		void connectTo(ServerEndpoint endpoint)
-		{
-			_endpoint = std::move(endpoint);
-			_lastError.clear();
-			_state = ConnectionState::Connecting;
-		}
+	signals:
+		void connectionStateChanged(if_arena::battle_qt_client::network::ConnectionState state, QString label);
+		void errorChanged(QString message);
+		void eventReceived(QString message);
+		void matchJoined(QString matchId, QString matchCode);
+		void snapshotReceived(if_arena::battle_qt_client::game::ArenaSnapshot snapshot, QString localPlayerId);
+		void inputAckReceived(bool accepted, QString reason);
+		void latencyUpdated(int milliseconds);
 
-		void markConnectedForAdapter()
-		{
-			_lastError.clear();
-			_state = ConnectionState::Connected;
-		}
-
-		void failConnection(std::string error)
-		{
-			_lastError = std::move(error);
-			_state = ConnectionState::Error;
-		}
-
-		void disconnect()
-		{
-			_state = ConnectionState::Disconnected;
-		}
-
-		[[nodiscard]] bool sendIntent(ClientIntent)
-		{
-			return canSendIntent();
-		}
+	private slots:
+		void onConnected();
+		void onDisconnected();
+		void onReadyRead();
+		void onSocketError(QAbstractSocket::SocketError error);
+		void sendPing();
 
 	private:
+		void setState(ConnectionState state);
+		void fail(QString message);
+		void appendFrame(const QByteArray& payload);
+		void processFrame(const QByteArray& frame);
+		bool sendEnvelope(if_arena::battle_protocol::MessageType type, const QJsonObject& payload);
+		bool sendEnvelope(if_arena::battle_protocol::MessageType type, const QJsonObject& payload, std::uint64_t sessionSeq);
+		void sendAuthRequest();
+		void validateServerMessage(if_arena::battle_protocol::MessageType type, const QString& payloadJson);
+
+		QTcpSocket _socket;
+		QTimer _pingTimer;
+		QByteArray _buffer;
 		ConnectionState _state{ConnectionState::Disconnected};
+		ProtocolPhase _phase{ProtocolPhase::Connected};
 		ServerEndpoint _endpoint;
-		std::string _lastError;
+		QString _displayName{"qt-player"};
+		QString _sessionId;
+		QString _matchId;
+		QString _matchCode;
+		QString _lastError;
+		std::uint64_t _sessionSeq{1};
+		qint64 _lastPingSentMs{};
+		static constexpr qsizetype MaxFrameBytes = 64 * 1024;
+		static constexpr qsizetype MaxBufferedBytes = 128 * 1024;
 	};
+
+	[[nodiscard]] QString connectionStateName(ConnectionState state);
 }

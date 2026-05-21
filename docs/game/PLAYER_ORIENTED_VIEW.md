@@ -21,6 +21,8 @@ world coordinates -> local screen coordinates
 local input -> canonical world direction/command
 ```
 
+In the current local playable TCP backend, command directions are carried as team-local intent and transformed to canonical world direction at the backend session boundary. Clients still must not send screen coordinates, positions, HP, scores, objective state, or any other authoritative state.
+
 ## Input mapping
 
 Example with Blue at canonical bottom and Red at canonical top:

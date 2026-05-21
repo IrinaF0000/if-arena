@@ -39,7 +39,7 @@ The server uses one canonical coordinate system. Clients may render a local play
 - each player sees their own base at the bottom of the screen;
 - the enemy base appears at the top;
 - `W` or forward touch input always means moving toward the center/enemy side in the local view;
-- the client transforms local input into canonical world coordinates before sending commands;
+- local controls are interpreted in player view and the local TCP backend transforms team-local command directions to canonical world movement;
 - replay, spectator, and debug views use canonical orientation.
 
 Player view may use local colors: own hero blue/cyan, enemy hero red. Replay/debug views may use fixed team colors.
@@ -127,9 +127,9 @@ docs/
 
 ## Status
 
-This repository has the foundation modules, an in-process backend match loop, and a local raw TCP vertical slice for the playable IF Arena work. Two local CLI/TCP clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
+This repository has the foundation modules, an in-process backend match loop, local raw TCP and WebSocket vertical slices, a Telegram Mini App slice, and a Qt Widgets playable client target. Local CLI/TCP, Qt, and Telegram/WebSocket clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
 
-Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later Qt client, load, and security-hardening slices are complete.
+Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later load and security-hardening slice is complete.
 
 Local raw TCP smoke:
 
@@ -154,6 +154,14 @@ cd frontend/telegram_mini_app
 npm run typecheck
 npm run lint
 npm run build
+```
+
+Qt desktop client with a local Qt install:
+
+```bash
+cmake -S . -B build-qt -DBATTLE_BUILD_QT_CLIENT=ON -DBATTLE_BUILD_TESTS=ON
+cmake --build build-qt --parallel
+build-qt/battle_qt_client
 ```
 
 ## CI/CD safety

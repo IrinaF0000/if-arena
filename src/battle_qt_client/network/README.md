@@ -2,19 +2,13 @@
 
 Network code stays separated from widgets.
 
-Current skeleton:
+Current implementation:
 
-- `NetworkClient.hpp` holds transport-neutral connection state and player-intention send gate.
-- It intentionally avoids Qt includes until the project adds a real `QObject`/`QTcpSocket` target.
-- It never owns authoritative game state; it only tracks connection state and whether an intent may be sent.
-
-Future signal/slot plan:
-
-- `connectRequested(ServerEndpoint)` from UI -> NetworkClient connect slot.
-- `disconnectRequested()` from UI -> NetworkClient disconnect slot.
-- `intentReady(ClientIntent)` from input mapper -> NetworkClient send slot.
-- `connectionStateChanged(ConnectionState)` from NetworkClient -> UI/HUD.
-- `protocolMessageReceived(...)` from NetworkClient -> protocol/UI adapter after validation.
-- `networkError(QString)` from NetworkClient -> UI user-facing error surface.
+- `NetworkClient` is a `QObject` wrapper around asynchronous `QTcpSocket`.
+- It owns raw TCP length-prefix framing and rejects zero, oversized, malformed, or client-originated server messages.
+- It serializes outbound protocol envelopes through `battle_protocol::serializeEnvelope` and validates them with the current session phase before writing.
+- It parses and validates server envelopes before emitting typed UI signals for auth, match join, snapshots, input acks, events, errors, and latency.
+- It sends only player intentions: move, aim, attack, dash, interact, and stop.
+- It does not own authoritative match state and does not link to `battle_core`.
 
 No blocking calls are allowed on the UI thread.

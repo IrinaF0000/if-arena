@@ -1,6 +1,7 @@
 #include "Session.hpp"
 #include "MatchLoop.hpp"
 #include "ArenaConfig.hpp"
+#include "Protocol.hpp"
 #include "security/TelegramAuth.hpp"
 
 #include <algorithm>
@@ -42,18 +43,26 @@ namespace if_arena::battle_backend
 		std::string snapshotPayload(MatchId match, const battle_core::BattleSnapshot& snapshot)
 		{
 			std::ostringstream output;
-			output << "{\"type\":\"Snapshot\",\"match\":" << match.value << ",\"tick\":" << snapshot.tick
+			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << snapshot.tick
 			       << ",\"players\":" << snapshot.players.size() << ",\"finished\":" << (snapshot.finished ? "true" : "false")
 			       << "}";
-			return output.str();
+			battle_protocol::Envelope envelope;
+			envelope.type = battle_protocol::MessageType::Snapshot;
+			envelope.payloadJson = output.str();
+			const auto serialized = battle_protocol::serializeEnvelope(envelope);
+			return serialized.ok() ? *serialized.json : std::string{"{\"version\":1,\"type\":\"snapshot\",\"payload\":{}}"};
 		}
 
 		std::string eventBatchPayload(MatchId match, std::uint32_t tick, std::size_t eventCount)
 		{
 			std::ostringstream output;
-			output << "{\"type\":\"EventBatch\",\"match\":" << match.value << ",\"tick\":" << tick
+			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << tick
 			       << ",\"events\":" << eventCount << "}";
-			return output.str();
+			battle_protocol::Envelope envelope;
+			envelope.type = battle_protocol::MessageType::EventBatch;
+			envelope.payloadJson = output.str();
+			const auto serialized = battle_protocol::serializeEnvelope(envelope);
+			return serialized.ok() ? *serialized.json : std::string{"{\"version\":1,\"type\":\"event_batch\",\"payload\":{}}"};
 		}
 	}
 

@@ -127,18 +127,24 @@ docs/
 
 ## Status
 
-This repository has the foundation modules and an in-process backend match loop for the playable IF Arena work, but networked clients are not playable yet. The current server executable loads config, initializes backend limits, and fails with clear actionable messages when TCP/WebSocket listeners are enabled before their integration tasks land.
+This repository has the foundation modules, an in-process backend match loop, and a local raw TCP vertical slice for the playable IF Arena work. Two local CLI/TCP clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
 
-Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later transport, auth, and client playable slices are complete.
+Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later WebSocket, Telegram auth, Qt client, load, and security-hardening slices are complete.
 
-CLI fake-connect smoke:
+Local raw TCP smoke:
 
 ```bash
-cmake --build build --target battle_cli_client --parallel
-build/battle_cli_client --fake-connect --create --match-id local-match --script tests/integration/server/cli_scenario_b.script
+cmake --build build --parallel
+build/battle_server_app --config config/examples/server.local.json --max-clients 2
+build/battle_cli_client --create --display-name cli-one --script tests/integration/server/cli_idle.script
+build/battle_cli_client --join M1 --display-name cli-two --script tests/integration/server/cli_scenario_b.script
 ```
 
-This prints validated protocol intentions and fake snapshot/event transcript lines without opening TCP. Real TCP play is the next vertical slice.
+For repeatable hostile-input coverage after building, run:
+
+```bash
+python tests/integration/server/tcp_vertical_slice_smoke.py
+```
 
 ## CI/CD safety
 

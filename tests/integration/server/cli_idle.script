@@ -1,0 +1,2 @@
+# Keeps a joined client connected without sending extra gameplay intentions.
+wait 10000

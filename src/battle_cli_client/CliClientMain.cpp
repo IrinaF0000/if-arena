@@ -1,14 +1,32 @@
 #include "Protocol.hpp"
 
+#include <array>
+#include <chrono>
 #include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <cerrno>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 namespace
 {
@@ -27,7 +45,7 @@ namespace
 		std::string matchId{"local-match"};
 		std::string joinCode{"LOCAL1"};
 		std::string scriptPath;
-		bool fakeConnect{true};
+		bool fakeConnect{};
 		bool createMatch{true};
 		bool interactive{};
 		bool help{};
@@ -38,10 +56,88 @@ namespace
 		std::string kind;
 		int dx{};
 		int dy{};
+		std::uint32_t waitMs{};
 		bool hasDirection{};
 	};
 
 	std::string jsonString(std::string_view value);
+	void addError(std::vector<std::string>& errors, std::string message);
+
+#ifdef _WIN32
+	using NativeSocket = SOCKET;
+	constexpr NativeSocket InvalidSocket = INVALID_SOCKET;
+#else
+	using NativeSocket = int;
+	constexpr NativeSocket InvalidSocket = -1;
+#endif
+
+	void closeSocket(NativeSocket socket)
+	{
+		if (socket == InvalidSocket)
+		{
+			return;
+		}
+#ifdef _WIN32
+		closesocket(socket);
+#else
+		::close(socket);
+#endif
+	}
+
+	struct SocketHandle
+	{
+		NativeSocket socket{InvalidSocket};
+
+		SocketHandle() = default;
+		explicit SocketHandle(NativeSocket value)
+			: socket(value)
+		{
+		}
+		SocketHandle(const SocketHandle&) = delete;
+		SocketHandle& operator=(const SocketHandle&) = delete;
+		SocketHandle(SocketHandle&& other) noexcept
+			: socket(other.socket)
+		{
+			other.socket = InvalidSocket;
+		}
+		SocketHandle& operator=(SocketHandle&& other) noexcept
+		{
+			if (this != &other)
+			{
+				closeSocket(socket);
+				socket = other.socket;
+				other.socket = InvalidSocket;
+			}
+			return *this;
+		}
+		~SocketHandle()
+		{
+			closeSocket(socket);
+		}
+
+		[[nodiscard]] bool valid() const
+		{
+			return socket != InvalidSocket;
+		}
+	};
+
+	bool ensureSocketRuntime(std::vector<std::string>& errors)
+	{
+#ifdef _WIN32
+		static bool started = [] {
+			WSADATA data{};
+			return WSAStartup(MAKEWORD(2, 2), &data) == 0;
+		}();
+		if (!started)
+		{
+			addError(errors, "WSAStartup failed");
+			return false;
+		}
+#else
+		(void)errors;
+#endif
+		return true;
+	}
 
 	void printHelp()
 	{
@@ -49,8 +145,7 @@ namespace
 		          << "                         [--create | --join CODE] [--match-id ID]\n"
 		          << "                         [--script PATH] [--interactive]\n"
 		          << "\n"
-		          << "Current task scope: fake-connect mode builds validated protocol intentions and prints a readable\n"
-		          << "transcript. Real TCP connection is intentionally deferred to the TCP vertical slice.\n";
+		          << "By default the CLI opens raw TCP. Use --fake-connect to print validated intentions without a socket.\n";
 	}
 
 	void addError(std::vector<std::string>& errors, std::string message)
@@ -182,6 +277,195 @@ namespace
 		return true;
 	}
 
+	std::pair<std::string, std::uint16_t> parseEndpoint(const std::string& endpoint, std::vector<std::string>& errors)
+	{
+		const auto colon = endpoint.rfind(':');
+		if (colon == std::string::npos || colon == 0 || colon + 1 >= endpoint.size())
+		{
+			addError(errors, "endpoint must be HOST:PORT");
+			return {"127.0.0.1", 5555};
+		}
+		int port = 0;
+		if (!parseInt(std::string_view{endpoint}.substr(colon + 1), port) || port <= 0 || port > 65535)
+		{
+			addError(errors, "endpoint port must be in range 1..65535");
+			return {endpoint.substr(0, colon), 5555};
+		}
+		return {endpoint.substr(0, colon), static_cast<std::uint16_t>(port)};
+	}
+
+	bool setTimeouts(NativeSocket socket, std::uint32_t timeoutMs)
+	{
+#ifdef _WIN32
+		const DWORD timeout = timeoutMs;
+#else
+		const timeval timeout{
+			static_cast<time_t>(timeoutMs / 1000u),
+			static_cast<suseconds_t>((timeoutMs % 1000u) * 1000u),
+		};
+#endif
+		return setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout)) == 0 &&
+		       setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout)) == 0;
+	}
+
+	std::optional<SocketHandle> connectTcp(const std::string& endpoint, std::vector<std::string>& errors)
+	{
+		if (!ensureSocketRuntime(errors))
+		{
+			return std::nullopt;
+		}
+		const auto [host, port] = parseEndpoint(endpoint, errors);
+		if (!errors.empty())
+		{
+			return std::nullopt;
+		}
+
+		addrinfo hints{};
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_protocol = IPPROTO_TCP;
+		addrinfo* resolved = nullptr;
+		const auto portText = std::to_string(port);
+		if (getaddrinfo(host.c_str(), portText.c_str(), &hints, &resolved) != 0)
+		{
+			addError(errors, "failed to resolve endpoint");
+			return std::nullopt;
+		}
+
+		for (addrinfo* candidate = resolved; candidate != nullptr; candidate = candidate->ai_next)
+		{
+			NativeSocket socket = ::socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
+			if (socket == InvalidSocket)
+			{
+				continue;
+			}
+			if (!setTimeouts(socket, 5000))
+			{
+				closeSocket(socket);
+				continue;
+			}
+			if (::connect(socket, candidate->ai_addr, static_cast<int>(candidate->ai_addrlen)) == 0)
+			{
+				freeaddrinfo(resolved);
+				return SocketHandle{socket};
+			}
+			closeSocket(socket);
+		}
+
+		freeaddrinfo(resolved);
+		addError(errors, "failed to connect endpoint");
+		return std::nullopt;
+	}
+
+	void appendUint32Be(std::vector<std::uint8_t>& output, std::uint32_t value)
+	{
+		output.push_back(static_cast<std::uint8_t>((value >> 24u) & 0xffu));
+		output.push_back(static_cast<std::uint8_t>((value >> 16u) & 0xffu));
+		output.push_back(static_cast<std::uint8_t>((value >> 8u) & 0xffu));
+		output.push_back(static_cast<std::uint8_t>(value & 0xffu));
+	}
+
+	bool isSocketTimeout()
+	{
+#ifdef _WIN32
+		const int error = WSAGetLastError();
+		return error == WSAETIMEDOUT || error == WSAEWOULDBLOCK;
+#else
+		return errno == EAGAIN || errno == EWOULDBLOCK;
+#endif
+	}
+
+	bool sendFrame(SocketHandle& handle, std::string_view payload, std::vector<std::string>& errors)
+	{
+		if (payload.empty() || payload.size() > 64u * 1024u)
+		{
+			addError(errors, "outbound frame size is invalid");
+			return false;
+		}
+		std::vector<std::uint8_t> bytes;
+		bytes.reserve(payload.size() + 4u);
+		appendUint32Be(bytes, static_cast<std::uint32_t>(payload.size()));
+		for (const char ch : payload)
+		{
+			bytes.push_back(static_cast<std::uint8_t>(ch));
+		}
+
+		std::size_t sentBytes = 0;
+		while (sentBytes < bytes.size())
+		{
+			const int sent = send(handle.socket, reinterpret_cast<const char*>(bytes.data() + sentBytes),
+			                      static_cast<int>(bytes.size() - sentBytes), 0);
+			if (sent <= 0)
+			{
+				addError(errors, "failed to send frame");
+				return false;
+			}
+			sentBytes += static_cast<std::size_t>(sent);
+		}
+		return true;
+	}
+
+	std::optional<std::string> readFrame(SocketHandle& handle, bool& timedOut, std::vector<std::string>& errors)
+	{
+		timedOut = false;
+		std::array<std::uint8_t, 4> header{};
+		std::size_t readBytes = 0;
+		while (readBytes < header.size())
+		{
+			const int received = recv(handle.socket, reinterpret_cast<char*>(header.data() + readBytes),
+			                          static_cast<int>(header.size() - readBytes), 0);
+			if (received == 0)
+			{
+				addError(errors, "connection closed");
+				return std::nullopt;
+			}
+			if (received < 0)
+			{
+				if (isSocketTimeout())
+				{
+					timedOut = true;
+					return std::nullopt;
+				}
+				addError(errors, "failed to receive frame header");
+				return std::nullopt;
+			}
+			readBytes += static_cast<std::size_t>(received);
+		}
+		const std::uint32_t length = (static_cast<std::uint32_t>(header[0]) << 24u) |
+		                             (static_cast<std::uint32_t>(header[1]) << 16u) |
+		                             (static_cast<std::uint32_t>(header[2]) << 8u) |
+		                             static_cast<std::uint32_t>(header[3]);
+		if (length == 0 || length > 64u * 1024u)
+		{
+			addError(errors, "inbound frame length is invalid");
+			return std::nullopt;
+		}
+		std::string payload(length, '\0');
+		readBytes = 0;
+		while (readBytes < payload.size())
+		{
+			const int received = recv(handle.socket, payload.data() + readBytes,
+			                          static_cast<int>(payload.size() - readBytes), 0);
+			if (received == 0)
+			{
+				addError(errors, "connection closed");
+				return std::nullopt;
+			}
+			if (received < 0)
+			{
+				if (isSocketTimeout())
+				{
+					timedOut = true;
+					return std::nullopt;
+				}
+				addError(errors, "failed to receive frame payload");
+				return std::nullopt;
+			}
+			readBytes += static_cast<std::size_t>(received);
+		}
+		return payload;
+	}
+
 	std::optional<ScriptCommand> parseCommandLine(const std::string& line, std::string& error)
 	{
 		const auto words = splitWords(line);
@@ -218,6 +502,22 @@ namespace
 			}
 			return command;
 		}
+		if (command.kind == "wait")
+		{
+			if (words.size() != 2)
+			{
+				error = "wait requires: wait MS";
+				return std::nullopt;
+			}
+			int waitMs = 0;
+			if (!parseInt(words[1], waitMs) || waitMs < 0 || waitMs > 60000)
+			{
+				error = "wait MS must be in range 0..60000";
+				return std::nullopt;
+			}
+			command.waitMs = static_cast<std::uint32_t>(waitMs);
+			return command;
+		}
 		error = "unknown command kind: " + command.kind;
 		return std::nullopt;
 	}
@@ -225,12 +525,12 @@ namespace
 	std::vector<ScriptCommand> defaultScenario()
 	{
 		return {
-			{"move", -1, 0, true}, {"move", 0, -1, true}, {"move", 0, -1, true},
-			{"move", 0, -1, true}, {"move", 0, -1, true}, {"move", 1, 0, true},
-			{"stop", 0, 0, false}, {"interact", 0, 0, false}, {"move", -1, 0, true},
-			{"move", -1, 0, true}, {"move", 0, 1, true}, {"move", 0, 1, true},
-			{"move", 0, 1, true}, {"move", 0, 1, true}, {"move", 0, 1, true},
-			{"move", 0, 1, true}, {"move", 1, 0, true},
+			{"move", -1, 0, 0, true}, {"move", 0, -1, 0, true}, {"move", 0, -1, 0, true},
+			{"move", 0, -1, 0, true}, {"move", 0, -1, 0, true}, {"move", 1, 0, 0, true},
+			{"stop", 0, 0, 0, false}, {"interact", 0, 0, 0, false}, {"move", -1, 0, 0, true},
+			{"move", -1, 0, 0, true}, {"move", 0, 1, 0, true}, {"move", 0, 1, 0, true},
+			{"move", 0, 1, 0, true}, {"move", 0, 1, 0, true}, {"move", 0, 1, 0, true},
+			{"move", 0, 1, 0, true}, {"move", 1, 0, 0, true},
 		};
 	}
 
@@ -325,6 +625,40 @@ namespace
 		return output.str();
 	}
 
+	std::optional<std::string> simpleStringField(std::string_view object, std::string_view key)
+	{
+		const std::string needle = "\"" + std::string{key} + "\":\"";
+		const auto start = object.find(needle);
+		if (start == std::string_view::npos)
+		{
+			return std::nullopt;
+		}
+		const auto valueStart = start + needle.size();
+		std::string value;
+		bool escaped = false;
+		for (std::size_t index = valueStart; index < object.size(); ++index)
+		{
+			const char ch = object[index];
+			if (escaped)
+			{
+				value.push_back(ch);
+				escaped = false;
+				continue;
+			}
+			if (ch == '\\')
+			{
+				escaped = true;
+				continue;
+			}
+			if (ch == '"')
+			{
+				return value;
+			}
+			value.push_back(ch);
+		}
+		return std::nullopt;
+	}
+
 	std::optional<std::string> serializeValidated(Envelope envelope, ClientSessionPhase phase, std::vector<std::string>& errors)
 	{
 		const auto validation = validateClientEnvelope(envelope, phase);
@@ -362,6 +696,172 @@ namespace
 		}
 		return 1;
 	}
+
+	std::optional<Envelope> receiveEnvelope(SocketHandle& socket, std::vector<std::string>& errors)
+	{
+		bool timedOut = false;
+		auto frame = readFrame(socket, timedOut, errors);
+		if (!frame.has_value())
+		{
+			if (timedOut)
+			{
+				return std::nullopt;
+			}
+			return std::nullopt;
+		}
+		auto parsed = if_arena::battle_protocol::parseEnvelope(*frame);
+		if (!parsed.ok())
+		{
+			std::cout << "[recv] " << *frame << '\n';
+			addError(errors, "received invalid protocol envelope");
+			return std::nullopt;
+		}
+		std::cout << "[recv] " << *frame << '\n';
+		return parsed.envelope;
+	}
+
+	void drainReadable(SocketHandle& socket, std::vector<std::string>& errors)
+	{
+		for (int index = 0; index < 4; ++index)
+		{
+			const auto before = errors.size();
+			auto envelope = receiveEnvelope(socket, errors);
+			if (!envelope.has_value())
+			{
+				if (errors.size() != before)
+				{
+					return;
+				}
+				return;
+			}
+			if (envelope->type == MessageType::Snapshot || envelope->type == MessageType::Error)
+			{
+				return;
+			}
+		}
+	}
+
+	bool sendSerialized(SocketHandle& socket, const std::string& label, const std::string& json,
+	                    std::vector<std::string>& errors)
+	{
+		std::cout << "[send] " << label << ' ' << json << '\n';
+		return sendFrame(socket, json, errors);
+	}
+
+	int runTcpClient(const CliOptions& options, const std::vector<ScriptCommand>& script)
+	{
+		std::vector<std::string> errors;
+		auto socket = connectTcp(options.endpoint, errors);
+		if (!socket.has_value())
+		{
+			return failWithErrors(errors);
+		}
+		std::cout << "[tcp] connected endpoint=" << options.endpoint << '\n';
+
+		const auto auth = serializeValidated(
+			envelope(MessageType::AuthRequest,
+			         "{\"mode\":" + jsonString(options.authMode) + ",\"displayName\":" + jsonString(options.displayName) + "}"),
+			ClientSessionPhase::Connected, errors);
+		if (!auth.has_value() || !sendSerialized(*socket, "auth_request", *auth, errors))
+		{
+			return failWithErrors(errors);
+		}
+		receiveEnvelope(*socket, errors);
+		if (!errors.empty())
+		{
+			return failWithErrors(errors);
+		}
+
+		const auto matchEnvelope = options.createMatch
+			? envelope(MessageType::CreateMatch, "{\"mode\":\"objective_run\",\"scenario\":\"arena_small_objective_run\"}")
+			: envelope(MessageType::JoinMatch, "{\"matchCode\":" + jsonString(options.joinCode) + "}");
+		const auto matchJson = serializeValidated(matchEnvelope, ClientSessionPhase::Authenticated, errors);
+		if (!matchJson.has_value() ||
+		    !sendSerialized(*socket, options.createMatch ? "create_match" : "join_match", *matchJson, errors))
+		{
+			return failWithErrors(errors);
+		}
+
+		std::string matchId = options.matchId;
+		std::string matchCode = options.joinCode;
+		while (true)
+		{
+			auto received = receiveEnvelope(*socket, errors);
+			if (!errors.empty())
+			{
+				return failWithErrors(errors);
+			}
+			if (!received.has_value())
+			{
+				continue;
+			}
+			if (received->type == MessageType::MatchJoined)
+			{
+				if (auto value = simpleStringField(received->payloadJson, "matchId"); value.has_value())
+				{
+					matchId = *value;
+				}
+				if (auto value = simpleStringField(received->payloadJson, "matchCode"); value.has_value())
+				{
+					matchCode = *value;
+				}
+				std::cout << "[state] match_joined matchId=" << matchId << " code=" << matchCode << '\n';
+				break;
+			}
+			if (received->type == MessageType::Error)
+			{
+				addError(errors, "server returned error during match setup");
+				return failWithErrors(errors);
+			}
+		}
+
+		std::cout << "[state] waiting_for_authoritative_snapshot\n";
+		while (true)
+		{
+			const auto before = errors.size();
+			auto received = receiveEnvelope(*socket, errors);
+			if (!received.has_value() && errors.size() == before)
+			{
+				continue;
+			}
+			if (!errors.empty())
+			{
+				return failWithErrors(errors);
+			}
+			if (received.has_value() && received->type == MessageType::Snapshot)
+			{
+				break;
+			}
+		}
+
+		std::uint64_t seq = 1;
+		CliOptions commandOptions = options;
+		commandOptions.matchId = matchId;
+		for (const auto& command : script)
+		{
+			if (command.kind == "wait")
+			{
+				std::cout << "[wait] " << command.waitMs << "ms\n";
+				std::this_thread::sleep_for(std::chrono::milliseconds(command.waitMs));
+				continue;
+			}
+			const auto json = serializeValidated(envelope(MessageType::InputCommand, commandPayload(commandOptions, command), seq),
+			                                     ClientSessionPhase::InMatch, errors);
+			if (!json.has_value() || !sendSerialized(*socket, "input_command", *json, errors))
+			{
+				return failWithErrors(errors);
+			}
+			drainReadable(*socket, errors);
+			if (!errors.empty())
+			{
+				return failWithErrors(errors);
+			}
+			++seq;
+		}
+
+		std::cout << "[event] tcp_script_complete commands=" << script.size() << '\n';
+		return 0;
+	}
 }
 
 int main(int argc, char** argv)
@@ -382,11 +882,6 @@ int main(int argc, char** argv)
 		addError(errors, "interactive mode is not implemented yet; use --script or default fake-connect scenario");
 		return failWithErrors(errors);
 	}
-	if (!options.fakeConnect)
-	{
-		addError(errors, "real TCP mode is not implemented yet; use --fake-connect until task 0025");
-		return failWithErrors(errors);
-	}
 
 	auto script = loadScript(options.scriptPath, errors);
 	if (!script.has_value() || !errors.empty())
@@ -394,8 +889,13 @@ int main(int argc, char** argv)
 		return failWithErrors(errors);
 	}
 
+	if (!options.fakeConnect)
+	{
+		return runTcpClient(options, *script);
+	}
+
 	std::cout << "[fake-connect] endpoint=" << options.endpoint
-	          << " transport=not-opened reason=TCP integration is task 0025\n";
+	          << " transport=not-opened reason=fake-connect requested\n";
 
 	const auto auth = serializeValidated(
 		envelope(MessageType::AuthRequest,
@@ -423,6 +923,11 @@ int main(int argc, char** argv)
 	std::uint64_t seq = 1;
 	for (const auto& command : *script)
 	{
+		if (command.kind == "wait")
+		{
+			std::cout << "[wait] " << command.waitMs << "ms\n";
+			continue;
+		}
 		const auto json = serializeValidated(envelope(MessageType::InputCommand, commandPayload(options, command), seq),
 		                                     ClientSessionPhase::InMatch, errors);
 		if (!json.has_value())

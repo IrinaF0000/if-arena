@@ -162,13 +162,17 @@ namespace if_arena::battle_qt_client::network
 
 	void NetworkClient::sendIntent(ClientIntent intent)
 	{
+		if (intent.kind == ClientIntentKind::Aim)
+		{
+			return;
+		}
 		if (!canSendIntent())
 		{
 			emit eventReceived("Input ignored until match is joined.");
 			return;
 		}
-		if ((intent.kind == ClientIntentKind::Move || intent.kind == ClientIntentKind::Aim ||
-		     intent.kind == ClientIntentKind::Attack || intent.kind == ClientIntentKind::Dash) &&
+		if ((intent.kind == ClientIntentKind::Move || intent.kind == ClientIntentKind::Attack ||
+		     intent.kind == ClientIntentKind::Dash) &&
 		    intent.direction.dx == 0 && intent.direction.dy == 0)
 		{
 			intent.direction.dy = -1;

@@ -787,6 +787,13 @@ namespace
 		std::mutex mutex;
 		std::uint64_t nextConnectionId{1};
 		std::vector<SessionId> liveSessions;
+		struct ActiveMatchTick
+		{
+			MatchId match;
+			std::chrono::steady_clock::time_point nextTickAt;
+		};
+		std::vector<ActiveMatchTick> activeMatchTicks;
+		std::chrono::milliseconds tickInterval{50};
 		std::chrono::milliseconds handshakeTimeout{5000};
 		std::chrono::milliseconds idleTimeout{30000};
 	};
@@ -926,6 +933,41 @@ namespace
 		}
 	}
 
+	void activateTcpMatchTicker(TcpRuntimeState& state, MatchId match, std::chrono::steady_clock::time_point now)
+	{
+		const auto found = std::find_if(state.activeMatchTicks.begin(), state.activeMatchTicks.end(),
+		                                [match](const auto& active) { return active.match.value == match.value; });
+		if (found != state.activeMatchTicks.end())
+		{
+			return;
+		}
+		state.activeMatchTicks.push_back(TcpRuntimeState::ActiveMatchTick{match, now + state.tickInterval});
+	}
+
+	void advanceDueTcpMatches(TcpRuntimeState& state, std::chrono::steady_clock::time_point now)
+	{
+		bool ticked = false;
+		for (auto& active : state.activeMatchTicks)
+		{
+			std::size_t catchUpTicks = 0;
+			while (now >= active.nextTickAt && catchUpTicks < 4)
+			{
+				const auto result = state.matches.tick(active.match);
+				ticked = ticked || result.accepted;
+				active.nextTickAt += state.tickInterval;
+				++catchUpTicks;
+			}
+			if (now >= active.nextTickAt)
+			{
+				active.nextTickAt = now + state.tickInterval;
+			}
+		}
+		if (ticked)
+		{
+			flushAllSessions(state);
+		}
+	}
+
 	std::optional<BackendCommandKind> commandKindFrom(std::string_view kind)
 	{
 		if (kind == "move" || kind == "aim")
@@ -1024,6 +1066,10 @@ namespace
 			if (read.status == TcpReadStatus::TimedOut)
 			{
 				const auto now = std::chrono::steady_clock::now();
+				{
+					std::lock_guard lock(state.mutex);
+					advanceDueTcpMatches(state, now);
+				}
 				if (phase == ClientSessionPhase::Connected && now - connectedAt >= state.handshakeTimeout)
 				{
 					sendError(connection, "handshake_timeout", "authentication handshake timed out");
@@ -1118,6 +1164,7 @@ namespace
 				sendServerEnvelope(connection, MessageType::MatchJoined,
 				                   "{\"matchId\":\"" + std::to_string(joined.match->value) + "\",\"matchCode\":\"" +
 				                    *joinCode + "\"}");
+				activateTcpMatchTicker(state, *currentMatch, std::chrono::steady_clock::now());
 				state.matches.tick(*currentMatch);
 				flushAllSessions(state);
 				continue;
@@ -1139,8 +1186,7 @@ namespace
 				                    ",\"reason\":\"" + backendReasonName(submitted.reason) + "\"}");
 				if (submitted.accepted)
 				{
-					state.matches.tick(match);
-					flushAllSessions(state);
+					advanceDueTcpMatches(state, std::chrono::steady_clock::now());
 				}
 				continue;
 			}
@@ -1367,7 +1413,8 @@ namespace
 	int runTcpServer(const ServerConfig& config, const BackendLimits& limits, SessionRegistry& sessions,
 	                 MatchManager& matches, std::size_t maxClients)
 	{
-		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, 1000u});
+		const auto tickIntervalMs = std::max<std::uint32_t>(1u, 1000u / config.tickRate);
+		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, tickIntervalMs});
 		TcpEndpoint endpoint;
 		endpoint.host = config.tcp.host;
 		endpoint.port = static_cast<std::uint16_t>(config.tcp.port);
@@ -1387,6 +1434,7 @@ namespace
 		std::cout << "TCP listener started host=" << config.tcp.host << " port=" << config.tcp.port
 		          << " maxFrameBytes=" << config.tcp.maxBytes << '\n';
 		TcpRuntimeState state{sessions, matches, limits};
+		state.tickInterval = std::chrono::milliseconds{tickIntervalMs};
 		state.handshakeTimeout = std::chrono::milliseconds{config.handshakeTimeoutMs};
 		state.idleTimeout = std::chrono::milliseconds{config.idleTimeoutMs};
 		std::vector<std::thread> workers;

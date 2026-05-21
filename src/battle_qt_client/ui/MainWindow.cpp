@@ -21,6 +21,11 @@ namespace if_arena::battle_qt_client::ui
 			return key == Qt::Key_W || key == Qt::Key_A || key == Qt::Key_S || key == Qt::Key_D ||
 			       key == Qt::Key_Up || key == Qt::Key_Left || key == Qt::Key_Down || key == Qt::Key_Right;
 		}
+
+		bool sameDirection(Direction lhs, Direction rhs)
+		{
+			return lhs.dx == rhs.dx && lhs.dy == rhs.dy;
+		}
 	}
 
 	MainWindow::MainWindow(QWidget* parent)
@@ -62,7 +67,9 @@ namespace if_arena::battle_qt_client::ui
 		_connection = new QLabel("disconnected", root);
 		_identity = new QLabel("session -, match -", root);
 		_hud = new QLabel("Waiting for authoritative snapshot", root);
+		_controlsHint = new QLabel("WASD/arrows move | mouse aims | left click/Space attack | right click/Shift dash", root);
 		_error = new QLabel(root);
+		_controlsHint->setStyleSheet("color: #aeb8c4;");
 		_error->setStyleSheet("color: #ff8a80;");
 		statusRow->addWidget(_connection);
 		statusRow->addWidget(_identity);
@@ -77,6 +84,7 @@ namespace if_arena::battle_qt_client::ui
 		layout->addLayout(connectionRow);
 		layout->addLayout(lobbyRow);
 		layout->addLayout(statusRow);
+		layout->addWidget(_controlsHint);
 		layout->addWidget(_error);
 		layout->addWidget(_arena, 1);
 		layout->addWidget(_events);
@@ -102,19 +110,13 @@ namespace if_arena::battle_qt_client::ui
 		}
 		if (event->key() == Qt::Key_Space)
 		{
-			_client.sendIntent(ClientIntent{ClientIntentKind::Attack, currentMoveDirection()});
+			sendAction(ClientIntentKind::Attack);
 			event->accept();
 			return;
 		}
 		if (event->key() == Qt::Key_Shift)
 		{
-			_client.sendIntent(ClientIntent{ClientIntentKind::Dash, currentMoveDirection()});
-			event->accept();
-			return;
-		}
-		if (event->key() == Qt::Key_E)
-		{
-			_client.sendIntent(ClientIntent{ClientIntentKind::Interact, {}});
+			sendAction(ClientIntentKind::Dash);
 			event->accept();
 			return;
 		}
@@ -152,7 +154,25 @@ namespace if_arena::battle_qt_client::ui
 		connect(_disconnect, &QPushButton::clicked, &_client, &network::NetworkClient::disconnectFromServer);
 		connect(_create, &QPushButton::clicked, &_client, &network::NetworkClient::createMatch);
 		connect(_join, &QPushButton::clicked, this, [this] { _client.joinMatch(_joinCode->text()); });
-		connect(_arena, &ArenaView::intentRequested, &_client, &network::NetworkClient::sendIntent);
+		connect(_arena, &ArenaView::aimChanged, this, [this](Direction direction) {
+			_aimDirection = direction;
+			_hasAimDirection = true;
+		});
+		connect(_arena, &ArenaView::intentRequested, this, [this](ClientIntent intent) {
+			if (intent.direction.dx == 0 && intent.direction.dy == 0)
+			{
+				intent.direction = currentActionDirection();
+			}
+			if (intent.kind == ClientIntentKind::Attack)
+			{
+				_arena->showAttackFeedback(intent.direction);
+			}
+			if (intent.kind == ClientIntentKind::Dash)
+			{
+				_arena->showDashFeedback(intent.direction);
+			}
+			_client.sendIntent(intent);
+		});
 
 		connect(&_client, &network::NetworkClient::connectionStateChanged, this,
 		        [this](network::ConnectionState, const QString& label) {
@@ -169,6 +189,10 @@ namespace if_arena::battle_qt_client::ui
 		connect(&_client, &network::NetworkClient::matchJoined, this, [this](const QString& matchId, const QString& code) {
 			_joinCode->setText(code);
 			_identity->setText("session " + _client.sessionId() + ", match " + matchId + ", code " + code);
+			_movementKeys.clear();
+			_lastMovementIntent.reset();
+			_hasAimDirection = false;
+			_arena->setFocus(Qt::OtherFocusReason);
 			refreshControls();
 		});
 		connect(&_client, &network::NetworkClient::snapshotReceived, this,
@@ -178,7 +202,10 @@ namespace if_arena::battle_qt_client::ui
 		        });
 		connect(&_client, &network::NetworkClient::inputAckReceived, this,
 		        [this](bool accepted, const QString& reason) {
-			        appendEvent(QString{"input "} + (accepted ? "accepted" : "rejected") + " (" + reason + ")");
+			        if (!accepted)
+			        {
+				        appendEvent("input rejected (" + reason + ")");
+			        }
 		        });
 		connect(&_client, &network::NetworkClient::latencyUpdated, this,
 		        [this](int milliseconds) { appendEvent("ping " + QString::number(milliseconds) + "ms"); });
@@ -208,10 +235,34 @@ namespace if_arena::battle_qt_client::ui
 		const auto direction = currentMoveDirection();
 		if (direction.dx == 0 && direction.dy == 0)
 		{
+			if (!_lastMovementIntent.has_value())
+			{
+				return;
+			}
+			_lastMovementIntent.reset();
 			_client.sendIntent(ClientIntent{ClientIntentKind::Stop, {}});
 			return;
 		}
+		if (_lastMovementIntent.has_value() && sameDirection(*_lastMovementIntent, direction))
+		{
+			return;
+		}
+		_lastMovementIntent = direction;
 		_client.sendIntent(ClientIntent{ClientIntentKind::Move, direction});
+	}
+
+	void MainWindow::sendAction(ClientIntentKind kind)
+	{
+		const auto direction = currentActionDirection();
+		if (kind == ClientIntentKind::Attack)
+		{
+			_arena->showAttackFeedback(direction);
+		}
+		if (kind == ClientIntentKind::Dash)
+		{
+			_arena->showDashFeedback(direction);
+		}
+		_client.sendIntent(ClientIntent{kind, direction});
 	}
 
 	Direction MainWindow::currentMoveDirection() const
@@ -235,5 +286,19 @@ namespace if_arena::battle_qt_client::ui
 			++dx;
 		}
 		return clampDirection(dx, dy);
+	}
+
+	Direction MainWindow::currentActionDirection() const
+	{
+		if (_hasAimDirection && (_aimDirection.dx != 0 || _aimDirection.dy != 0))
+		{
+			return _aimDirection;
+		}
+		const auto movement = currentMoveDirection();
+		if (movement.dx != 0 || movement.dy != 0)
+		{
+			return movement;
+		}
+		return Direction{0, -1};
 	}
 }

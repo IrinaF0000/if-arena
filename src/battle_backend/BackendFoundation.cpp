@@ -691,6 +691,7 @@ namespace if_arena::battle_backend
 		battle_core::MatchConfig config;
 		config.width = arena.dimensions.width;
 		config.height = arena.dimensions.height;
+		config.maxTicks = 3600;
 		config.obstacles = arena.obstacles;
 		config.bases = {
 			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Red, arena.redBase->center, arena.redBase->radius},

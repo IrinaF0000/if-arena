@@ -38,12 +38,12 @@
 
 Use only indicators that are immediately meaningful:
 
-- HP bar if HP affects combat;
+- HP ring/bar if HP affects combat;
 - facing/aim marker if aim affects attack or dash;
 - carrier marker if the player carries the objective;
 - cooldown feedback near HUD or action indicator.
 
-Remove unexplained colored sticks/bars above players from normal play. If an indicator remains, document its meaning and make it visually distinct from debug markers.
+Remove unexplained colored sticks/bars above players from normal play. In the Qt MVP view, HP is shown as a green ring around the player and carrier state is shown as a yellow halo/objective marker, so the space above the player is reserved for meaningful objective feedback rather than debug bars.
 
 ## Combat feedback
 

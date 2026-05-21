@@ -10,6 +10,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 
+#include <optional>
 #include <set>
 
 namespace if_arena::battle_qt_client::ui
@@ -30,7 +31,9 @@ namespace if_arena::battle_qt_client::ui
 		void refreshControls();
 		void appendEvent(const QString& message);
 		void sendMovement();
+		void sendAction(if_arena::battle_qt_client::game::ClientIntentKind kind);
 		[[nodiscard]] if_arena::battle_qt_client::game::Direction currentMoveDirection() const;
+		[[nodiscard]] if_arena::battle_qt_client::game::Direction currentActionDirection() const;
 
 		network::NetworkClient _client;
 		ArenaView* _arena{};
@@ -45,8 +48,12 @@ namespace if_arena::battle_qt_client::ui
 		QLabel* _connection{};
 		QLabel* _identity{};
 		QLabel* _hud{};
+		QLabel* _controlsHint{};
 		QLabel* _error{};
 		QPlainTextEdit* _events{};
 		std::set<int> _movementKeys;
+		if_arena::battle_qt_client::game::Direction _aimDirection{0, -1};
+		bool _hasAimDirection{};
+		std::optional<if_arena::battle_qt_client::game::Direction> _lastMovementIntent;
 	};
 }

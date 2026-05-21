@@ -20,7 +20,7 @@ Objective pickup and capture are automatic server-side rules. Do not require an 
 
 - Keyboard movement is the only player movement input.
 - Mouse movement may update aim, cursor highlight, or local preview only.
-- Aim updates sent to the server must be throttled and meaningful.
+- Qt keeps mouse aim local for the MVP; if a client later sends aim updates to the server, they must be throttled and meaningful.
 - Idle clients must not repeatedly send or log no-op/`none` input commands.
 - After joining a match, gameplay keys must work without focus staying trapped in the match-code field.
 - Rejected backend commands must be shown in the event log or error surface without changing the rendered authoritative snapshot.

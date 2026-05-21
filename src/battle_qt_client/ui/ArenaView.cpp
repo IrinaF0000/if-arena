@@ -32,6 +32,19 @@ namespace if_arena::battle_qt_client::ui
 			return local ? QColor{0, 188, 212} : QColor{220, 64, 73};
 		}
 
+		QColor teamColor(Team team)
+		{
+			if (team == Team::Blue)
+			{
+				return QColor{0, 188, 212};
+			}
+			if (team == Team::Red)
+			{
+				return QColor{220, 64, 73};
+			}
+			return QColor{180, 190, 200};
+		}
+
 		QPointF mousePoint(const QMouseEvent* event)
 		{
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -55,6 +68,20 @@ namespace if_arena::battle_qt_client::ui
 		_snapshot = std::move(snapshot);
 		_localPlayerId = std::move(localPlayerId);
 		_lastSnapshotAt.restart();
+		update();
+	}
+
+	void ArenaView::showAttackFeedback(Direction direction)
+	{
+		_attackFeedbackDirection = direction;
+		_lastAttackFeedbackAt.restart();
+		update();
+	}
+
+	void ArenaView::showDashFeedback(Direction direction)
+	{
+		_dashFeedbackDirection = direction;
+		_lastDashFeedbackAt.restart();
 		update();
 	}
 
@@ -123,19 +150,28 @@ namespace if_arena::battle_qt_client::ui
 		drawBases(painter);
 		drawHazards(painter);
 		drawObjective(painter);
+		drawLocalActionPreview(painter);
 		drawPlayers(painter);
 	}
 
 	void ArenaView::mouseMoveEvent(QMouseEvent* event)
 	{
-		emit intentRequested(ClientIntent{ClientIntentKind::Aim, directionFromPoint(mousePoint(event))});
+		_aimDirection = directionFromPoint(mousePoint(event));
+		emit aimChanged(_aimDirection);
+		update();
 	}
 
 	void ArenaView::mousePressEvent(QMouseEvent* event)
 	{
+		_aimDirection = directionFromPoint(mousePoint(event));
+		emit aimChanged(_aimDirection);
 		if (event->button() == Qt::LeftButton)
 		{
-			emit intentRequested(ClientIntent{ClientIntentKind::Attack, directionFromPoint(mousePoint(event))});
+			emit intentRequested(ClientIntent{ClientIntentKind::Attack, _aimDirection});
+		}
+		if (event->button() == Qt::RightButton)
+		{
+			emit intentRequested(ClientIntent{ClientIntentKind::Dash, _aimDirection});
 		}
 	}
 
@@ -152,7 +188,7 @@ namespace if_arena::battle_qt_client::ui
 		{
 			return available;
 		}
-		const auto ratio = _snapshot->map.width / _snapshot->map.height;
+		const auto ratio = std::min(_snapshot->map.width / _snapshot->map.height, 1.28);
 		double width = available.width();
 		double height = width / ratio;
 		if (height > available.height())
@@ -196,13 +232,13 @@ namespace if_arena::battle_qt_client::ui
 	void ArenaView::drawBoard(QPainter& painter)
 	{
 		const auto board = boardRect();
-		painter.setPen(QPen{QColor{70, 85, 100}, 1});
-		painter.setBrush(QColor{30, 39, 50});
-		painter.drawRoundedRect(board, 6, 6);
+		painter.setPen(QPen{QColor{60, 72, 82}, 1});
+		painter.setBrush(QColor{28, 36, 43});
+		painter.drawRoundedRect(board, 5, 5);
 
 		const auto cellW = board.width() / _snapshot->map.width;
 		const auto cellH = board.height() / _snapshot->map.height;
-		painter.setPen(QPen{QColor{50, 62, 76}, 1});
+		painter.setPen(QPen{QColor{68, 78, 88, 70}, 1});
 		for (int x = 1; x < static_cast<int>(_snapshot->map.width); ++x)
 		{
 			const auto px = board.left() + (x * cellW);
@@ -220,11 +256,11 @@ namespace if_arena::battle_qt_client::ui
 		const auto board = boardRect();
 		const auto band = board.height() * 0.18;
 		painter.setPen(Qt::NoPen);
-		painter.setBrush(QColor{0, 188, 212, 45});
+		painter.setBrush(QColor{0, 188, 212, 34});
 		painter.drawRect(QRectF{board.left(), board.bottom() - band, board.width(), band});
-		painter.setBrush(QColor{220, 64, 73, 45});
+		painter.setBrush(QColor{220, 64, 73, 34});
 		painter.drawRect(QRectF{board.left(), board.top(), board.width(), band});
-		painter.setPen(QColor{220, 225, 230});
+		painter.setPen(QColor{215, 224, 232, 190});
 		painter.drawText(QRectF{board.left(), board.bottom() - band, board.width(), band}, Qt::AlignCenter, "OWN BASE");
 		painter.drawText(QRectF{board.left(), board.top(), board.width(), band}, Qt::AlignCenter, "ENEMY BASE");
 	}
@@ -232,10 +268,22 @@ namespace if_arena::battle_qt_client::ui
 	void ArenaView::drawObjective(QPainter& painter)
 	{
 		const auto center = toScreen(_snapshot->objective.x, _snapshot->objective.y);
-		painter.setPen(QPen{QColor{255, 255, 255}, 2});
-		painter.setBrush(QColor{255, 214, 64});
-		painter.drawEllipse(center, 10, 10);
-		painter.drawText(QRectF{center.x() - 42, center.y() - 30, 84, 20}, Qt::AlignCenter, _snapshot->objective.state);
+		const bool carried = !_snapshot->objective.carrierPlayerId.isEmpty() && _snapshot->objective.carrierPlayerId != "0";
+		if (!carried)
+		{
+			painter.setPen(QPen{QColor{255, 245, 180, 150}, 3});
+			painter.setBrush(Qt::NoBrush);
+			painter.drawEllipse(center, 18, 18);
+			painter.setPen(QPen{QColor{255, 255, 255}, 2});
+			painter.setBrush(QColor{255, 214, 64});
+			QPolygonF diamond;
+			diamond << QPointF{center.x(), center.y() - 12} << QPointF{center.x() + 12, center.y()}
+			        << QPointF{center.x(), center.y() + 12} << QPointF{center.x() - 12, center.y()};
+			painter.drawPolygon(diamond);
+			painter.setPen(QColor{245, 248, 250});
+			painter.drawText(QRectF{center.x() - 46, center.y() - 34, 92, 20}, Qt::AlignCenter,
+			                 _snapshot->objective.state.toUpper());
+		}
 	}
 
 	void ArenaView::drawHazards(QPainter& painter)
@@ -247,7 +295,7 @@ namespace if_arena::battle_qt_client::ui
 			{
 				painter.setBrush(hazard.triggered ? QColor{156, 87, 255} : QColor{120, 96, 180});
 				painter.setPen(QPen{QColor{230, 220, 255}, 1});
-				painter.drawRect(QRectF{center.x() - 8, center.y() - 8, 16, 16});
+				painter.drawRect(QRectF{center.x() - 9, center.y() - 9, 18, 18});
 			}
 			else
 			{
@@ -261,23 +309,82 @@ namespace if_arena::battle_qt_client::ui
 		}
 	}
 
+	void ArenaView::drawLocalActionPreview(QPainter& painter)
+	{
+		const auto player = localPlayer();
+		if (!player.has_value())
+		{
+			return;
+		}
+
+		const auto center = toScreen(player->x, player->y);
+		const auto board = boardRect();
+		const auto range = std::min(board.width() / _snapshot->map.width, board.height() / _snapshot->map.height) * 2.3;
+		painter.setBrush(Qt::NoBrush);
+		painter.setPen(QPen{QColor{255, 255, 255, 42}, 1});
+		painter.drawEllipse(center, range, range);
+		painter.setPen(QPen{QColor{255, 245, 170, 145}, 2});
+		painter.drawLine(center, directionEnd(center, _aimDirection, range));
+
+		if (_lastAttackFeedbackAt.isValid() && _lastAttackFeedbackAt.elapsed() < 420)
+		{
+			painter.setPen(QPen{QColor{255, 228, 92, 230}, 4});
+			painter.drawLine(center, directionEnd(center, _attackFeedbackDirection, range * 1.1));
+		}
+		if (_lastDashFeedbackAt.isValid() && _lastDashFeedbackAt.elapsed() < 520)
+		{
+			painter.setPen(QPen{QColor{112, 222, 255, 210}, 5});
+			painter.drawLine(center, directionEnd(center, _dashFeedbackDirection, range * 0.9));
+		}
+	}
+
 	void ArenaView::drawPlayers(QPainter& painter)
 	{
 		for (const auto& player : _snapshot->players)
 		{
 			const bool isLocal = player.playerId == _localPlayerId;
+			const bool carriesObjective = player.playerId == _snapshot->objective.carrierPlayerId;
 			const auto center = toScreen(player.x, player.y);
+			if (carriesObjective)
+			{
+				painter.setBrush(Qt::NoBrush);
+				painter.setPen(QPen{QColor{255, 224, 88, 210}, 4});
+				painter.drawEllipse(center, 20, 20);
+			}
 			painter.setBrush(playerColor(isLocal));
 			painter.setPen(QPen{isLocal ? QColor{255, 255, 255} : QColor{45, 20, 24}, isLocal ? 3.0 : 2.0});
 			painter.drawEllipse(center, 13, 13);
+			painter.setBrush(teamColor(player.team));
 			painter.setPen(Qt::NoPen);
-			painter.setBrush(QColor{30, 30, 30});
-			painter.drawRect(QRectF{center.x() - 17, center.y() - 24, 34, 4});
-			painter.setBrush(QColor{86, 216, 122});
-			painter.drawRect(QRectF{center.x() - 17, center.y() - 24, std::clamp(player.hp, 0, 100) * 0.34, 4});
+			painter.drawEllipse(directionEnd(center, _aimDirection, 13), isLocal ? 3.5 : 0.0, isLocal ? 3.5 : 0.0);
+			painter.setBrush(Qt::NoBrush);
+			painter.setPen(QPen{QColor{86, 216, 122}, 3});
+			const auto hpSpan = std::clamp(player.hp, 0, 100) * 57;
+			painter.drawArc(QRectF{center.x() - 17, center.y() - 17, 34, 34}, 90 * 16, -hpSpan);
+			if (carriesObjective)
+			{
+				painter.setPen(QPen{QColor{255, 255, 255}, 1});
+				painter.setBrush(QColor{255, 214, 64});
+				QPolygonF marker;
+				marker << QPointF{center.x(), center.y() - 23} << QPointF{center.x() + 6, center.y() - 17}
+				       << QPointF{center.x(), center.y() - 11} << QPointF{center.x() - 6, center.y() - 17};
+				painter.drawPolygon(marker);
+			}
 			painter.setPen(QColor{230, 235, 240});
 			painter.drawText(QRectF{center.x() - 34, center.y() + 14, 68, 18}, Qt::AlignCenter,
 			                 isLocal ? "YOU" : teamName(player.team).toUpper());
 		}
+	}
+
+	QPointF ArenaView::directionEnd(QPointF origin, Direction direction, double length) const
+	{
+		double dx = static_cast<double>(direction.dx);
+		double dy = static_cast<double>(direction.dy);
+		if (dx == 0.0 && dy == 0.0)
+		{
+			dy = -1.0;
+		}
+		const auto magnitude = std::sqrt((dx * dx) + (dy * dy));
+		return QPointF{origin.x() + (dx / magnitude) * length, origin.y() + (dy / magnitude) * length};
 	}
 }

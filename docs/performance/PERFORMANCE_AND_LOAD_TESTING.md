@@ -7,8 +7,8 @@ The project should demonstrate high-load-oriented backend practices without clai
 Good wording:
 
 ```text
-load-tested C++20 TCP/WebSocket game backend with async I/O, bounded queues,
-match workers, rate limiting, backpressure, metrics, and simulated clients.
+locally load-smoked C++20 TCP/WebSocket game backend with bounded queues,
+session limits, rate limiting, backpressure behavior, metrics, and simulated clients.
 ```
 
 Avoid:
@@ -152,4 +152,4 @@ Performance-sensitive tasks require:
 - Metrics update.
 - Load scenario update where applicable.
 - No unbounded structures.
-- No thread-per-client design.
+- Document any thread-per-client or blocking local-demo limitation honestly until an async scaling task replaces it.

@@ -268,7 +268,7 @@ namespace if_arena::battle_qt_client::ui
 			const bool isLocal = player.playerId == _localPlayerId;
 			const auto center = toScreen(player.x, player.y);
 			painter.setBrush(playerColor(isLocal));
-			painter.setPen(QPen{isLocal ? QColor{255, 255, 255} : QColor{45, 20, 24}, isLocal ? 3 : 2});
+			painter.setPen(QPen{isLocal ? QColor{255, 255, 255} : QColor{45, 20, 24}, isLocal ? 3.0 : 2.0});
 			painter.drawEllipse(center, 13, 13);
 			painter.setPen(Qt::NoPen);
 			painter.setBrush(QColor{30, 30, 30});

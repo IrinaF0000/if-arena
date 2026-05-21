@@ -129,7 +129,7 @@ docs/
 
 This repository has the foundation modules, an in-process backend match loop, local raw TCP and WebSocket vertical slices, a Telegram Mini App slice, and a Qt Widgets playable client target. Local CLI/TCP, Qt, and Telegram/WebSocket clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
 
-Use `scripts/run_local_server.sh` to build and start the current `battle_server_app` config/backend slice. Public deployment is not ready until the later load and security-hardening slice is complete.
+The tree is being stabilized for a future `v0.1.0-playable-mvp` tag. Public deployment is still intentionally out of scope: the current release candidate is a local playable MVP for review, testing, and portfolio demonstration.
 
 Local raw TCP smoke:
 
@@ -156,12 +156,14 @@ npm run lint
 npm run build
 ```
 
-Qt desktop client with a local Qt install:
+Qt desktop client on Windows with the Qt MinGW kit:
 
-```bash
-cmake -S . -B build-qt -DBATTLE_BUILD_QT_CLIENT=ON -DBATTLE_BUILD_TESTS=ON
-cmake --build build-qt --parallel
-build-qt/battle_qt_client
+```powershell
+$env:Path = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;$env:Path"
+cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
+cmake --build build-qt-mingw --parallel
+ctest --test-dir build-qt-mingw --output-on-failure
+build-qt-mingw\battle_qt_client.exe
 ```
 
 Load and security smoke:
@@ -169,7 +171,7 @@ Load and security smoke:
 ```bash
 build/battle_load_client --dry-run --scenario gameplay --clients 20 --duration 30 --command-rate 5 --seed 42 --output reports/load/dry-run-gameplay.md
 python tests/load/load_client_dry_run.py
-python tests/load/local_tcp_load_scenarios.py
+python tests/load/local_tcp_load_scenarios.py --report build/local-tcp-smoke.md
 python tests/security/tcp_protocol_negative.py
 python scripts/ci/scan_secrets.py
 ```
@@ -181,7 +183,8 @@ python scripts/ci/scan_secrets.py
 - Telegram auth is backend-validated, but replay protection and production session-token issuance remain follow-up work.
 - WebSocket support is local HTTP Upgrade only in this slice; public Telegram usage requires WSS/HTTPS termination.
 - Large slow-reader soaks, mixed TCP/WebSocket load, snapshot coalescing, and production metrics export are future hardening tasks.
-- Qt target requires a local Qt SDK and is disabled in default non-Qt builds.
+- Qt target requires a local Qt SDK and is disabled in default non-Qt builds; the Windows MinGW kit command above is the verified path for release stabilization.
+- Tagging `v0.1.0-playable-mvp` is a manual release action and is not performed by stabilization tasks without explicit authorization.
 
 ## Portfolio Summary
 

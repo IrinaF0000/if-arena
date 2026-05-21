@@ -58,6 +58,21 @@ The Mini App must not:
 - decide whether damage, movement, scoring, or win/loss happened;
 - contain authoritative game rules.
 
+Current client implementation:
+
+- queues `auth_request` until the WebSocket is open;
+- sends raw `window.Telegram.WebApp.initData` for Telegram auth and falls back to local demo auth only when no raw init data exists;
+- validates inbound server envelopes before rendering;
+- renders authoritative snapshot payloads on Canvas;
+- sends input commands as intentions only.
+
+Current local backend flow:
+
+- run `battle_server_app` with TCP disabled and WebSocket enabled;
+- the server accepts local WebSocket upgrade requests on the configured path;
+- demo auth is allowed only when local config enables `security.demoAuthEnabled`;
+- Telegram auth mode is accepted only after backend validation of raw `initData`.
+
 ## Backend responsibilities
 
 The backend must:

@@ -40,12 +40,83 @@ namespace if_arena::battle_backend
 			return battle_core::PlayerId{static_cast<std::uint32_t>(player.value)};
 		}
 
+		std::string_view teamName(battle_core::ArenaTeam team)
+		{
+			return team == battle_core::ArenaTeam::Blue ? "blue" : "red";
+		}
+
+		std::string_view objectiveStateName(battle_core::ObjectiveState state)
+		{
+			using battle_core::ObjectiveState;
+			switch (state)
+			{
+			case ObjectiveState::AtSpawn:
+				return "at_spawn";
+			case ObjectiveState::Dropped:
+				return "dropped";
+			case ObjectiveState::Carried:
+				return "carried";
+			case ObjectiveState::Respawning:
+				return "respawning";
+			case ObjectiveState::Captured:
+				return "captured";
+			}
+			return "unknown";
+		}
+
+		std::string_view hazardKindName(battle_core::HazardKind kind)
+		{
+			return kind == battle_core::HazardKind::Tower ? "tower" : "mine";
+		}
+
 		std::string snapshotPayload(MatchId match, const battle_core::BattleSnapshot& snapshot)
 		{
 			std::ostringstream output;
 			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << snapshot.tick
-			       << ",\"players\":" << snapshot.players.size() << ",\"finished\":" << (snapshot.finished ? "true" : "false")
-			       << "}";
+			       << ",\"serverTick\":" << snapshot.tick << ",\"finished\":"
+			       << (snapshot.finished ? "true" : "false") << ",\"map\":{\"width\":" << snapshot.width
+			       << ",\"height\":" << snapshot.height << "},\"players\":[";
+			for (std::size_t index = 0; index < snapshot.players.size(); ++index)
+			{
+				const auto& player = snapshot.players[index];
+				if (index != 0)
+				{
+					output << ',';
+				}
+				output << "{\"playerId\":\"" << player.player.value << "\",\"heroId\":\"" << player.hero.value
+				       << "\",\"team\":\"" << teamName(player.team) << "\",\"x\":" << player.worldPosition.x
+				       << ",\"y\":" << player.worldPosition.y << ",\"hp\":" << player.hp
+				       << ",\"attackCooldown\":" << player.attackCooldownTicksRemaining
+				       << ",\"dashCooldown\":" << player.dashCooldownTicksRemaining
+				       << ",\"inOwnBase\":" << (player.inOwnBase ? "true" : "false") << "}";
+			}
+			output << "],\"objective\":{\"state\":\"" << objectiveStateName(snapshot.objective.state) << "\",\"x\":"
+			       << snapshot.objective.position.x << ",\"y\":" << snapshot.objective.position.y
+			       << ",\"carrierPlayerId\":\"" << snapshot.objective.carrier.value
+			       << "\",\"pickupLockTicks\":" << snapshot.objective.pickupLockTicksRemaining
+			       << ",\"respawnTicks\":" << snapshot.objective.respawnTicksRemaining << "},\"scores\":[";
+			for (std::size_t index = 0; index < snapshot.scores.size(); ++index)
+			{
+				const auto& score = snapshot.scores[index];
+				if (index != 0)
+				{
+					output << ',';
+				}
+				output << "{\"team\":\"" << teamName(score.team) << "\",\"score\":" << score.score << "}";
+			}
+			output << "],\"hazards\":[";
+			for (std::size_t index = 0; index < snapshot.hazards.size(); ++index)
+			{
+				const auto& hazard = snapshot.hazards[index];
+				if (index != 0)
+				{
+					output << ',';
+				}
+				output << "{\"kind\":\"" << hazardKindName(hazard.kind) << "\",\"x\":" << hazard.position.x
+				       << ",\"y\":" << hazard.position.y << ",\"cooldown\":" << hazard.cooldownTicksRemaining
+				       << ",\"triggered\":" << (hazard.triggered ? "true" : "false") << "}";
+			}
+			output << "]}";
 			battle_protocol::Envelope envelope;
 			envelope.type = battle_protocol::MessageType::Snapshot;
 			envelope.payloadJson = output.str();

@@ -1,23 +1,47 @@
 #include "MatchLoop.hpp"
+#include "Protocol.hpp"
 #include "Session.hpp"
+#include "TcpFrameCodec.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace
 {
 	using if_arena::battle_backend::BackendLimits;
+	using if_arena::battle_backend::BackendCommand;
+	using if_arena::battle_backend::BackendCommandKind;
+	using if_arena::battle_backend::ConnectionId;
+	using if_arena::battle_backend::DisconnectReason;
+	using if_arena::battle_backend::IOutboundSession;
 	using if_arena::battle_backend::MatchManager;
+	using if_arena::battle_backend::MatchId;
+	using if_arena::battle_backend::PlayerId;
+	using if_arena::battle_backend::SessionId;
 	using if_arena::battle_backend::SessionRegistry;
+	using if_arena::battle_protocol::ClientSessionPhase;
+	using if_arena::battle_protocol::Envelope;
+	using if_arena::battle_protocol::MessageType;
+	using if_arena::battle_protocol::ProtocolErrorCode;
+	using if_arena::battle_protocol::parseEnvelope;
+	using if_arena::battle_protocol::serializeEnvelope;
+	using if_arena::battle_protocol::validateClientEnvelope;
+	using if_arena::battle_transport_tcp::TcpConnection;
+	using if_arena::battle_transport_tcp::TcpEndpoint;
+	using if_arena::battle_transport_tcp::TcpListener;
+	using if_arena::battle_transport_tcp::TcpReadStatus;
 
 	struct TransportConfig
 	{
@@ -59,6 +83,7 @@ namespace
 		bool localMode{};
 		bool checkConfigOnly{};
 		bool help{};
+		std::size_t maxClients{};
 	};
 
 	struct ConfigLoadResult
@@ -281,6 +306,59 @@ namespace
 		}
 		for (const char ch : trimmed)
 		{
+			value = (value * 10u) + static_cast<std::uint64_t>(ch - '0');
+		}
+		return value;
+	}
+
+	std::optional<int> intField(std::string_view object, std::string_view key)
+	{
+		const auto raw = rawField(object, key);
+		if (!raw.has_value())
+		{
+			return std::nullopt;
+		}
+		const auto trimmed = trimCopy(*raw);
+		if (trimmed.empty())
+		{
+			return std::nullopt;
+		}
+		std::size_t index = 0;
+		int sign = 1;
+		if (trimmed[index] == '-')
+		{
+			sign = -1;
+			++index;
+		}
+		if (index >= trimmed.size())
+		{
+			return std::nullopt;
+		}
+		int value = 0;
+		for (; index < trimmed.size(); ++index)
+		{
+			if (std::isdigit(static_cast<unsigned char>(trimmed[index])) == 0)
+			{
+				return std::nullopt;
+			}
+			value = (value * 10) + (trimmed[index] - '0');
+		}
+		return value * sign;
+	}
+
+	std::optional<std::uint64_t> parseUint64Text(std::string_view text)
+	{
+		if (text.empty())
+		{
+			return std::nullopt;
+		}
+		std::uint64_t value = 0;
+		for (const char ch : text)
+		{
+			if (std::isdigit(static_cast<unsigned char>(ch)) == 0)
+			{
+				return std::nullopt;
+			}
 			value = (value * 10u) + static_cast<std::uint64_t>(ch - '0');
 		}
 		return value;
@@ -588,6 +666,23 @@ namespace
 			{
 				options.checkConfigOnly = true;
 			}
+			else if (arg == "--max-clients")
+			{
+				if (index + 1 >= argc)
+				{
+					addError(errors, "--max-clients requires a value");
+					break;
+				}
+				const auto parsed = parseUint64Text(argv[++index]);
+				if (!parsed.has_value())
+				{
+					addError(errors, "--max-clients must be a non-negative integer");
+				}
+				else
+				{
+					options.maxClients = static_cast<std::size_t>(*parsed);
+				}
+			}
 			else if (arg == "--config")
 			{
 				if (index + 1 >= argc)
@@ -608,10 +703,9 @@ namespace
 
 	void printHelp()
 	{
-		std::cout << "Usage: battle_server_app [--config PATH] [--local] [--check-config]\n"
+		std::cout << "Usage: battle_server_app [--config PATH] [--local] [--check-config] [--max-clients N]\n"
 		          << "\n"
-		          << "Loads IF Arena server config, initializes backend limits, and starts enabled transports when "
-		             "listener implementations are available.\n";
+		          << "Loads IF Arena server config, initializes backend limits, and starts the local TCP listener.\n";
 	}
 
 	void logStartup(const ServerConfig& config, const BackendLimits& limits)
@@ -633,6 +727,448 @@ namespace
 			std::cerr << "error: " << error << '\n';
 		}
 		return 1;
+	}
+
+	std::string jsonString(std::string_view value)
+	{
+		std::ostringstream output;
+		output << '"';
+		for (const char ch : value)
+		{
+			switch (ch)
+			{
+			case '\\':
+				output << "\\\\";
+				break;
+			case '"':
+				output << "\\\"";
+				break;
+			case '\n':
+				output << "\\n";
+				break;
+			case '\r':
+				output << "\\r";
+				break;
+			case '\t':
+				output << "\\t";
+				break;
+			default:
+				if (static_cast<unsigned char>(ch) < 0x20)
+				{
+					output << "\\u00";
+					constexpr char hex[] = "0123456789abcdef";
+					output << hex[(static_cast<unsigned char>(ch) >> 4u) & 0x0fu]
+					       << hex[static_cast<unsigned char>(ch) & 0x0fu];
+				}
+				else
+				{
+					output << ch;
+				}
+				break;
+			}
+		}
+		output << '"';
+		return output.str();
+	}
+
+	struct TcpRuntimeState
+	{
+		SessionRegistry& sessions;
+		MatchManager& matches;
+		BackendLimits limits;
+		std::mutex mutex;
+		std::uint64_t nextConnectionId{1};
+		std::vector<SessionId> liveSessions;
+		std::chrono::milliseconds handshakeTimeout{5000};
+		std::chrono::milliseconds idleTimeout{30000};
+	};
+
+	class TcpBackendOutbound final : public IOutboundSession
+	{
+	public:
+		explicit TcpBackendOutbound(TcpConnection& connection)
+			: _connection(connection)
+		{
+		}
+
+		bool send(std::string_view payload) override
+		{
+			std::lock_guard lock(_mutex);
+			return _connection.sendFrame(payload).ok;
+		}
+
+		void close(DisconnectReason) override
+		{
+			std::lock_guard lock(_mutex);
+			_connection.close();
+		}
+
+	private:
+		TcpConnection& _connection;
+		std::mutex _mutex;
+	};
+
+	std::string backendReasonName(if_arena::battle_backend::BackendRejectReason reason)
+	{
+		using if_arena::battle_backend::BackendRejectReason;
+		switch (reason)
+		{
+		case BackendRejectReason::None:
+			return "none";
+		case BackendRejectReason::AuthRequired:
+			return "auth_required";
+		case BackendRejectReason::Closed:
+			return "closed";
+		case BackendRejectReason::QueueFull:
+			return "queue_full";
+		case BackendRejectReason::CapacityReached:
+			return "capacity_reached";
+		case BackendRejectReason::NotFound:
+			return "not_found";
+		case BackendRejectReason::InvalidMatch:
+			return "invalid_match";
+		case BackendRejectReason::MatchNotStarted:
+			return "match_not_started";
+		case BackendRejectReason::MatchFull:
+			return "match_full";
+		case BackendRejectReason::InvalidOwnership:
+			return "invalid_ownership";
+		case BackendRejectReason::InvalidSequence:
+			return "invalid_sequence";
+		case BackendRejectReason::RateLimited:
+			return "rate_limited";
+		}
+		return "unknown";
+	}
+
+	Envelope serverEnvelope(MessageType type, std::string payload)
+	{
+		Envelope envelope;
+		envelope.type = type;
+		envelope.payloadJson = std::move(payload);
+		return envelope;
+	}
+
+	bool sendServerEnvelope(TcpConnection& connection, MessageType type, std::string payload)
+	{
+		const auto serialized = serializeEnvelope(serverEnvelope(type, std::move(payload)));
+		if (!serialized.ok())
+		{
+			return false;
+		}
+		return connection.sendFrame(*serialized.json).ok;
+	}
+
+	bool sendError(TcpConnection& connection, std::string code, std::string message)
+	{
+		return sendServerEnvelope(connection, MessageType::Error,
+		                          "{\"code\":" + jsonString(code) + ",\"message\":" + jsonString(message) + "}");
+	}
+
+	void flushAllSessions(TcpRuntimeState& state)
+	{
+		for (const auto sessionId : state.liveSessions)
+		{
+			if (auto* session = state.sessions.find(sessionId); session != nullptr)
+			{
+				session->flushOutbound();
+			}
+		}
+	}
+
+	std::optional<BackendCommandKind> commandKindFrom(std::string_view kind)
+	{
+		if (kind == "move" || kind == "aim")
+		{
+			return BackendCommandKind::Move;
+		}
+		if (kind == "stop")
+		{
+			return BackendCommandKind::Stop;
+		}
+		if (kind == "attack")
+		{
+			return BackendCommandKind::Attack;
+		}
+		if (kind == "interact")
+		{
+			return BackendCommandKind::Interact;
+		}
+		if (kind == "dash")
+		{
+			return BackendCommandKind::Dash;
+		}
+		return std::nullopt;
+	}
+
+	std::optional<BackendCommand> parseBackendCommand(const Envelope& envelope, MatchId& match)
+	{
+		const auto matchId = stringField(envelope.payloadJson, "matchId");
+		if (!matchId.has_value())
+		{
+			return std::nullopt;
+		}
+		const auto parsedMatch = parseUint64Text(*matchId);
+		if (!parsedMatch.has_value())
+		{
+			return std::nullopt;
+		}
+		match = MatchId{*parsedMatch};
+
+		const auto command = objectField(envelope.payloadJson, "command");
+		if (!command.has_value())
+		{
+			return std::nullopt;
+		}
+		const auto kind = stringField(*command, "kind");
+		if (!kind.has_value())
+		{
+			return std::nullopt;
+		}
+		const auto backendKind = commandKindFrom(*kind);
+		if (!backendKind.has_value())
+		{
+			return std::nullopt;
+		}
+
+		BackendCommand result;
+		result.kind = *backendKind;
+		const auto direction = objectField(*command, "direction");
+		if (direction.has_value())
+		{
+			const auto x = intField(*direction, "x");
+			const auto y = intField(*direction, "y");
+			if (!x.has_value() || !y.has_value())
+			{
+				return std::nullopt;
+			}
+			result.direction = if_arena::battle_core::Direction{*x, *y};
+		}
+		return result;
+	}
+
+	void handleTcpClient(TcpConnection connection, TcpRuntimeState& state)
+	{
+		TcpBackendOutbound outbound{connection};
+		SessionId sessionId{};
+		{
+			std::lock_guard lock(state.mutex);
+			const auto created = state.sessions.createSession(ConnectionId{state.nextConnectionId++}, outbound);
+			if (!created.accepted() || !created.session.has_value())
+			{
+				sendError(connection, "capacity_reached", "server session capacity reached");
+				return;
+			}
+			sessionId = *created.session;
+			state.liveSessions.push_back(sessionId);
+		}
+
+		ClientSessionPhase phase = ClientSessionPhase::Connected;
+		std::optional<MatchId> currentMatch;
+		const auto connectedAt = std::chrono::steady_clock::now();
+		auto lastActivityAt = connectedAt;
+		bool idlePingOutstanding = false;
+		while (connection.valid())
+		{
+			auto read = connection.readFrame();
+			if (read.status == TcpReadStatus::TimedOut)
+			{
+				const auto now = std::chrono::steady_clock::now();
+				if (phase == ClientSessionPhase::Connected && now - connectedAt >= state.handshakeTimeout)
+				{
+					sendError(connection, "handshake_timeout", "authentication handshake timed out");
+					break;
+				}
+				if (now - lastActivityAt >= state.idleTimeout)
+				{
+					if (idlePingOutstanding)
+					{
+						sendError(connection, "idle_timeout", "connection idle timeout");
+						break;
+					}
+					sendServerEnvelope(connection, MessageType::Ping, "{}");
+					idlePingOutstanding = true;
+					lastActivityAt = now;
+				}
+				continue;
+			}
+			if (read.status == TcpReadStatus::Closed)
+			{
+				break;
+			}
+			if (read.status == TcpReadStatus::Error)
+			{
+				break;
+			}
+
+			lastActivityAt = std::chrono::steady_clock::now();
+			idlePingOutstanding = false;
+			auto parsed = parseEnvelope(read.frame);
+			if (!parsed.ok())
+			{
+				sendError(connection, "protocol_error", "invalid protocol envelope");
+				break;
+			}
+			const auto validation = validateClientEnvelope(*parsed.envelope, phase);
+			if (validation.code != ProtocolErrorCode::None)
+			{
+				sendError(connection, "protocol_error", validation.message);
+				break;
+			}
+
+			if (parsed.envelope->type == MessageType::AuthRequest)
+			{
+				std::lock_guard lock(state.mutex);
+				auto* session = state.sessions.find(sessionId);
+				if (session == nullptr || !session->authenticate(PlayerId{sessionId.value}).accepted)
+				{
+					sendError(connection, "auth_failed", "backend authentication failed");
+					break;
+				}
+				phase = ClientSessionPhase::Authenticated;
+				sendServerEnvelope(connection, MessageType::AuthResult,
+				                   "{\"accepted\":true,\"sessionId\":\"" + std::to_string(sessionId.value) + "\"}");
+				continue;
+			}
+
+			if (parsed.envelope->type == MessageType::CreateMatch)
+			{
+				std::lock_guard lock(state.mutex);
+				const auto created = state.matches.createMatch(sessionId);
+				if (!created.accepted() || !created.match.has_value())
+				{
+					sendError(connection, "create_match_rejected", backendReasonName(created.result.reason));
+					continue;
+				}
+				currentMatch = *created.match;
+				phase = ClientSessionPhase::InMatch;
+				sendServerEnvelope(connection, MessageType::MatchJoined,
+				                   "{\"matchId\":\"" + std::to_string(created.match->value) + "\",\"matchCode\":\"" +
+				                    created.joinCode + "\"}");
+				continue;
+			}
+
+			if (parsed.envelope->type == MessageType::JoinMatch)
+			{
+				const auto joinCode = stringField(parsed.envelope->payloadJson, "matchCode");
+				if (!joinCode.has_value())
+				{
+					sendError(connection, "join_match_rejected", "missing match code");
+					continue;
+				}
+				std::lock_guard lock(state.mutex);
+				const auto joined = state.matches.joinMatch(sessionId, *joinCode);
+				if (!joined.accepted() || !joined.match.has_value())
+				{
+					sendError(connection, "join_match_rejected", backendReasonName(joined.result.reason));
+					continue;
+				}
+				currentMatch = *joined.match;
+				phase = ClientSessionPhase::InMatch;
+				sendServerEnvelope(connection, MessageType::MatchJoined,
+				                   "{\"matchId\":\"" + std::to_string(joined.match->value) + "\",\"matchCode\":\"" +
+				                    *joinCode + "\"}");
+				state.matches.tick(*currentMatch);
+				flushAllSessions(state);
+				continue;
+			}
+
+			if (parsed.envelope->type == MessageType::InputCommand)
+			{
+				MatchId match{};
+				const auto command = parseBackendCommand(*parsed.envelope, match);
+				if (!command.has_value() || !parsed.envelope->sessionSeq.has_value())
+				{
+					sendError(connection, "input_rejected", "invalid input command payload");
+					continue;
+				}
+				std::lock_guard lock(state.mutex);
+				const auto submitted = state.matches.submitCommand(sessionId, match, *parsed.envelope->sessionSeq, *command);
+				sendServerEnvelope(connection, MessageType::InputAck,
+				                   "{\"accepted\":" + std::string{submitted.accepted ? "true" : "false"} +
+				                    ",\"reason\":\"" + backendReasonName(submitted.reason) + "\"}");
+				if (submitted.accepted)
+				{
+					state.matches.tick(match);
+					flushAllSessions(state);
+				}
+				continue;
+			}
+
+			if (parsed.envelope->type == MessageType::Ping)
+			{
+				sendServerEnvelope(connection, MessageType::Pong, "{}");
+				continue;
+			}
+			if (parsed.envelope->type == MessageType::Pong)
+			{
+				continue;
+			}
+		}
+
+		{
+			std::lock_guard lock(state.mutex);
+			state.matches.disconnect(sessionId, DisconnectReason::ClientClosed);
+		}
+	}
+
+	int runTcpServer(const ServerConfig& config, const BackendLimits& limits, SessionRegistry& sessions,
+	                 MatchManager& matches, std::size_t maxClients)
+	{
+		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, 1000u});
+		TcpEndpoint endpoint;
+		endpoint.host = config.tcp.host;
+		endpoint.port = static_cast<std::uint16_t>(config.tcp.port);
+		endpoint.frameLimits.maxFrameBytes = static_cast<std::uint32_t>(config.tcp.maxBytes);
+		endpoint.frameLimits.maxBufferedBytes = config.tcp.maxBytes * 2u;
+		endpoint.receiveTimeoutMs = socketPollTimeoutMs;
+		endpoint.sendTimeoutMs = config.idleTimeoutMs;
+
+		std::optional<if_arena::battle_transport_tcp::TcpSocketError> error;
+		auto listener = TcpListener::bindAndListen(endpoint, error);
+		if (!listener.has_value())
+		{
+			std::cerr << "error: failed to start TCP listener: " << (error.has_value() ? error->message : "unknown error") << '\n';
+			return 1;
+		}
+
+		std::cout << "TCP listener started host=" << config.tcp.host << " port=" << config.tcp.port
+		          << " maxFrameBytes=" << config.tcp.maxBytes << '\n';
+		TcpRuntimeState state{sessions, matches, limits};
+		state.handshakeTimeout = std::chrono::milliseconds{config.handshakeTimeoutMs};
+		state.idleTimeout = std::chrono::milliseconds{config.idleTimeoutMs};
+		std::vector<std::thread> workers;
+		std::size_t accepted = 0;
+		while (maxClients == 0 || accepted < maxClients)
+		{
+			std::optional<if_arena::battle_transport_tcp::TcpSocketError> acceptError;
+			auto client = listener->accept(acceptError);
+			if (!client.has_value())
+			{
+				if (acceptError.has_value() &&
+				    acceptError->code == if_arena::battle_transport_tcp::TcpSocketErrorCode::TimedOut)
+				{
+					continue;
+				}
+				std::cerr << "error: TCP accept failed: "
+				          << (acceptError.has_value() ? acceptError->message : "unknown error") << '\n';
+				return 1;
+			}
+			++accepted;
+			workers.emplace_back([connection = std::move(*client), &state]() mutable {
+				handleTcpClient(std::move(connection), state);
+			});
+		}
+
+		for (auto& worker : workers)
+		{
+			if (worker.joinable())
+			{
+				worker.join();
+			}
+		}
+		std::cout << "TCP listener stopped acceptedClients=" << accepted << '\n';
+		return 0;
 	}
 }
 
@@ -675,18 +1211,13 @@ int main(int argc, char** argv)
 	}
 
 	std::vector<std::string> startupErrors;
-	if (config.tcp.enabled)
-	{
-		addError(startupErrors, "TCP listener is not implemented in this task yet; disable transports.tcp.enabled or run task 0025+.");
-	}
 	if (config.websocket.enabled)
 	{
-		addError(startupErrors,
-		         "WebSocket listener is not implemented in this task yet; disable transports.websocket.enabled or run task 0026+.");
+		std::cout << "WebSocket listener is not implemented in this task yet; skipping until task 0026.\n";
 	}
-	if (!config.tcp.enabled && !config.websocket.enabled)
+	if (!config.tcp.enabled)
 	{
-		addError(startupErrors, "no transports are enabled; server has no listener to run");
+		addError(startupErrors, "TCP transport is disabled; raw TCP vertical slice has no listener to run");
 	}
 	if (!startupErrors.empty())
 	{
@@ -694,7 +1225,7 @@ int main(int argc, char** argv)
 		return failWithErrors(startupErrors);
 	}
 
-	std::cout << "Server started. Press Ctrl+C to stop.\n";
+	const int tcpResult = runTcpServer(config, limits, sessions, matches, options.maxClients);
 	std::cout << "Shutdown complete.\n";
-	return 0;
+	return tcpResult;
 }

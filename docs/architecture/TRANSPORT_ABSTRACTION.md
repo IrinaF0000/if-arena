@@ -58,6 +58,18 @@ Both transports must enforce:
 
 The initial backend queue policy is fail-closed: if a session exceeds pending message or byte limits, backend closes the abstract outbound session with `QueueOverflow`.
 
+## Current raw TCP vertical slice
+
+Task 0025 wires the local raw TCP path into backend sessions:
+
+- `battle_server_app` starts `TcpListener`, accepts local clients, and creates one backend `SessionRegistry` session per connection.
+- Client messages are parsed with `battle_protocol::parseEnvelope()` and phase-validated with `validateClientEnvelope()` before backend calls.
+- `auth_request`, `create_match`, `join_match`, `input_command`, `ping`, and `pong` are handled in the TCP composition loop.
+- Authoritative snapshots/events are produced by `battle_backend` and sent back through the backend outbound queue, not by client code.
+- Malformed JSON, unknown message types, oversized frames, handshake timeout, idle timeout, and bounded outbound queues fail closed.
+
+This slice is local/demo infrastructure. Public hardening, async I/O, richer metrics, and WebSocket/Telegram integration remain later tasks.
+
 ## Transport-specific responsibilities
 
 TCP:

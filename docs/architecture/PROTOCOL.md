@@ -40,6 +40,8 @@ TCP-specific requirements:
 - reject oversized frame before allocating payload buffer;
 - close session on framing violation.
 
+The current local TCP server sends and receives these same JSON envelopes over the length-prefixed frame codec. A malformed frame or invalid envelope receives a structured `error` when possible, then the connection is closed.
+
 ### 2.2 WebSocket
 
 Used by Telegram Mini App.

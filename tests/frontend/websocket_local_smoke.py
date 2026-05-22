@@ -45,7 +45,7 @@ def write_config(path: Path, port: int) -> None:
                     "demoAuthEnabled": True,
                     "telegramAuthEnabled": False,
                     "handshakeTimeoutMs": 1000,
-                    "idleTimeoutMs": 5000,
+                    "idleTimeoutMs": 1000,
                     "maxInputCommandsPerSecond": 30,
                     "maxPendingWriteBytesPerSession": 1048576,
                     "maxPendingOutboundMessages": 64,
@@ -85,7 +85,7 @@ def connect_ws(port: int) -> socket.socket:
     sock.sendall(request.encode("ascii"))
     response = sock.recv(4096).decode("latin1")
     assert "101 Switching Protocols" in response, response
-    sock.settimeout(2.0)
+    sock.settimeout(0.75)
     return sock
 
 
@@ -117,12 +117,40 @@ def recv_json(sock: socket.socket) -> dict[str, object]:
     return decoded
 
 
+def handle_control_message(sock: socket.socket, message: dict[str, object]) -> None:
+    if message.get("type") == "ping":
+        send_json(sock, {"version": 1, "type": "pong", "payload": {}})
+    if message.get("type") == "error":
+        payload = message.get("payload")
+        if isinstance(payload, dict):
+            raise AssertionError(f"server error: {payload.get('code')} {payload.get('message')}")
+        raise AssertionError(f"server error: {message}")
+
+
 def expect_type(sock: socket.socket, message_type: str) -> dict[str, object]:
-    for _ in range(6):
+    for _ in range(32):
         message = recv_json(sock)
+        handle_control_message(sock, message)
         if message.get("type") == message_type:
             return message
     raise AssertionError(f"missing message type {message_type}")
+
+
+def read_during_active_match(sockets: list[socket.socket], duration_seconds: float) -> dict[socket.socket, int]:
+    deadline = time.monotonic() + duration_seconds
+    snapshots = {sock: 0 for sock in sockets}
+    while time.monotonic() < deadline:
+        for sock in sockets:
+            try:
+                message = recv_json(sock)
+            except TimeoutError:
+                continue
+            except socket.timeout:
+                continue
+            handle_control_message(sock, message)
+            if message.get("type") == "snapshot":
+                snapshots[sock] += 1
+    return snapshots
 
 
 def main() -> int:
@@ -158,11 +186,12 @@ def main() -> int:
             send_json(joiner, {"version": 1, "type": "join_match", "payload": {"matchCode": match_code}})
             joined = expect_type(joiner, "match_joined")
             match_id = str(joined["payload"]["matchId"])  # type: ignore[index]
+            expect_type(creator, "snapshot")
             snapshot = expect_type(joiner, "snapshot")
             assert isinstance(snapshot["payload"]["players"], list)  # type: ignore[index]
 
             send_json(
-                joiner,
+                creator,
                 {
                     "version": 1,
                     "type": "input_command",
@@ -170,8 +199,23 @@ def main() -> int:
                     "payload": {"matchId": match_id, "command": {"kind": "move", "direction": {"x": -1, "y": 0}}},
                 },
             )
-            ack = expect_type(joiner, "input_ack")
+            ack = expect_type(creator, "input_ack")
             assert ack["payload"]["accepted"] is True  # type: ignore[index]
+            snapshots = read_during_active_match([creator, joiner], duration_seconds=2.5)
+            assert snapshots[creator] > 0, "creator did not receive live snapshots beyond idle timeout"
+            assert snapshots[joiner] > 0, "passive joiner did not receive live snapshots beyond idle timeout"
+
+            send_json(
+                creator,
+                {
+                    "version": 1,
+                    "type": "input_command",
+                    "sessionSeq": 2,
+                    "payload": {"matchId": match_id, "command": {"kind": "stop"}},
+                },
+            )
+            stop_ack = expect_type(creator, "input_ack")
+            assert stop_ack["payload"]["accepted"] is True  # type: ignore[index]
             creator.close()
             joiner.close()
             stdout, stderr = server.communicate(timeout=10)

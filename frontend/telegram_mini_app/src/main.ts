@@ -59,7 +59,11 @@ const client = new WebSocketClient({
   url: wsUrl,
   displayName: "Telegram Demo Player",
   onStateChanged: (state) => updateConnectionState(state),
-  onMessage: (message) => handleMessage(message)
+  onMessage: (message) => handleMessage(message),
+  onDiagnostic: (message) => {
+    stateLabel.textContent = message;
+    arena.setStatus(message);
+  }
 });
 
 const controls = new TouchControls({
@@ -121,6 +125,8 @@ function handleMessage(message: IncomingMessage): void {
       arena.setStatus(stateLabel.textContent);
       break;
     case "event_batch":
+      break;
+    case "ping":
       break;
   }
 }

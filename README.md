@@ -114,7 +114,7 @@ docs/
 - Secrets must not be committed, logged, or embedded in frontend code.
 - Agentic implementation must be done in small, reviewable tasks with explicit quality gates.
 
-## First milestones
+## Implemented milestones
 
 1. Copy the old project into `external/battle_simulation_snapshot/`.
 2. Extract a minimal `battle_core` static library without changing the old repository.
@@ -129,7 +129,7 @@ docs/
 
 This repository has the foundation modules, an in-process backend match loop, local raw TCP and WebSocket vertical slices, a Telegram Mini App slice, and a Qt Widgets playable client target. Local CLI/TCP, Qt, and Telegram/WebSocket clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
 
-The tree is being stabilized for a future `v0.1.0-playable-mvp` tag. Public deployment is still intentionally out of scope: the current release candidate is a local playable MVP for review, testing, and portfolio demonstration.
+The tree is a local playable alpha/MVP candidate for review, testing, and portfolio demonstration. Public deployment is still intentionally out of scope: local Qt/TCP and browser/WebSocket flows are supported, while production WSS/HTTPS deployment, public operations, and account/session hardening remain follow-up work.
 
 Local raw TCP smoke:
 
@@ -184,7 +184,6 @@ python scripts/ci/scan_secrets.py
 - WebSocket support is local HTTP Upgrade only in this slice; public Telegram usage requires WSS/HTTPS termination.
 - Large slow-reader soaks, mixed TCP/WebSocket load, snapshot coalescing, and production metrics export are future hardening tasks.
 - Qt target requires a local Qt SDK and is disabled in default non-Qt builds; the Windows MinGW kit command above is the verified path for release stabilization.
-- Tagging `v0.1.0-playable-mvp` is a manual release action and is not performed by stabilization tasks without explicit authorization.
 
 ## Portfolio Summary
 
@@ -212,7 +211,6 @@ This repository includes a scoped agent harness for Codex-style parallel develop
 The harness is designed to keep security, code quality, access boundaries, role separation, scalability, CI/CD safety, and token economy explicit during agent-driven implementation.
 
 
-## Current polish task
+## License
 
-Next recommended task: `docs/agent-tasks/0031-fix-playable-controls-and-arena-readability.md`. It focuses on Qt controls, live-match tick stability, objective/combat readability, and removing debug-looking UI noise.
-
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE).

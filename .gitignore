@@ -63,3 +63,12 @@ secrets/
 config/secrets/
 config/local/
 deploy/**/.env
+
+# Local launch/runtime generated configs
+/build/run-configs/
+/config/examples/server.ws.local.json
+
+# Local archives and copied binaries
+*.zip
+*.exe
+*.dll

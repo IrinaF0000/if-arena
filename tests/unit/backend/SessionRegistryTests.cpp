@@ -217,45 +217,34 @@ namespace
 		MatchHarness harness;
 		std::uint64_t seq = 1;
 		const BackendCommand moveNorth{BackendCommandKind::Move, {0, -1}};
-		const BackendCommand moveWest{BackendCommandKind::Move, {-1, 0}};
-		const BackendCommand moveEast{BackendCommandKind::Move, {1, 0}};
 		const BackendCommand moveSouth{BackendCommandKind::Move, {0, 1}};
 		const BackendCommand stop{BackendCommandKind::Stop, {}};
-		const BackendCommand interact{BackendCommandKind::Interact, {}};
 
-		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveWest).accepted,
-		        "blue sidestep around center obstacle accepted");
-		require(harness.manager.tick(harness.match).accepted, "sidestep tick accepted");
-		for (int step = 0; step < 4; ++step)
+		for (int step = 0; step < 14; ++step)
 		{
 			require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveNorth).accepted,
-			        "blue movement toward objective accepted");
+			        "blue direct movement toward objective accepted");
 			require(harness.manager.tick(harness.match).accepted, "movement tick accepted");
 		}
-		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveEast).accepted,
-		        "blue reaches objective column");
-		require(harness.manager.tick(harness.match).accepted, "objective column tick accepted");
 
 		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, stop).accepted, "stop at objective accepted");
-		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, interact).accepted,
-		        "objective pickup command accepted");
-		require(harness.manager.tick(harness.match).accepted, "pickup tick accepted");
+		require(harness.manager.tick(harness.match).accepted, "stop tick accepted");
+		auto carryingView = harness.manager.view(harness.match);
+		require(carryingView.has_value() && carryingView->snapshot.has_value(), "carrying match view exists");
+		require(carryingView->snapshot->objective.state == if_arena::battle_core::ObjectiveState::Carried,
+		        "objective pickup is automatic on contact");
 
-		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveWest).accepted,
-		        "carrier sidestep around center obstacle accepted");
-		require(harness.manager.tick(harness.match).accepted, "carrier sidestep tick accepted");
-		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveWest).accepted,
-		        "carrier clears center obstacle column");
-		require(harness.manager.tick(harness.match).accepted, "carrier obstacle-clear tick accepted");
-		for (int step = 0; step < 6; ++step)
+		for (int step = 0; step < 24; ++step)
 		{
 			require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveSouth).accepted,
-			        "blue return movement accepted");
+			        "blue direct return movement accepted");
 			require(harness.manager.tick(harness.match).accepted, "return tick accepted");
+			const auto progress = harness.manager.view(harness.match);
+			if (progress.has_value() && progress->snapshot.has_value() && progress->snapshot->finished)
+			{
+				break;
+			}
 		}
-		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveEast).accepted,
-		        "carrier returns into blue base radius");
-		require(harness.manager.tick(harness.match).accepted, "base entry tick accepted");
 
 		const auto view = harness.manager.view(harness.match);
 		require(view.has_value(), "completed match view exists");

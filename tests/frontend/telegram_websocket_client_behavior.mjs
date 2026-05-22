@@ -119,7 +119,7 @@ assert.equal(socket.sent.length, sentBeforeJoin, "match_joined must not trigger 
 client.sendCommand("move", { x: 0, y: -1 });
 assert.equal(socket.sent.at(-1).version, 1);
 assert.equal(socket.sent.at(-1).type, "input_command");
-assert.deepEqual(socket.sent.at(-1).payload.command, { kind: "move", direction: { x: 0, y: 1 } });
+assert.deepEqual(socket.sent.at(-1).payload.command, { kind: "move", direction: { x: 0, y: -1 } });
 
 socket.message({
   version: 1,
@@ -157,7 +157,7 @@ socket.message({
 });
 
 client.sendCommand("move", { x: 0, y: -1 });
-assert.deepEqual(socket.sent.at(-1).payload.command, { kind: "move", direction: { x: 0, y: 1 } });
+assert.deepEqual(socket.sent.at(-1).payload.command, { kind: "move", direction: { x: 0, y: -1 } });
 
 for (const [kind, direction] of [
   ["stop", undefined],

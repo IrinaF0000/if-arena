@@ -69,6 +69,43 @@ namespace if_arena::battle_backend
 			return kind == battle_core::HazardKind::Tower ? "tower" : "mine";
 		}
 
+		std::string_view eventTypeName(battle_core::BattleEventType type)
+		{
+			using battle_core::BattleEventType;
+			switch (type)
+			{
+			case BattleEventType::PlayerMoved:
+				return "player_moved";
+			case BattleEventType::TickAdvanced:
+				return "tick_advanced";
+			case BattleEventType::MatchFinished:
+				return "match_finished";
+			case BattleEventType::ObjectivePickedUp:
+				return "objective_picked_up";
+			case BattleEventType::ObjectiveDropped:
+				return "objective_dropped";
+			case BattleEventType::ObjectiveCaptured:
+				return "objective_captured";
+			case BattleEventType::ObjectiveRespawned:
+				return "objective_respawned";
+			case BattleEventType::ScoreChanged:
+				return "score_changed";
+			case BattleEventType::AttackHit:
+				return "attack_hit";
+			case BattleEventType::AttackMissed:
+				return "attack_missed";
+			case BattleEventType::PlayerDashed:
+				return "player_dashed";
+			case BattleEventType::HazardTelegraphed:
+				return "hazard_telegraphed";
+			case BattleEventType::HazardHit:
+				return "hazard_hit";
+			case BattleEventType::PlayerDefeated:
+				return "player_defeated";
+			}
+			return "unknown";
+		}
+
 		std::string snapshotPayload(MatchId match, const battle_core::BattleSnapshot& snapshot)
 		{
 			std::ostringstream output;
@@ -124,11 +161,25 @@ namespace if_arena::battle_backend
 			return serialized.ok() ? *serialized.json : std::string{"{\"version\":1,\"type\":\"snapshot\",\"payload\":{}}"};
 		}
 
-		std::string eventBatchPayload(MatchId match, std::uint32_t tick, std::size_t eventCount)
+		std::string eventBatchPayload(MatchId match, const std::vector<battle_core::BattleEvent>& events)
 		{
+			const auto tick = events.empty() ? 0 : events.back().tick;
 			std::ostringstream output;
-			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << tick
-			       << ",\"events\":" << eventCount << "}";
+			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << tick << ",\"events\":[";
+			for (std::size_t index = 0; index < events.size(); ++index)
+			{
+				const auto& event = events[index];
+				if (index != 0)
+				{
+					output << ',';
+				}
+				output << "{\"type\":\"" << eventTypeName(event.type) << "\",\"playerId\":\"" << event.player.value
+				       << "\",\"targetPlayerId\":\"" << event.target.value << "\",\"team\":\"" << teamName(event.team)
+				       << "\",\"from\":{\"x\":" << event.from.x << ",\"y\":" << event.from.y << "},\"to\":{\"x\":"
+				       << event.to.x << ",\"y\":" << event.to.y << "},\"score\":" << event.score
+				       << ",\"damage\":" << event.damage << "}";
+			}
+			output << "]}";
 			battle_protocol::Envelope envelope;
 			envelope.type = battle_protocol::MessageType::EventBatch;
 			envelope.payloadJson = output.str();
@@ -569,7 +620,7 @@ namespace if_arena::battle_backend
 		const auto snapshot = match->engine->snapshot();
 		if (!events.empty())
 		{
-			broadcast(*match, eventBatchPayload(match->id, snapshot.tick, events.size()), false);
+			broadcast(*match, eventBatchPayload(match->id, events), false);
 		}
 		broadcast(*match, snapshotPayload(match->id, snapshot), true);
 		for (auto& participant : match->participants)
@@ -691,8 +742,10 @@ namespace if_arena::battle_backend
 		battle_core::MatchConfig config;
 		config.width = arena.dimensions.width;
 		config.height = arena.dimensions.height;
+		config.playerSpeedPerTick = 0.25;
 		config.maxTicks = 3600;
 		config.obstacles = arena.obstacles;
+		config.hazards = arena.hazards;
 		config.bases = {
 			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Red, arena.redBase->center, arena.redBase->radius},
 			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Blue, arena.blueBase->center, arena.blueBase->radius},

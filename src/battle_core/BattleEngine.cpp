@@ -376,6 +376,7 @@ namespace if_arena::battle_core
 		events.insert(events.end(), _systemEvents.begin(), _systemEvents.end());
 		_systemEvents.clear();
 		updateObjectiveTimers(events);
+		updateObjectiveContact(events);
 		for (const auto& pending : _pendingCommands)
 		{
 			auto* player = findPlayer(pending.command.player);
@@ -456,6 +457,7 @@ namespace if_arena::battle_core
 				events.push_back(BattleEvent{BattleEventType::PlayerMoved, _tick, player.player, from, player.position});
 			}
 		}
+		updateObjectiveContact(events);
 		updateHazards(events);
 
 		events.push_back(BattleEvent{BattleEventType::TickAdvanced, _tick, {}, {}, {}});
@@ -610,6 +612,31 @@ namespace if_arena::battle_core
 			_objective.state = ObjectiveState::AtSpawn;
 			events.push_back(BattleEvent{BattleEventType::ObjectiveRespawned, _tick, {}, _objectiveConfig->spawn,
 			                             _objectiveConfig->spawn, {}, 0});
+		}
+	}
+
+	void BattleEngine::updateObjectiveContact(std::vector<BattleEvent>& events)
+	{
+		if (!_objectiveConfig.has_value())
+		{
+			return;
+		}
+		for (auto& player : _players)
+		{
+			if (player.hp <= 0)
+			{
+				continue;
+			}
+			player.inOwnBase = isInOwnBase(player);
+			if (canPickupObjective(player))
+			{
+				pickUpObjective(player, events);
+				if (player.inOwnBase)
+				{
+					captureObjective(player, events);
+				}
+				return;
+			}
 		}
 	}
 

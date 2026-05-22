@@ -3,6 +3,7 @@ import type { HazardSnapshot, PlayerSnapshot, SnapshotPayload, Team } from "../p
 export class ArenaCanvas {
   private readonly context: CanvasRenderingContext2D;
   private snapshot: SnapshotPayload | null = null;
+  private localPlayerId: string | null = null;
   private status = "offline";
 
   public constructor(private readonly canvas: HTMLCanvasElement) {
@@ -18,8 +19,9 @@ export class ArenaCanvas {
     this.render();
   }
 
-  public setSnapshot(snapshot: SnapshotPayload): void {
+  public setSnapshot(snapshot: SnapshotPayload, localPlayerId: string | null): void {
     this.snapshot = snapshot;
+    this.localPlayerId = localPlayerId;
     this.render();
   }
 
@@ -49,7 +51,7 @@ export class ArenaCanvas {
       }
       this.drawObjective(snapshot, originX, originY, cell);
       for (const player of snapshot.players) {
-        this.drawPlayer(player, originX, originY, cell);
+        this.drawPlayer(player, snapshot, originX, originY, cell);
       }
       this.drawHud(snapshot);
     } else {
@@ -74,21 +76,25 @@ export class ArenaCanvas {
   }
 
   private drawBase(originX: number, originY: number, cell: number, mapWidth: number, mapHeight: number, team: Team): void {
-    const x = team === "blue" ? Math.floor(mapWidth / 2) : Math.floor(mapWidth / 2);
+    const x = Math.floor(mapWidth / 2);
     const y = team === "blue" ? mapHeight - 2 : 1;
+    const point = this.worldToCanvas(x, y, originX, originY, cell, mapWidth, mapHeight);
     this.context.fillStyle = team === "blue" ? "rgba(68, 194, 255, 0.22)" : "rgba(255, 112, 96, 0.22)";
     this.context.strokeStyle = team === "blue" ? "#44c2ff" : "#ff7060";
-    this.roundRect(originX + (x - 2) * cell, originY + (y - 1) * cell, cell * 5, cell * 2, 6);
+    this.roundRect(point.x - cell * 2.5, point.y - cell, cell * 5, cell * 2, 6);
     this.context.fill();
     this.context.stroke();
   }
 
   private drawObjective(snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
     const { objective } = snapshot;
-    const point = this.worldToCanvas(objective.x, objective.y, originX, originY, cell);
+    const point = this.worldToCanvas(objective.x, objective.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
     this.context.fillStyle = objective.state === "carried" ? "#f6d365" : "#f7b731";
     this.context.strokeStyle = "#fff3b0";
     this.context.lineWidth = 2;
+    this.context.beginPath();
+    this.context.arc(point.x, point.y, cell * 0.52, 0, Math.PI * 2);
+    this.context.stroke();
     this.context.beginPath();
     this.context.moveTo(point.x, point.y - cell * 0.35);
     this.context.lineTo(point.x + cell * 0.35, point.y);
@@ -97,10 +103,21 @@ export class ArenaCanvas {
     this.context.closePath();
     this.context.fill();
     this.context.stroke();
+    if (objective.state !== "at_spawn") {
+      this.context.fillStyle = "#fff7c2";
+      this.context.font = "13px system-ui, sans-serif";
+      this.context.textAlign = "center";
+      this.context.fillText(objective.state.replace("_", " "), point.x, point.y - cell * 0.62);
+      this.context.textAlign = "start";
+    }
   }
 
   private drawHazard(hazard: HazardSnapshot, originX: number, originY: number, cell: number): void {
-    const point = this.worldToCanvas(hazard.x, hazard.y, originX, originY, cell);
+    const snapshot = this.snapshot;
+    if (!snapshot) {
+      return;
+    }
+    const point = this.worldToCanvas(hazard.x, hazard.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
     this.context.fillStyle = hazard.kind === "tower" ? "#b38cff" : "#ff9f43";
     this.context.globalAlpha = hazard.triggered ? 0.35 : 0.9;
     this.context.beginPath();
@@ -109,8 +126,16 @@ export class ArenaCanvas {
     this.context.globalAlpha = 1;
   }
 
-  private drawPlayer(player: PlayerSnapshot, originX: number, originY: number, cell: number): void {
-    const point = this.worldToCanvas(player.x, player.y, originX, originY, cell);
+  private drawPlayer(player: PlayerSnapshot, snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
+    const point = this.worldToCanvas(player.x, player.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
+    const carriesObjective = player.playerId === snapshot.objective.carrierPlayerId;
+    if (carriesObjective) {
+      this.context.strokeStyle = "#ffd640";
+      this.context.lineWidth = 4;
+      this.context.beginPath();
+      this.context.arc(point.x, point.y, cell * 0.48, 0, Math.PI * 2);
+      this.context.stroke();
+    }
     this.context.fillStyle = player.team === "blue" ? "#44c2ff" : "#ff7060";
     this.context.strokeStyle = "#ffffff";
     this.context.lineWidth = 2;
@@ -125,6 +150,16 @@ export class ArenaCanvas {
     this.context.fillRect(point.x - hpWidth / 2, point.y - cell * 0.58, hpWidth, 4);
     this.context.fillStyle = hpRatio > 0.35 ? "#4cd964" : "#ff5e57";
     this.context.fillRect(point.x - hpWidth / 2, point.y - cell * 0.58, hpWidth * hpRatio, 4);
+    if (carriesObjective) {
+      this.context.fillStyle = "#ffd640";
+      this.context.beginPath();
+      this.context.moveTo(point.x, point.y - cell * 0.74);
+      this.context.lineTo(point.x + cell * 0.16, point.y - cell * 0.58);
+      this.context.lineTo(point.x, point.y - cell * 0.42);
+      this.context.lineTo(point.x - cell * 0.16, point.y - cell * 0.58);
+      this.context.closePath();
+      this.context.fill();
+    }
   }
 
   private drawHud(snapshot: SnapshotPayload): void {
@@ -144,11 +179,27 @@ export class ArenaCanvas {
     this.context.fillText(`Connection: ${this.status}`, 28, 36);
   }
 
-  private worldToCanvas(x: number, y: number, originX: number, originY: number, cell: number): { x: number; y: number } {
+  private worldToCanvas(
+    x: number,
+    y: number,
+    originX: number,
+    originY: number,
+    cell: number,
+    mapWidth: number,
+    mapHeight: number
+  ): { x: number; y: number } {
+    const point = this.viewerTeam() === "red" ? { x: mapWidth - 1 - x, y: mapHeight - 1 - y } : { x, y };
     return {
-      x: originX + (x + 0.5) * cell,
-      y: originY + (y + 0.5) * cell
+      x: originX + (point.x + 0.5) * cell,
+      y: originY + (point.y + 0.5) * cell
     };
+  }
+
+  private viewerTeam(): Team {
+    if (!this.snapshot || !this.localPlayerId) {
+      return "blue";
+    }
+    return this.snapshot.players.find((player) => player.playerId === this.localPlayerId)?.team ?? "blue";
   }
 
   private line(x1: number, y1: number, x2: number, y2: number): void {

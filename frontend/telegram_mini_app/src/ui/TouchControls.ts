@@ -17,6 +17,7 @@ const keyDirections = new Map<string, Direction>([
 
 export class TouchControls {
   private readonly pressed = new Set<string>();
+  private lastDirection: Direction = { x: 0, y: -1 };
 
   public constructor(private readonly sink: ControlSink) {}
 
@@ -27,19 +28,17 @@ export class TouchControls {
       }
       if (keyDirections.has(event.code)) {
         this.pressed.add(event.code);
-        this.sink.sendCommand("move", this.currentDirection());
+        const direction = this.currentDirection();
+        this.rememberDirection(direction);
+        this.sink.sendCommand("move", direction);
         event.preventDefault();
       }
       if (event.code === "Space") {
-        this.sink.sendCommand("attack", this.currentDirection());
+        this.sink.sendCommand("attack", this.currentActionDirection());
         event.preventDefault();
       }
       if (event.code === "ShiftLeft" || event.code === "ShiftRight") {
-        this.sink.sendCommand("dash", this.currentDirection());
-        event.preventDefault();
-      }
-      if (event.code === "KeyE") {
-        this.sink.sendCommand("interact");
+        this.sink.sendCommand("dash", this.currentActionDirection());
         event.preventDefault();
       }
     });
@@ -51,6 +50,7 @@ export class TouchControls {
         if (direction.x === 0 && direction.y === 0) {
           this.sink.sendCommand("stop");
         } else {
+          this.rememberDirection(direction);
           this.sink.sendCommand("move", direction);
         }
         event.preventDefault();
@@ -60,7 +60,11 @@ export class TouchControls {
 
   public bindButton(button: HTMLButtonElement | null, kind: CommandKind, direction?: Direction): void {
     button?.addEventListener("click", () => {
-      this.sink.sendCommand(kind, direction ?? this.currentDirection());
+      const commandDirection = direction ?? this.currentActionDirection();
+      if (kind === "move") {
+        this.rememberDirection(commandDirection);
+      }
+      this.sink.sendCommand(kind, kind === "stop" ? undefined : commandDirection);
     });
   }
 
@@ -78,6 +82,21 @@ export class TouchControls {
       x: clampUnit(x),
       y: clampUnit(y)
     };
+  }
+
+  private currentActionDirection(): Direction {
+    const direction = this.currentDirection();
+    if (direction.x !== 0 || direction.y !== 0) {
+      this.rememberDirection(direction);
+      return direction;
+    }
+    return this.lastDirection;
+  }
+
+  private rememberDirection(direction: Direction): void {
+    if (direction.x !== 0 || direction.y !== 0) {
+      this.lastDirection = direction;
+    }
   }
 }
 

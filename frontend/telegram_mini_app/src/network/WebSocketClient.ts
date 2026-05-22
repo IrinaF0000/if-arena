@@ -27,8 +27,6 @@ export class WebSocketClient {
   private socket: WebSocket | null = null;
   private readonly queuedSends: ClientEnvelope[] = [];
   private matchId: string | null = null;
-  private sessionId: string | null = null;
-  private localTeam: "blue" | "red" | null = null;
   private sessionSeq = 1;
 
   public constructor(private readonly options: WebSocketClientOptions) {}
@@ -83,7 +81,7 @@ export class WebSocketClient {
     if (!this.matchId) {
       return;
     }
-    this.send(createInputCommand(this.matchId, this.sessionSeq, kind, this.directionForServer(direction)));
+    this.send(createInputCommand(this.matchId, this.sessionSeq, kind, direction));
     this.sessionSeq += 1;
   }
 
@@ -116,46 +114,17 @@ export class WebSocketClient {
 
   private rememberServerState(message: IncomingMessage): void {
     if (message.type === "auth_result" && (message.payload.accepted === true || message.payload.ok === true)) {
-      this.sessionId = message.payload.sessionId ?? message.payload.playerId ?? null;
       this.options.onStateChanged("authenticated");
       return;
     }
     if (message.type === "match_joined") {
       this.matchId = message.payload.matchId;
-      this.localTeam = message.payload.team ?? this.localTeam;
       this.sessionSeq = 1;
       this.options.onStateChanged("in_match");
-      return;
-    }
-    if (message.type === "snapshot") {
-      const localPlayer = message.payload.players.find((player) => player.playerId === this.sessionId);
-      if (localPlayer) {
-        this.localTeam = localPlayer.team;
-      }
       return;
     }
     if (message.type === "ping") {
       this.send(createPong());
     }
   }
-
-  private directionForServer(direction: Direction | undefined): Direction | undefined {
-    if (!direction || this.localTeam !== "red") {
-      return direction;
-    }
-    return {
-      x: invertUnit(direction.x),
-      y: invertUnit(direction.y)
-    };
-  }
-}
-
-function invertUnit(value: -1 | 0 | 1): -1 | 0 | 1 {
-  if (value === -1) {
-    return 1;
-  }
-  if (value === 1) {
-    return -1;
-  }
-  return 0;
 }

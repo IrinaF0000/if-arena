@@ -64,3 +64,7 @@ The player should understand:
 - where the objective is;
 - where hazards are;
 - where safe and dangerous routes are.
+
+## Current playable layout
+
+The default local Objective Run scenario keeps the vertical center lane open so both players can move directly from spawn toward the center objective and directly back toward their own base. Obstacles shape the side routes and symmetric hazards add contest pressure around the objective without overlapping spawns, bases, or the objective spawn.

@@ -1256,7 +1256,49 @@ namespace
 		std::mutex mutex;
 		std::uint64_t nextConnectionId{1};
 		std::vector<SessionId> liveSessions;
+		struct ActiveMatchTick
+		{
+			MatchId match;
+			std::chrono::steady_clock::time_point nextTickAt;
+		};
+		std::vector<ActiveMatchTick> activeMatchTicks;
+		std::chrono::milliseconds tickInterval{50};
 	};
+
+	void activateWebSocketMatchTicker(WebSocketRuntimeState& state, MatchId match, std::chrono::steady_clock::time_point now)
+	{
+		const auto found = std::find_if(state.activeMatchTicks.begin(), state.activeMatchTicks.end(),
+		                                [match](const auto& active) { return active.match.value == match.value; });
+		if (found != state.activeMatchTicks.end())
+		{
+			return;
+		}
+		state.activeMatchTicks.push_back(WebSocketRuntimeState::ActiveMatchTick{match, now + state.tickInterval});
+	}
+
+	void advanceDueWebSocketMatches(WebSocketRuntimeState& state, std::chrono::steady_clock::time_point now)
+	{
+		bool ticked = false;
+		for (auto& active : state.activeMatchTicks)
+		{
+			std::size_t catchUpTicks = 0;
+			while (now >= active.nextTickAt && catchUpTicks < 4)
+			{
+				const auto result = state.matches.tick(active.match);
+				ticked = ticked || result.accepted;
+				active.nextTickAt += state.tickInterval;
+				++catchUpTicks;
+			}
+			if (now >= active.nextTickAt)
+			{
+				active.nextTickAt = now + state.tickInterval;
+			}
+		}
+		if (ticked)
+		{
+			flushAllSessions(state);
+		}
+	}
 
 	void handleWebSocketClient(WebSocketConnection connection, WebSocketRuntimeState& state)
 	{
@@ -1281,13 +1323,20 @@ namespace
 			auto read = connection.readText();
 			if (read.status == WebSocketReadStatus::TimedOut)
 			{
-				const auto timeout = adapter.checkTimeout(WebSocketSessionAdapter::Clock::now());
+				const auto now = WebSocketSessionAdapter::Clock::now();
+				{
+					std::lock_guard lock(state.mutex);
+					advanceDueWebSocketMatches(state, now);
+				}
+				const auto timeout = adapter.checkTimeout(now);
 				if (timeout.action == if_arena::battle_transport_ws::WebSocketLifecycleAction::SendPing)
 				{
 					sendServerEnvelope(connection, MessageType::Ping, "{}");
 				}
 				if (timeout.action == if_arena::battle_transport_ws::WebSocketLifecycleAction::Close)
 				{
+					std::cerr << "WebSocket session closing session=" << sessionId.value << " reason="
+					          << (timeout.error.has_value() ? timeout.error->message : "timeout") << '\n';
 					sendError(connection, "timeout", timeout.error.has_value() ? timeout.error->message : "timeout");
 					break;
 				}
@@ -1305,6 +1354,8 @@ namespace
 			auto received = adapter.receiveText(read.text);
 			if (!received.ok())
 			{
+				std::cerr << "WebSocket session protocol error session=" << sessionId.value << " reason="
+				          << (received.error.has_value() ? received.error->message : "invalid message") << '\n';
 				sendError(connection, "protocol_error", received.error.has_value() ? received.error->message : "invalid message");
 				break;
 			}
@@ -1342,7 +1393,7 @@ namespace
 				adapter.markInMatch();
 				sendServerEnvelope(connection, MessageType::MatchJoined,
 				                   "{\"matchId\":\"" + std::to_string(created.match->value) + "\",\"matchCode\":\"" +
-				                    created.joinCode + "\"}");
+				                    created.joinCode + "\",\"team\":\"blue\"}");
 				continue;
 			}
 
@@ -1365,7 +1416,8 @@ namespace
 				adapter.markInMatch();
 				sendServerEnvelope(connection, MessageType::MatchJoined,
 				                   "{\"matchId\":\"" + std::to_string(joined.match->value) + "\",\"matchCode\":\"" +
-				                    *joinCode + "\"}");
+				                    *joinCode + "\",\"team\":\"red\"}");
+				activateWebSocketMatchTicker(state, *currentMatch, WebSocketSessionAdapter::Clock::now());
 				state.matches.tick(*currentMatch);
 				flushAllSessions(state);
 				continue;
@@ -1387,8 +1439,7 @@ namespace
 				                    ",\"reason\":\"" + backendReasonName(submitted.reason) + "\"}");
 				if (submitted.accepted)
 				{
-					state.matches.tick(match);
-					flushAllSessions(state);
+					advanceDueWebSocketMatches(state, WebSocketSessionAdapter::Clock::now());
 				}
 				continue;
 			}
@@ -1474,7 +1525,8 @@ namespace
 	int runWebSocketServer(const ServerConfig& config, const BackendLimits& limits, SessionRegistry& sessions,
 	                       MatchManager& matches, std::size_t maxClients)
 	{
-		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, 1000u});
+		const auto tickIntervalMs = std::max<std::uint32_t>(1u, 1000u / config.tickRate);
+		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, tickIntervalMs});
 		WebSocketEndpoint endpoint;
 		endpoint.host = config.websocket.host;
 		endpoint.port = static_cast<std::uint16_t>(config.websocket.port);
@@ -1499,6 +1551,7 @@ namespace
 		std::cout << "WebSocket listener started host=" << config.websocket.host << " port=" << config.websocket.port
 		          << " path=" << config.websocket.path << " maxMessageBytes=" << config.websocket.maxBytes << '\n';
 		WebSocketRuntimeState state{sessions, matches, limits, config};
+		state.tickInterval = std::chrono::milliseconds{tickIntervalMs};
 		std::vector<std::thread> workers;
 		std::size_t accepted = 0;
 		while (maxClients == 0 || accepted < maxClients)

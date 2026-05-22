@@ -50,10 +50,12 @@ namespace
 		config.width = arena.dimensions.width;
 		config.height = arena.dimensions.height;
 		config.obstacles = arena.obstacles;
+		config.hazards = arena.hazards;
 		config.bases = {
 			BaseZoneConfig{ArenaTeam::Red, arena.redBase->center, arena.redBase->radius},
 			BaseZoneConfig{ArenaTeam::Blue, arena.blueBase->center, arena.blueBase->radius},
 		};
+		config.objective = ObjectiveConfig{*arena.objectiveSpawn, 0.75, 0.8, 10, 20, 1};
 		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Red, arena.redSpawn->cell, 100});
 		config.players.push_back(PlayerConfig{PlayerId{2}, ArenaTeam::Blue, arena.blueSpawn->cell, 100});
 		return config;
@@ -244,6 +246,70 @@ namespace
 		        "blue forward input maps upward in canonical coordinates");
 		require(inputDirectionToWorld(Direction{0, -1}, ArenaTeam::Red).dy == 1,
 		        "red forward input maps downward in canonical coordinates");
+		require(inputDirectionToWorld(Direction{1, 0}, ArenaTeam::Blue).dx == 1,
+		        "blue right input maps right in canonical coordinates");
+		require(inputDirectionToWorld(Direction{1, 0}, ArenaTeam::Red).dx == -1,
+		        "red right input maps through the 180-degree local view");
+	}
+
+	void movesBlueSpawnDirectlyTowardObjective()
+	{
+		BattleEngine engine(objectiveRunMatch());
+
+		require(engine.submit(PlayerCommand::move(PlayerId{2}, Direction{0, -1})).accepted(),
+		        "blue forward movement accepted");
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::PlayerMoved), "blue forward emits movement");
+		require(snapshot.players.back().position == Vec2i{10, 9}, "blue moves one cell directly toward center");
+		require(snapshot.players.back().worldPosition == Vec2d{10.0, 9.0}, "blue world movement advances one step");
+	}
+
+	void movesRedSpawnDirectlyTowardObjective()
+	{
+		BattleEngine engine(objectiveRunMatch());
+
+		require(engine.submit(PlayerCommand::move(PlayerId{1}, Direction{0, 1})).accepted(),
+		        "red forward canonical movement accepted");
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::PlayerMoved), "red forward emits movement");
+		require(snapshot.players.front().position == Vec2i{10, 3}, "red moves one cell directly toward center");
+		require(snapshot.players.front().worldPosition == Vec2d{10.0, 3.0}, "red world movement advances one step");
+	}
+
+	void movesCarrierBackToOwnBaseAndCaptures()
+	{
+		BattleEngine engine(objectiveRulesMatch());
+
+		require(engine.submit(PlayerCommand::move(PlayerId{1}, Direction{0, 1})).accepted(),
+		        "carrier can move back toward own base without interact");
+		auto events = engine.tick();
+		require(hasEvent(events, BattleEventType::ObjectivePickedUp), "objective pickup is automatic on contact");
+		events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::ObjectiveCaptured), "objective capture is automatic in own base");
+		require(snapshot.finished, "score limit capture finishes the match");
+		require(snapshot.scores.front().score == 1, "capture increments own team score");
+	}
+
+	void respectsConfiguredSmoothSpeedWithoutSkippingCells()
+	{
+		auto config = objectiveRunMatch();
+		config.playerSpeedPerTick = 0.25;
+		BattleEngine engine(config);
+
+		require(engine.submit(PlayerCommand::move(PlayerId{2}, Direction{0, -1})).accepted(),
+		        "playable smooth move accepted");
+		engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(snapshot.players.back().worldPosition == Vec2d{10.0, 9.75},
+		        "smooth movement advances by configured cells per tick");
+		require(snapshot.players.back().position == Vec2i{10, 10}, "first smooth tick does not skip a logical cell");
 	}
 
 	void completesObjectiveRunCaptureAndWin()
@@ -475,6 +541,12 @@ namespace
 		require(arena.objectiveSpawn == Vec2i{10, 6}, "canonical objective starts at center");
 		require(arena.redBase.has_value() && arena.blueBase.has_value(), "canonical arena has both bases");
 		require(arena.redSpawn.has_value() && arena.blueSpawn.has_value(), "canonical arena has both spawns");
+		require(!arena.obstacles.empty(), "canonical arena has obstacle contest pressure");
+		require(!arena.hazards.empty(), "canonical arena has hazard contest pressure");
+		require(std::find(arena.obstacles.begin(), arena.obstacles.end(), Vec2i{10, 9}) == arena.obstacles.end(),
+		        "blue direct lane from spawn is open");
+		require(std::find(arena.obstacles.begin(), arena.obstacles.end(), Vec2i{10, 3}) == arena.obstacles.end(),
+		        "red direct lane from spawn is open");
 	}
 
 	void createsMatchFromCanonicalObjectiveRunArena()
@@ -489,6 +561,7 @@ namespace
 		require(snapshot.players.back().team == ArenaTeam::Blue, "blue player keeps team assignment");
 		require(snapshot.players.front().spawn == Vec2i{10, 2}, "red spawn comes from canonical arena");
 		require(snapshot.players.back().spawn == Vec2i{10, 10}, "blue spawn comes from canonical arena");
+		require(!snapshot.hazards.empty(), "canonical match exposes configured hazards");
 	}
 
 	void rejectsAsymmetricObstacleLayout()
@@ -499,6 +572,16 @@ namespace
 		const auto validation = validateArenaConfig(arena);
 
 		require(!validation.valid(), "asymmetric obstacle layout is rejected");
+	}
+
+	void rejectsAsymmetricHazardLayout()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.hazards.pop_back();
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "asymmetric hazard layout is rejected");
 	}
 
 	void rejectsInvalidArenaDimensions()
@@ -554,6 +637,10 @@ int main()
 		{"preventsMovingThroughObstacles", preventsMovingThroughObstacles},
 		{"reportsBaseEntry", reportsBaseEntry},
 		{"transformsPlayerOrientedCoordinates", transformsPlayerOrientedCoordinates},
+		{"movesBlueSpawnDirectlyTowardObjective", movesBlueSpawnDirectlyTowardObjective},
+		{"movesRedSpawnDirectlyTowardObjective", movesRedSpawnDirectlyTowardObjective},
+		{"movesCarrierBackToOwnBaseAndCaptures", movesCarrierBackToOwnBaseAndCaptures},
+		{"respectsConfiguredSmoothSpeedWithoutSkippingCells", respectsConfiguredSmoothSpeedWithoutSkippingCells},
 		{"completesObjectiveRunCaptureAndWin", completesObjectiveRunCaptureAndWin},
 		{"appliesCarrierSpeedMultiplier", appliesCarrierSpeedMultiplier},
 		{"rejectsImmediateRepickupDuringLock", rejectsImmediateRepickupDuringLock},
@@ -570,6 +657,7 @@ int main()
 		{"acceptsCanonicalObjectiveRunArena", acceptsCanonicalObjectiveRunArena},
 		{"createsMatchFromCanonicalObjectiveRunArena", createsMatchFromCanonicalObjectiveRunArena},
 		{"rejectsAsymmetricObstacleLayout", rejectsAsymmetricObstacleLayout},
+		{"rejectsAsymmetricHazardLayout", rejectsAsymmetricHazardLayout},
 		{"rejectsInvalidArenaDimensions", rejectsInvalidArenaDimensions},
 		{"rejectsOutOfBoundsArenaObjects", rejectsOutOfBoundsArenaObjects},
 		{"rejectsMissingBases", rejectsMissingBases},

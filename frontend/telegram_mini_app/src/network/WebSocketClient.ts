@@ -7,6 +7,7 @@ import {
   createInputCommand,
   createJoinRequest,
   createMatchRequest,
+  createPong,
   parseIncomingMessage
 } from "../protocol/ProtocolTypes";
 
@@ -17,6 +18,7 @@ export type WebSocketClientOptions = {
   displayName: string;
   onStateChanged: (state: ConnectionState) => void;
   onMessage: (message: IncomingMessage) => void;
+  onDiagnostic?: (message: string) => void;
 };
 
 const maxQueuedSends = 32;
@@ -48,11 +50,14 @@ export class WebSocketClient {
       this.options.onMessage(parsed);
     });
 
-    this.socket.addEventListener("close", () => {
+    this.socket.addEventListener("close", (event: CloseEvent) => {
+      const reason = event.reason.length > 0 ? event.reason : `code ${event.code}`;
+      this.options.onDiagnostic?.(`websocket closed: ${reason}`);
       this.options.onStateChanged("closed");
     });
 
     this.socket.addEventListener("error", () => {
+      this.options.onDiagnostic?.("websocket error");
       this.options.onStateChanged("error");
     });
   }
@@ -116,6 +121,10 @@ export class WebSocketClient {
       this.matchId = message.payload.matchId;
       this.sessionSeq = 1;
       this.options.onStateChanged("in_match");
+      return;
+    }
+    if (message.type === "ping") {
+      this.send(createPong());
     }
   }
 }

@@ -19,7 +19,7 @@ Must not contain:
 - authoritative game rules;
 - direct trust in `initDataUnsafe`.
 
-The Mini App sends raw Telegram `initData` to the backend for validation after the WebSocket `open` event and then sends only player intentions such as move, aim, attack, dash, and interact.
+The Mini App sends raw Telegram `initData` to the backend for validation after the WebSocket `open` event and then sends only versioned player intentions such as move, attack, dash, and stop. Objective pickup and capture are automatic server rules. The client responds to server `ping` envelopes with `pong` so passive matched clients remain connected while receiving live snapshots.
 
 Inbound WebSocket data is treated as `unknown` until `src/protocol/ProtocolTypes.ts` validates the protocol envelope.
 
@@ -36,9 +36,9 @@ The frontend reads `VITE_WS_URL` when provided and otherwise connects to `ws://1
 Controls:
 
 - `WASD` or arrow keys send movement intentions.
-- Space sends attack.
-- Shift sends dash.
-- `E` sends interact.
+- Direction buttons are screen-oriented for both teams in the player-oriented view: Up moves toward the objective from own base, Down moves back toward own base, and Left/Right stay visually consistent.
+- Space sends attack in the current movement direction or the last non-zero direction.
+- Shift sends dash in the current movement direction or the last non-zero direction.
 - On-screen buttons provide touch fallback.
 
 ## Dependency policy

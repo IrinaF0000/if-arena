@@ -296,6 +296,7 @@ namespace if_arena::battle_core
 		[[nodiscard]] Vec2d collisionSafeTarget(Vec2d from, Vec2d desired) const;
 		void pickUpObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
 		void captureObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
+		void updateObjectiveContact(std::vector<BattleEvent>& events);
 		void dropObjectiveFromSystem(PlayerSnapshot& carrier, std::vector<BattleEvent>& events);
 		void applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events);
 		void performAttack(PlayerSnapshot& attacker, Direction direction, std::vector<BattleEvent>& events);

@@ -39,7 +39,6 @@ root.innerHTML = `
       <button id="move-right">→</button>
       <button id="attack">Attack</button>
       <button id="dash">Dash</button>
-      <button id="interact">Interact</button>
       <button id="stop">Stop</button>
     </section>
   </main>
@@ -53,13 +52,18 @@ const stateLabel = requireElement<HTMLParagraphElement>("#connection-state");
 const matchLine = requireElement<HTMLParagraphElement>("#match-line");
 const joinCodeInput = requireElement<HTMLInputElement>("#join-code");
 const arena = new ArenaCanvas(canvas);
+let localPlayerId: string | null = null;
 
 const wsUrl = configuredWsUrl();
 const client = new WebSocketClient({
   url: wsUrl,
   displayName: "Telegram Demo Player",
   onStateChanged: (state) => updateConnectionState(state),
-  onMessage: (message) => handleMessage(message)
+  onMessage: (message) => handleMessage(message),
+  onDiagnostic: (message) => {
+    stateLabel.textContent = message;
+    arena.setStatus(message);
+  }
 });
 
 const controls = new TouchControls({
@@ -70,9 +74,8 @@ controls.bindButton(document.querySelector<HTMLButtonElement>("#move-up"), "move
 controls.bindButton(document.querySelector<HTMLButtonElement>("#move-left"), "move", { x: -1, y: 0 });
 controls.bindButton(document.querySelector<HTMLButtonElement>("#move-down"), "move", { x: 0, y: 1 });
 controls.bindButton(document.querySelector<HTMLButtonElement>("#move-right"), "move", { x: 1, y: 0 });
-controls.bindButton(document.querySelector<HTMLButtonElement>("#attack"), "attack", { x: 0, y: -1 });
-controls.bindButton(document.querySelector<HTMLButtonElement>("#dash"), "dash", { x: 0, y: -1 });
-controls.bindButton(document.querySelector<HTMLButtonElement>("#interact"), "interact");
+controls.bindButton(document.querySelector<HTMLButtonElement>("#attack"), "attack");
+controls.bindButton(document.querySelector<HTMLButtonElement>("#dash"), "dash");
 controls.bindButton(document.querySelector<HTMLButtonElement>("#stop"), "stop");
 
 document.querySelector<HTMLButtonElement>("#connect")?.addEventListener("click", () => {
@@ -95,6 +98,7 @@ function handleMessage(message: IncomingMessage): void {
   switch (message.type) {
     case "auth_result": {
       const accepted = message.payload.accepted === true || message.payload.ok === true;
+      localPlayerId = message.payload.sessionId ?? message.payload.playerId ?? localPlayerId;
       stateLabel.textContent = accepted ? "authenticated" : "auth rejected";
       arena.setStatus(stateLabel.textContent);
       break;
@@ -104,7 +108,7 @@ function handleMessage(message: IncomingMessage): void {
       joinCodeInput.value = message.payload.matchCode;
       break;
     case "snapshot":
-      arena.setSnapshot(message.payload);
+      arena.setSnapshot(message.payload, localPlayerId);
       break;
     case "input_ack":
       if (!message.payload.accepted) {
@@ -121,6 +125,9 @@ function handleMessage(message: IncomingMessage): void {
       arena.setStatus(stateLabel.textContent);
       break;
     case "event_batch":
+      updateEventStatus(message.payload.events);
+      break;
+    case "ping":
       break;
   }
 }
@@ -128,6 +135,47 @@ function handleMessage(message: IncomingMessage): void {
 function updateConnectionState(state: ConnectionState): void {
   stateLabel.textContent = state;
   arena.setStatus(state);
+}
+
+function updateEventStatus(events: unknown[] | undefined): void {
+  const label = readableEvent(events);
+  if (!label) {
+    return;
+  }
+  stateLabel.textContent = label;
+  arena.setStatus(label);
+}
+
+function readableEvent(events: unknown[] | undefined): string | null {
+  if (!events) {
+    return null;
+  }
+  for (const event of events) {
+    if (!isEventRecord(event)) {
+      continue;
+    }
+    switch (event.type) {
+      case "objective_picked_up":
+        return "objective picked up";
+      case "objective_dropped":
+        return "objective dropped";
+      case "objective_captured":
+        return "objective captured";
+      case "attack_hit":
+        return "attack hit";
+      case "player_dashed":
+        return "dash";
+      case "hazard_hit":
+        return "hazard hit";
+      default:
+        break;
+    }
+  }
+  return null;
+}
+
+function isEventRecord(value: unknown): value is { type: string } {
+  return typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
 }
 
 function requireElement<T extends Element>(selector: string): T {

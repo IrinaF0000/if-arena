@@ -23,6 +23,7 @@ namespace if_arena::battle_qt_client::ui
 		explicit MainWindow(QWidget* parent = nullptr);
 
 	protected:
+		bool eventFilter(QObject* watched, QEvent* event) override;
 		void keyPressEvent(QKeyEvent* event) override;
 		void keyReleaseEvent(QKeyEvent* event) override;
 
@@ -32,6 +33,8 @@ namespace if_arena::battle_qt_client::ui
 		void appendEvent(const QString& message);
 		void sendMovement();
 		void sendAction(if_arena::battle_qt_client::game::ClientIntentKind kind);
+		[[nodiscard]] bool handleGameplayKeyPress(QKeyEvent* event);
+		[[nodiscard]] bool handleGameplayKeyRelease(QKeyEvent* event);
 		[[nodiscard]] if_arena::battle_qt_client::game::Direction currentMoveDirection() const;
 		[[nodiscard]] if_arena::battle_qt_client::game::Direction currentActionDirection() const;
 

@@ -51,8 +51,11 @@ int main()
 
 	expect(same(localDirectionToCanonical({0, -1}, Team::Blue), {0, -1}), "blue forward is canonical up");
 	expect(same(localDirectionToCanonical({0, -1}, Team::Red), {0, 1}), "red forward is canonical down");
+	expect(same(localDirectionToCanonical({1, 0}, Team::Blue), {1, 0}), "blue right stays canonical right");
+	expect(same(localDirectionToCanonical({1, 0}, Team::Red), {-1, 0}), "red right rotates to canonical left");
 	expect(same(localDirectionToServerCommand({0, -1}), {0, -1}),
 	       "server command keeps team-local intent for current backend contract");
+	expect(same(localDirectionToServerCommand({1, 0}), {1, 0}), "server command keeps local lateral intent");
 	expect(same(clampDirection(4, -3), {1, -1}), "directions are clamped to unit steps");
 
 	if (failures != 0)

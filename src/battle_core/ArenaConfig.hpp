@@ -44,6 +44,7 @@ namespace if_arena::battle_core
 		std::optional<ArenaSpawn> blueSpawn;
 		std::optional<Vec2i> objectiveSpawn;
 		std::vector<Vec2i> obstacles;
+		std::vector<HazardConfig> hazards;
 	};
 
 	struct ArenaValidationResult
@@ -94,8 +95,16 @@ namespace if_arena::battle_core
 			Vec2i{13, 4},
 			Vec2i{6, 8},
 			Vec2i{7, 8},
-			Vec2i{10, 3},
-			Vec2i{10, 9},
+			Vec2i{9, 5},
+			Vec2i{11, 7},
+			Vec2i{11, 5},
+			Vec2i{9, 7},
+		};
+		config.hazards = {
+			HazardConfig{HazardKind::Tower, Vec2i{5, 6}, 0.8, 2.2, 6, 20},
+			HazardConfig{HazardKind::Tower, Vec2i{15, 6}, 0.8, 2.2, 6, 20},
+			HazardConfig{HazardKind::Mine, Vec2i{8, 6}, 0.7, 1.0, 12, 30},
+			HazardConfig{HazardKind::Mine, Vec2i{12, 6}, 0.7, 1.0, 12, 30},
 		};
 		return config;
 	}
@@ -218,6 +227,37 @@ namespace if_arena::battle_core
 			if (!hasObstacle(rotate180(obstacle, config.dimensions)))
 			{
 				addError("obstacles must use 180-degree rotational symmetry");
+			}
+		}
+		for (std::size_t index = 0; index < config.hazards.size(); ++index)
+		{
+			const auto& hazard = config.hazards[index];
+			if (!inBounds(hazard.position))
+			{
+				addError("hazard must be inside arena bounds");
+				continue;
+			}
+			if (hasObstacle(hazard.position))
+			{
+				addError("hazard must not be inside an obstacle");
+			}
+			if (config.objectiveSpawn.has_value() && hazard.position == *config.objectiveSpawn)
+			{
+				addError("hazard must not overlap the objective spawn");
+			}
+			if ((config.redSpawn.has_value() && hazard.position == config.redSpawn->cell) ||
+			    (config.blueSpawn.has_value() && hazard.position == config.blueSpawn->cell))
+			{
+				addError("hazard must not overlap a player spawn");
+			}
+			const Vec2i mirrored = rotate180(hazard.position, config.dimensions);
+			const bool hasMirror = std::any_of(config.hazards.begin(), config.hazards.end(), [&](const HazardConfig& other) {
+				return other.kind == hazard.kind && other.position == mirrored && other.damage == hazard.damage &&
+				       other.cooldownTicks == hazard.cooldownTicks && other.radius == hazard.radius && other.range == hazard.range;
+			});
+			if (!hasMirror)
+			{
+				addError("hazards must use 180-degree rotational symmetry");
 			}
 		}
 

@@ -3,9 +3,12 @@
 #include "game/CoordinateTransform.hpp"
 
 #include <QFormLayout>
+#include <QEvent>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QVBoxLayout>
+
+#include <array>
 
 namespace if_arena::battle_qt_client::ui
 {
@@ -32,7 +35,7 @@ namespace if_arena::battle_qt_client::ui
 		: QMainWindow(parent)
 	{
 		setWindowTitle("IF Arena Qt Client");
-		setMinimumSize(980, 720);
+		setMinimumSize(1100, 780);
 
 		auto* root = new QWidget(this);
 		auto* layout = new QVBoxLayout(root);
@@ -79,7 +82,7 @@ namespace if_arena::battle_qt_client::ui
 		_events = new QPlainTextEdit(root);
 		_events->setReadOnly(true);
 		_events->setMaximumBlockCount(120);
-		_events->setMaximumHeight(140);
+		_events->setMaximumHeight(96);
 
 		layout->addLayout(connectionRow);
 		layout->addLayout(lobbyRow);
@@ -90,40 +93,41 @@ namespace if_arena::battle_qt_client::ui
 		layout->addWidget(_events);
 		setCentralWidget(root);
 		setFocusPolicy(Qt::StrongFocus);
+		for (auto* button : {_connect, _disconnect, _create, _join})
+		{
+			button->setFocusPolicy(Qt::NoFocus);
+			button->installEventFilter(this);
+		}
+		const std::array<QWidget*, 7> gameplayKeyWidgets{root, _host, _port, _displayName, _joinCode, _arena, _events};
+		for (auto* widget : gameplayKeyWidgets)
+		{
+			widget->installEventFilter(this);
+		}
 
 		wireSignals();
 		refreshControls();
 	}
 
+	bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+	{
+		if (_client.state() == network::ConnectionState::InMatch)
+		{
+			if (event->type() == QEvent::KeyPress && handleGameplayKeyPress(static_cast<QKeyEvent*>(event)))
+			{
+				return true;
+			}
+			if (event->type() == QEvent::KeyRelease && handleGameplayKeyRelease(static_cast<QKeyEvent*>(event)))
+			{
+				return true;
+			}
+		}
+		return QMainWindow::eventFilter(watched, event);
+	}
+
 	void MainWindow::keyPressEvent(QKeyEvent* event)
 	{
-		if (event->isAutoRepeat())
+		if (handleGameplayKeyPress(event))
 		{
-			return;
-		}
-		if (isMovementKey(event->key()))
-		{
-			_movementKeys.insert(event->key());
-			sendMovement();
-			event->accept();
-			return;
-		}
-		if (event->key() == Qt::Key_Space)
-		{
-			sendAction(ClientIntentKind::Attack);
-			event->accept();
-			return;
-		}
-		if (event->key() == Qt::Key_Shift)
-		{
-			sendAction(ClientIntentKind::Dash);
-			event->accept();
-			return;
-		}
-		if (event->key() == Qt::Key_Escape)
-		{
-			_client.disconnectFromServer();
-			event->accept();
 			return;
 		}
 		QMainWindow::keyPressEvent(event);
@@ -131,18 +135,61 @@ namespace if_arena::battle_qt_client::ui
 
 	void MainWindow::keyReleaseEvent(QKeyEvent* event)
 	{
-		if (event->isAutoRepeat())
+		if (handleGameplayKeyRelease(event))
 		{
 			return;
+		}
+		QMainWindow::keyReleaseEvent(event);
+	}
+
+	bool MainWindow::handleGameplayKeyPress(QKeyEvent* event)
+	{
+		if (event->isAutoRepeat())
+		{
+			return false;
+		}
+		if (isMovementKey(event->key()))
+		{
+			_movementKeys.insert(event->key());
+			sendMovement();
+			event->accept();
+			return true;
+		}
+		if (event->key() == Qt::Key_Space)
+		{
+			sendAction(ClientIntentKind::Attack);
+			event->accept();
+			return true;
+		}
+		if (event->key() == Qt::Key_Shift)
+		{
+			sendAction(ClientIntentKind::Dash);
+			event->accept();
+			return true;
+		}
+		if (event->key() == Qt::Key_Escape)
+		{
+			_client.disconnectFromServer();
+			event->accept();
+			return true;
+		}
+		return false;
+	}
+
+	bool MainWindow::handleGameplayKeyRelease(QKeyEvent* event)
+	{
+		if (event->isAutoRepeat())
+		{
+			return false;
 		}
 		if (isMovementKey(event->key()))
 		{
 			_movementKeys.erase(event->key());
 			sendMovement();
 			event->accept();
-			return;
+			return true;
 		}
-		QMainWindow::keyReleaseEvent(event);
+		return false;
 	}
 
 	void MainWindow::wireSignals()

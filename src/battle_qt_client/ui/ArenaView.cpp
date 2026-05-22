@@ -58,7 +58,7 @@ namespace if_arena::battle_qt_client::ui
 	ArenaView::ArenaView(QWidget* parent)
 		: QWidget(parent)
 	{
-		setMinimumSize(640, 420);
+		setMinimumSize(820, 520);
 		setMouseTracking(true);
 		setFocusPolicy(Qt::StrongFocus);
 	}
@@ -183,7 +183,7 @@ namespace if_arena::battle_qt_client::ui
 
 	QRectF ArenaView::boardRect() const
 	{
-		const QRectF available = rect().adjusted(18, 18, -18, -18);
+		const QRectF available = rect().adjusted(10, 10, -10, -10);
 		if (!_snapshot.has_value())
 		{
 			return available;
@@ -255,10 +255,16 @@ namespace if_arena::battle_qt_client::ui
 	{
 		const auto board = boardRect();
 		const auto band = board.height() * 0.18;
+		const auto viewer = viewerTeam();
+		const auto enemy = viewer == Team::Red ? Team::Blue : Team::Red;
+		auto translucent = [](QColor color) {
+			color.setAlpha(34);
+			return color;
+		};
 		painter.setPen(Qt::NoPen);
-		painter.setBrush(QColor{0, 188, 212, 34});
+		painter.setBrush(translucent(teamColor(viewer)));
 		painter.drawRect(QRectF{board.left(), board.bottom() - band, board.width(), band});
-		painter.setBrush(QColor{220, 64, 73, 34});
+		painter.setBrush(translucent(teamColor(enemy)));
 		painter.drawRect(QRectF{board.left(), board.top(), board.width(), band});
 		painter.setPen(QColor{215, 224, 232, 190});
 		painter.drawText(QRectF{board.left(), board.bottom() - band, board.width(), band}, Qt::AlignCenter, "OWN BASE");

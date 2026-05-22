@@ -22,6 +22,18 @@ await writeFile(outPath, transpiled.outputText, "utf8");
 
 const protocol = await import(pathToFileURL(outPath).href);
 
+const auth = protocol.createAuthRequest("", "browser-one");
+assert.equal(auth.version, 1);
+assert.equal(auth.type, "auth_request");
+
+const create = protocol.createMatchRequest();
+assert.equal(create.version, 1);
+assert.equal(create.type, "create_match");
+
+const join = protocol.createJoinRequest("M1");
+assert.equal(join.version, 1);
+assert.deepEqual(join.payload, { matchCode: "M1" });
+
 const validSnapshot = protocol.parseIncomingMessage(
   JSON.stringify({
     version: 1,
@@ -61,6 +73,9 @@ const validSnapshot = protocol.parseIncomingMessage(
 assert.equal(validSnapshot.type, "snapshot");
 
 const authorityClaim = protocol.createInputCommand("1", 1, "move", { x: 1, y: 0 });
+assert.equal(authorityClaim.version, 1);
+assert.equal(authorityClaim.type, "input_command");
+assert.equal(authorityClaim.sessionSeq, 1);
 assert.deepEqual(authorityClaim.payload, {
   matchId: "1",
   command: {
@@ -69,6 +84,31 @@ assert.deepEqual(authorityClaim.payload, {
   }
 });
 assert.equal("hp" in authorityClaim.payload.command, false);
+
+for (const [kind, direction] of [
+  ["move", { x: 0, y: -1 }],
+  ["stop", undefined],
+  ["attack", { x: 1, y: 0 }],
+  ["dash", { x: -1, y: 0 }]
+]) {
+  const command = protocol.createInputCommand("1", 7, kind, direction);
+  assert.equal(command.version, 1);
+  assert.equal(command.type, "input_command");
+  assert.equal(command.payload.matchId, "1");
+  assert.equal(command.payload.command.kind, kind);
+  if (direction === undefined) {
+    assert.equal("direction" in command.payload.command, false);
+  } else {
+    assert.deepEqual(command.payload.command.direction, direction);
+  }
+}
+
+const pong = protocol.createPong();
+assert.equal(pong.version, 1);
+assert.equal(pong.type, "pong");
+
+const parsedPing = protocol.parseIncomingMessage(JSON.stringify({ version: 1, type: "ping", payload: {} }));
+assert.equal(parsedPing.type, "ping");
 
 const malformed = protocol.parseIncomingMessage("{not-json");
 assert.equal(malformed.type, "client_parse_error");

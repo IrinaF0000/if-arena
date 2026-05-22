@@ -122,13 +122,21 @@ export type ErrorMessage = {
   };
 };
 
+export type PingMessage = {
+  version: typeof protocolVersion;
+  type: "ping";
+  requestId?: string;
+  payload: Record<string, never>;
+};
+
 export type ServerMessage =
   | AuthResultMessage
   | MatchJoinedMessage
   | InputAckMessage
   | SnapshotMessage
   | EventBatchMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | PingMessage;
 
 export type ClientParseError = {
   version: typeof protocolVersion;
@@ -215,6 +223,15 @@ export function createInputCommand(matchId: string, sessionSeq: number, kind: Co
   };
 }
 
+export function createPong(): ClientEnvelope {
+  return {
+    version: protocolVersion,
+    type: "pong",
+    requestId: requestId(),
+    payload: {}
+  };
+}
+
 function parseError(reason: ClientParseError["payload"]["reason"]): ClientParseError {
   return {
     version: protocolVersion,
@@ -241,6 +258,8 @@ function isServerMessage(value: unknown): value is ServerMessage {
       return isEventBatch(value);
     case "error":
       return isError(value);
+    case "ping":
+      return isPing(value);
     default:
       return false;
   }
@@ -315,6 +334,10 @@ function isEventBatch(value: { payload: unknown }): value is EventBatchMessage {
 function isError(value: { payload: unknown }): value is ErrorMessage {
   const payload = value.payload;
   return isRecord(payload) && typeof payload.code === "string" && typeof payload.message === "string";
+}
+
+function isPing(value: { payload: unknown }): value is PingMessage {
+  return isRecord(value.payload);
 }
 
 function isPlayerSnapshot(value: unknown): value is PlayerSnapshot {

@@ -2,6 +2,17 @@ import type { Direction, HazardSnapshot, ObstacleSnapshot, PlayerSnapshot, Snaps
 
 export const playerSpritePath = "/players/swordsman.svg";
 
+type ActionFeedbackKind = "attack" | "dash";
+type VisualEventKind = "attack_hit" | "hazard_hit" | "objective_picked_up" | "objective_dropped" | "objective_captured";
+
+type VisualEventFeedback = {
+  kind: VisualEventKind;
+  label: string;
+  targetPlayerId?: string;
+  from?: { x: number; y: number };
+  to?: { x: number; y: number };
+};
+
 export class ArenaCanvas {
   private readonly context: CanvasRenderingContext2D;
   private readonly playerSprite: HTMLImageElement;
@@ -9,6 +20,8 @@ export class ArenaCanvas {
   private localPlayerId: string | null = null;
   private status = "offline";
   private aimDirection: Direction = { x: 0, y: -1 };
+  private actionFeedback: { kind: ActionFeedbackKind; direction: Direction } | null = null;
+  private eventFeedbacks: VisualEventFeedback[] = [];
 
   public constructor(private readonly canvas: HTMLCanvasElement) {
     const context = canvas.getContext("2d");
@@ -35,6 +48,20 @@ export class ArenaCanvas {
       this.aimDirection = direction;
       this.render();
     }
+  }
+
+  public showActionFeedback(kind: ActionFeedbackKind, direction: Direction | undefined): void {
+    this.actionFeedback = { kind, direction: direction ?? this.aimDirection };
+    this.render();
+  }
+
+  public showEventFeedback(events: readonly unknown[] | undefined): void {
+    const feedbacks = (events ?? []).map((event) => this.visualFeedbackFromEvent(event)).filter((event) => event !== null);
+    if (feedbacks.length === 0) {
+      return;
+    }
+    this.eventFeedbacks = feedbacks;
+    this.render();
   }
 
   public render(): void {
@@ -65,10 +92,15 @@ export class ArenaCanvas {
         this.drawHazard(hazard, originX, originY, cell);
       }
       this.drawObjective(snapshot, originX, originY, cell);
+      this.drawLocalActionPreview(snapshot, originX, originY, cell);
       for (const player of snapshot.players) {
         this.drawPlayer(player, snapshot, originX, originY, cell);
       }
+      this.drawEventFeedback(snapshot, originX, originY, cell);
       this.drawHud(snapshot);
+      if (snapshot.finished) {
+        this.drawMatchOverOverlay(snapshot);
+      }
     } else {
       this.drawOfflineHud();
     }
@@ -164,6 +196,38 @@ export class ArenaCanvas {
     this.context.globalAlpha = 1;
   }
 
+  private drawLocalActionPreview(snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
+    const player = this.localPlayer(snapshot);
+    if (!player) {
+      return;
+    }
+    const point = this.worldToCanvas(player.x, player.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
+    const range = cell * 2.3;
+    const end = this.directionEnd(point, this.aimDirection, range);
+    this.context.strokeStyle = "rgba(255,255,255,0.22)";
+    this.context.lineWidth = 1.5;
+    this.context.beginPath();
+    this.context.arc(point.x, point.y, range, 0, Math.PI * 2);
+    this.context.stroke();
+    this.context.strokeStyle = "rgba(255,245,170,0.78)";
+    this.context.lineWidth = 2.5;
+    this.context.beginPath();
+    this.context.moveTo(point.x, point.y);
+    this.context.lineTo(end.x, end.y);
+    this.context.stroke();
+
+    if (!this.actionFeedback) {
+      return;
+    }
+    const actionEnd = this.directionEnd(point, this.actionFeedback.direction, this.actionFeedback.kind === "dash" ? range * 0.9 : range * 1.08);
+    this.context.strokeStyle = this.actionFeedback.kind === "dash" ? "#70deff" : "#ffe45c";
+    this.context.lineWidth = this.actionFeedback.kind === "dash" ? 6 : 4;
+    this.context.beginPath();
+    this.context.moveTo(point.x, point.y);
+    this.context.lineTo(actionEnd.x, actionEnd.y);
+    this.context.stroke();
+  }
+
   private drawPlayer(player: PlayerSnapshot, snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
     const point = this.worldToCanvas(player.x, player.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
     const carriesObjective = player.playerId === snapshot.objective.carrierPlayerId;
@@ -189,6 +253,9 @@ export class ArenaCanvas {
     this.context.fillRect(point.x - hpWidth / 2, point.y - cell * 0.58, hpWidth, 4);
     this.context.fillStyle = hpRatio > 0.35 ? "#4cd964" : "#ff5e57";
     this.context.fillRect(point.x - hpWidth / 2, point.y - cell * 0.58, hpWidth * hpRatio, 4);
+    if (player.playerId === this.localPlayerId) {
+      this.drawCooldownBars(player, point, cell);
+    }
     if (carriesObjective) {
       this.context.fillStyle = "#ffd640";
       this.context.beginPath();
@@ -199,6 +266,59 @@ export class ArenaCanvas {
       this.context.closePath();
       this.context.fill();
     }
+  }
+
+  private drawCooldownBars(player: PlayerSnapshot, point: { x: number; y: number }, cell: number): void {
+    const width = cell * 0.75;
+    const attackReady = 1 - Math.max(0, Math.min(1, player.attackCooldown / 3));
+    const dashReady = 1 - Math.max(0, Math.min(1, player.dashCooldown / 5));
+    this.context.fillStyle = "rgba(0,0,0,0.42)";
+    this.context.fillRect(point.x - width / 2, point.y + cell * 0.54, width, 3);
+    this.context.fillRect(point.x - width / 2, point.y + cell * 0.64, width, 3);
+    this.context.fillStyle = "#ffe45c";
+    this.context.fillRect(point.x - width / 2, point.y + cell * 0.54, width * attackReady, 3);
+    this.context.fillStyle = "#70deff";
+    this.context.fillRect(point.x - width / 2, point.y + cell * 0.64, width * dashReady, 3);
+  }
+
+  private drawEventFeedback(snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
+    for (const event of this.eventFeedbacks) {
+      if (event.kind === "attack_hit" || event.kind === "hazard_hit") {
+        const target = event.targetPlayerId ? snapshot.players.find((player) => player.playerId === event.targetPlayerId) : undefined;
+        if (target) {
+          const point = this.worldToCanvas(target.x, target.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
+          this.context.strokeStyle = event.kind === "hazard_hit" ? "#ff9f43" : "#ff5e57";
+          this.context.lineWidth = 5;
+          this.context.beginPath();
+          this.context.arc(point.x, point.y, cell * 0.62, 0, Math.PI * 2);
+          this.context.stroke();
+        }
+      }
+      const anchor = event.to ?? { x: snapshot.objective.x, y: snapshot.objective.y };
+      const labelPoint = this.worldToCanvas(anchor.x, anchor.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
+      this.context.fillStyle = "rgba(0,0,0,0.62)";
+      this.context.fillRect(labelPoint.x - cell * 1.35, labelPoint.y - cell * 1.15, cell * 2.7, 20);
+      this.context.fillStyle = "#f8fbff";
+      this.context.font = "13px system-ui, sans-serif";
+      this.context.textAlign = "center";
+      this.context.fillText(event.label, labelPoint.x, labelPoint.y - cell * 0.72);
+      this.context.textAlign = "start";
+    }
+  }
+
+  private drawMatchOverOverlay(snapshot: SnapshotPayload): void {
+    const blue = snapshot.scores.find((score) => score.team === "blue")?.score ?? 0;
+    const red = snapshot.scores.find((score) => score.team === "red")?.score ?? 0;
+    const winner = blue === red ? "Draw" : blue > red ? "Blue wins" : "Red wins";
+    this.context.fillStyle = "rgba(0,0,0,0.58)";
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.context.fillStyle = "#f8fbff";
+    this.context.font = "28px system-ui, sans-serif";
+    this.context.textAlign = "center";
+    this.context.fillText("Match over", this.canvas.width / 2, this.canvas.height / 2 - 18);
+    this.context.font = "18px system-ui, sans-serif";
+    this.context.fillText(`${winner} ${blue}-${red}`, this.canvas.width / 2, this.canvas.height / 2 + 14);
+    this.context.textAlign = "start";
   }
 
   private createPlayerSprite(): HTMLImageElement {
@@ -275,6 +395,54 @@ export class ArenaCanvas {
     return this.snapshot.players.find((player) => player.playerId === this.localPlayerId)?.team ?? "blue";
   }
 
+  private localPlayer(snapshot: SnapshotPayload): PlayerSnapshot | undefined {
+    if (!this.localPlayerId) {
+      return undefined;
+    }
+    return snapshot.players.find((player) => player.playerId === this.localPlayerId);
+  }
+
+  private directionEnd(origin: { x: number; y: number }, direction: Direction, length: number): { x: number; y: number } {
+    const dx = direction.x;
+    let dy = direction.y;
+    if (dx === 0 && dy === 0) {
+      dy = -1;
+    }
+    const magnitude = Math.hypot(dx, dy);
+    return {
+      x: origin.x + (dx / magnitude) * length,
+      y: origin.y + (dy / magnitude) * length
+    };
+  }
+
+  private visualFeedbackFromEvent(event: unknown): VisualEventFeedback | null {
+    if (!isRecord(event) || typeof event.type !== "string") {
+      return null;
+    }
+    const targetPlayerId = typeof event.targetPlayerId === "string" ? event.targetPlayerId : undefined;
+    const to = isPoint(event.to) ? event.to : undefined;
+    const feedback = (kind: VisualEventKind, label: string): VisualEventFeedback => ({
+      kind,
+      label,
+      ...(targetPlayerId ? { targetPlayerId } : {}),
+      ...(to ? { to } : {})
+    });
+    switch (event.type) {
+      case "attack_hit":
+        return feedback("attack_hit", "hit");
+      case "hazard_hit":
+        return feedback("hazard_hit", "hazard hit");
+      case "objective_picked_up":
+        return feedback("objective_picked_up", "picked up");
+      case "objective_dropped":
+        return feedback("objective_dropped", "dropped");
+      case "objective_captured":
+        return feedback("objective_captured", "captured");
+      default:
+        return null;
+    }
+  }
+
   private line(x1: number, y1: number, x2: number, y2: number): void {
     this.context.beginPath();
     this.context.moveTo(x1, y1);
@@ -286,4 +454,12 @@ export class ArenaCanvas {
     this.context.beginPath();
     this.context.roundRect(x, y, width, height, radius);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPoint(value: unknown): value is { x: number; y: number } {
+  return isRecord(value) && typeof value.x === "number" && Number.isFinite(value.x) && typeof value.y === "number" && Number.isFinite(value.y);
 }

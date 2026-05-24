@@ -175,6 +175,18 @@ socket.message({ version: 1, type: "ping", payload: {} });
 assert.equal(socket.sent.at(-1).version, 1);
 assert.equal(socket.sent.at(-1).type, "pong");
 
+socket.message({
+  version: 1,
+  type: "event_batch",
+  payload: {
+    matchId: "1",
+    tick: 3,
+    events: [{ type: "attack_hit", targetPlayerId: "2", to: { x: 10, y: 2 }, damage: 25 }]
+  }
+});
+assert.equal(messages.at(-1).type, "event_batch");
+assert.equal(messages.at(-1).payload.events[0].type, "attack_hit");
+
 assert.equal(socket.sent.some((message) => message.type === "input_command" && message.payload.command.kind === "none"), false);
 
 socket.close(4000, "idle timeout");

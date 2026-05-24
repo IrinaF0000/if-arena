@@ -123,3 +123,14 @@ Required for tasks `0017` through `0028` and changes to gameplay, match flow, ga
 - 21x13 map assumptions and 180-degree symmetry are preserved or an ADR is added.
 - Player-oriented client views do not change canonical server coordinates.
 - README/run docs do not claim playability without a tested or manually verified path.
+
+## Gate M. Architecture boundary enforcement
+
+Required for post-0034 implementation tasks and any change to module dependencies, public APIs, subsystem docs, CMake targets, validators, or `battle_core` layering:
+
+- `docs/architecture/SUBSYSTEM_BOUNDARIES.md`, `docs/architecture/BATTLE_CORE_BOUNDARIES.md`, and `PROJECT_MAP.md` remain consistent.
+- `battle_core` has no protocol, backend, transport, Qt, Telegram, socket, filesystem/config loading, environment, or server-process dependency.
+- Clients send intentions and render snapshots only; they do not own authoritative state.
+- Transports own bytes/messages only; they do not own gameplay rules or UI behavior.
+- `python scripts/ci/validate_architecture_boundaries.py` passes or a narrow Architecture-Agent-approved exception is documented.
+- Architecture-Agent review is required before merge.

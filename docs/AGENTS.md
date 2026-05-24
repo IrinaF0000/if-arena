@@ -9,6 +9,8 @@ Docs should clarify the project and reduce repeated agent context loading.
 - Prefer links to canonical rule files.
 - Do not rewrite long documents as a side effect of code work.
 - For architecture changes, update ADRs and the relevant focused docs.
+- For subsystem-boundary or `battle_core` isolation changes, update the focused architecture docs and require Architecture Review Agent approval.
 - For recurring agent mistakes, propose a focused AGENTS.md or skill update instead of adding a huge root rule.
 
 Read also: `docs/agent-manager/RULE_UPDATE_PROCESS.md`.
+Boundary docs: `docs/architecture/SUBSYSTEM_BOUNDARIES.md` and `docs/architecture/BATTLE_CORE_BOUNDARIES.md`.

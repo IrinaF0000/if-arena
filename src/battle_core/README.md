@@ -22,6 +22,19 @@ Forbidden:
 
 This module must remain reusable and testable without sockets.
 
+## Boundary layers
+
+`battle_core` is split conceptually into:
+
+- minimal foundation primitives such as ids, geometry, ticks, and small value/result types;
+- gameplay features such as movement, objective rules, combat, dash, and hazards;
+- scenario/map config such as the current 21x13 Objective Run defaults;
+- pure view/input transforms that convert player-oriented directions without deciding gameplay outcomes.
+
+IO, JSON/file parsing, environment variables, sockets, Qt, Telegram, backend sessions, and deployment wiring belong outside this module.
+
+Temporary MVP exceptions are documented in `docs/architecture/BATTLE_CORE_BOUNDARIES.md`: `ArenaConfig.hpp` may currently contain default Objective Run helpers, and player-view transforms may live in core until a dedicated refactor extracts them. Do not grow those exceptions.
+
 ## Public facade
 
 `BattleEngine.hpp` exposes the first server-facing core facade:

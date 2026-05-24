@@ -80,12 +80,37 @@ namespace
 		require(result.error.code == ProtocolErrorCode::MissingField, "missing field error code");
 	}
 
+	void unsupportedVersionRejected()
+	{
+		const auto result = parseEnvelope("{\"version\":2,\"type\":\"input_command\",\"payload\":{}}");
+
+		require(!result.ok(), "unsupported version rejected");
+		require(result.error.code == ProtocolErrorCode::UnsupportedVersion, "unsupported version error code");
+	}
+
 	void invalidFieldTypeRejected()
 	{
 		const auto result = parseEnvelope("{\"version\":\"1\",\"type\":\"input_command\",\"payload\":{}}");
 
 		require(!result.ok(), "invalid field type rejected");
 		require(result.error.code == ProtocolErrorCode::InvalidField, "invalid field type error code");
+	}
+
+	void wrongPayloadTypeRejected()
+	{
+		const auto result = parseEnvelope("{\"version\":1,\"type\":\"input_command\",\"payload\":\"not-an-object\"}");
+
+		require(!result.ok(), "wrong payload type rejected");
+		require(result.error.code == ProtocolErrorCode::InvalidField, "wrong payload type error code");
+	}
+
+	void negativeSessionSeqRejected()
+	{
+		const auto result = parseEnvelope(
+			"{\"version\":1,\"type\":\"input_command\",\"sessionSeq\":-1,\"payload\":{\"matchId\":\"m1\"}}");
+
+		require(!result.ok(), "negative sessionSeq rejected");
+		require(result.error.code == ProtocolErrorCode::InvalidField, "negative sessionSeq error code");
 	}
 
 	void oversizedMessageRejectedBeforeParsing()
@@ -224,7 +249,10 @@ int main()
 		{"unknownTypeRejected", unknownTypeRejected},
 		{"oversizedStringRejected", oversizedStringRejected},
 		{"missingFieldRejected", missingFieldRejected},
+		{"unsupportedVersionRejected", unsupportedVersionRejected},
 		{"invalidFieldTypeRejected", invalidFieldTypeRejected},
+		{"wrongPayloadTypeRejected", wrongPayloadTypeRejected},
+		{"negativeSessionSeqRejected", negativeSessionSeqRejected},
 		{"oversizedMessageRejectedBeforeParsing", oversizedMessageRejectedBeforeParsing},
 		{"playableMessageTypesRoundTrip", playableMessageTypesRoundTrip},
 		{"demoAuthPayloadValidates", demoAuthPayloadValidates},

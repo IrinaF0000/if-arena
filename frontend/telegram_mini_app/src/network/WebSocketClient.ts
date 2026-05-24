@@ -52,7 +52,12 @@ export class WebSocketClient {
 
     this.socket.addEventListener("close", (event: CloseEvent) => {
       const reason = event.reason.length > 0 ? event.reason : `code ${event.code}`;
-      this.options.onDiagnostic?.(`websocket closed: ${reason}`);
+      const wasInMatch = this.matchId !== null;
+      this.matchId = null;
+      this.sessionSeq = 1;
+      this.options.onDiagnostic?.(
+        wasInMatch ? `disconnected, rejoin not supported yet (${reason})` : `websocket closed: ${reason}`
+      );
       this.options.onStateChanged("closed");
     });
 

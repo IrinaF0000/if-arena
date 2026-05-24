@@ -25,6 +25,8 @@ Inbound WebSocket data is treated as `unknown` until `src/protocol/ProtocolTypes
 
 Canvas rendering loads the production player sprite from `/players/swordsman.svg`, which Vite serves from the repository `assets/` directory. The SVG is used only as rendering data; gameplay objects still come from server snapshots.
 
+Reconnect/resume is not supported yet. If the WebSocket closes during a match, the client clears local match state, shows an unsupported-resume diagnostic, and requires a fresh authenticated join flow before sending more commands.
+
 ## Local commands
 
 ```bash

@@ -23,6 +23,8 @@ The Mini App sends raw Telegram `initData` to the backend for validation after t
 
 Inbound WebSocket data is treated as `unknown` until `src/protocol/ProtocolTypes.ts` validates the protocol envelope.
 
+Canvas rendering loads the production player sprite from `/players/swordsman.svg`, which Vite serves from the repository `assets/` directory. The SVG is used only as rendering data; gameplay objects still come from server snapshots.
+
 ## Local commands
 
 ```bash

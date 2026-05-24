@@ -56,7 +56,8 @@ namespace if_arena::battle_qt_client::ui
 	}
 
 	ArenaView::ArenaView(QWidget* parent)
-		: QWidget(parent)
+		: QWidget(parent),
+		  _playerSprite(QStringLiteral(":/if_arena/assets/players/swordsman.svg"))
 	{
 		setMinimumSize(820, 520);
 		setMouseTracking(true);
@@ -346,40 +347,70 @@ namespace if_arena::battle_qt_client::ui
 
 	void ArenaView::drawPlayers(QPainter& painter)
 	{
+		const auto board = boardRect();
+		const auto cell = std::min(board.width() / _snapshot->map.width, board.height() / _snapshot->map.height);
+		const auto spriteSize = std::clamp(cell * 0.86, 24.0, 48.0);
 		for (const auto& player : _snapshot->players)
 		{
 			const bool isLocal = player.playerId == _localPlayerId;
 			const bool carriesObjective = player.playerId == _snapshot->objective.carrierPlayerId;
 			const auto center = toScreen(player.x, player.y);
+			const auto teamAccent = isLocal ? playerColor(true) : teamColor(player.team);
 			if (carriesObjective)
 			{
 				painter.setBrush(Qt::NoBrush);
 				painter.setPen(QPen{QColor{255, 224, 88, 210}, 4});
-				painter.drawEllipse(center, 20, 20);
+				painter.drawEllipse(center, spriteSize * 0.6, spriteSize * 0.6);
 			}
-			painter.setBrush(playerColor(isLocal));
-			painter.setPen(QPen{isLocal ? QColor{255, 255, 255} : QColor{45, 20, 24}, isLocal ? 3.0 : 2.0});
-			painter.drawEllipse(center, 13, 13);
-			painter.setBrush(teamColor(player.team));
-			painter.setPen(Qt::NoPen);
-			painter.drawEllipse(directionEnd(center, _aimDirection, 13), isLocal ? 3.5 : 0.0, isLocal ? 3.5 : 0.0);
+			painter.setBrush(Qt::NoBrush);
+			painter.setPen(QPen{teamAccent, isLocal ? 4.0 : 3.0});
+			painter.drawEllipse(center, spriteSize * 0.52, spriteSize * 0.52);
+			drawPlayerSprite(painter, center, spriteSize, isLocal ? _aimDirection : Direction{0, -1}, isLocal);
+			if (isLocal)
+			{
+				painter.setBrush(playerColor(true));
+				painter.setPen(QPen{QColor{255, 255, 255}, 1});
+				painter.drawEllipse(directionEnd(center, _aimDirection, spriteSize * 0.42), 4.0, 4.0);
+			}
 			painter.setBrush(Qt::NoBrush);
 			painter.setPen(QPen{QColor{86, 216, 122}, 3});
 			const auto hpSpan = std::clamp(player.hp, 0, 100) * 57;
-			painter.drawArc(QRectF{center.x() - 17, center.y() - 17, 34, 34}, 90 * 16, -hpSpan);
+			painter.drawArc(QRectF{center.x() - spriteSize * 0.58, center.y() - spriteSize * 0.58, spriteSize * 1.16,
+			                       spriteSize * 1.16},
+			                90 * 16, -hpSpan);
 			if (carriesObjective)
 			{
 				painter.setPen(QPen{QColor{255, 255, 255}, 1});
 				painter.setBrush(QColor{255, 214, 64});
 				QPolygonF marker;
-				marker << QPointF{center.x(), center.y() - 23} << QPointF{center.x() + 6, center.y() - 17}
-				       << QPointF{center.x(), center.y() - 11} << QPointF{center.x() - 6, center.y() - 17};
+				marker << QPointF{center.x(), center.y() - spriteSize * 0.78}
+				       << QPointF{center.x() + 7, center.y() - spriteSize * 0.56}
+				       << QPointF{center.x(), center.y() - spriteSize * 0.36}
+				       << QPointF{center.x() - 7, center.y() - spriteSize * 0.56};
 				painter.drawPolygon(marker);
 			}
 			painter.setPen(QColor{230, 235, 240});
-			painter.drawText(QRectF{center.x() - 34, center.y() + 14, 68, 18}, Qt::AlignCenter,
+			painter.drawText(QRectF{center.x() - 34, center.y() + spriteSize * 0.44, 68, 18}, Qt::AlignCenter,
 			                 isLocal ? "YOU" : teamName(player.team).toUpper());
 		}
+	}
+
+	void ArenaView::drawPlayerSprite(QPainter& painter, QPointF center, double size, Direction facing, bool isLocal)
+	{
+		if (!_playerSprite.isValid())
+		{
+			painter.setBrush(playerColor(isLocal));
+			painter.setPen(QPen{QColor{255, 255, 255}, 2});
+			painter.drawEllipse(center, size * 0.35, size * 0.35);
+			return;
+		}
+
+		painter.save();
+		painter.translate(center);
+		painter.rotate(directionAngle(facing));
+		const QRectF target{-size / 2.0, -size / 2.0, size, size};
+		_playerSprite.render(&painter, target);
+		painter.restore();
 	}
 
 	QPointF ArenaView::directionEnd(QPointF origin, Direction direction, double length) const
@@ -392,5 +423,17 @@ namespace if_arena::battle_qt_client::ui
 		}
 		const auto magnitude = std::sqrt((dx * dx) + (dy * dy));
 		return QPointF{origin.x() + (dx / magnitude) * length, origin.y() + (dy / magnitude) * length};
+	}
+
+	double ArenaView::directionAngle(Direction direction) const
+	{
+		double dx = static_cast<double>(direction.dx);
+		double dy = static_cast<double>(direction.dy);
+		if (dx == 0.0 && dy == 0.0)
+		{
+			dy = -1.0;
+		}
+		constexpr double radiansToDegrees = 57.29577951308232;
+		return std::atan2(dx, -dy) * radiansToDegrees;
 	}
 }

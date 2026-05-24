@@ -78,9 +78,10 @@ if(BATTLE_BUILD_LOAD_CLIENT)
 endif()
 
 if(BATTLE_BUILD_QT_CLIENT)
-    find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
-    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
+    find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Svg)
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Svg)
     add_executable(battle_qt_client
+        src/battle_qt_client/assets.qrc
         src/battle_qt_client/QtClientMain.cpp
         src/battle_qt_client/game/ClientTypes.cpp
         src/battle_qt_client/game/ClientTypes.hpp
@@ -95,9 +96,9 @@ if(BATTLE_BUILD_QT_CLIENT)
         src/battle_qt_client/ui/MainWindow.cpp
         src/battle_qt_client/ui/MainWindow.hpp
     )
-    set_target_properties(battle_qt_client PROPERTIES AUTOMOC ON)
+    set_target_properties(battle_qt_client PROPERTIES AUTOMOC ON AUTORCC ON)
     target_include_directories(battle_qt_client PRIVATE src/battle_qt_client)
-    target_link_libraries(battle_qt_client PRIVATE battle_protocol Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
+    target_link_libraries(battle_qt_client PRIVATE battle_protocol Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network Qt${QT_VERSION_MAJOR}::Svg)
 endif()
 
 if(BATTLE_BUILD_TESTS)

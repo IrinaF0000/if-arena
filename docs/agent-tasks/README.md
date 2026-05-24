@@ -45,5 +45,6 @@ Recommended order:
 28. `0032-fix-websocket-client-envelope-and-idle-timeout.md`
 29. `0033-fix-core-movement-mechanics-and-arena-rules.md`
 30. `0034-document-and-enforce-architecture-boundaries.md`
+31. `0036-integrate-svg-player-assets.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

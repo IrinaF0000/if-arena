@@ -67,7 +67,10 @@ const client = new WebSocketClient({
 });
 
 const controls = new TouchControls({
-  sendCommand: (kind, direction) => client.sendCommand(kind, direction)
+  sendCommand: (kind, direction) => {
+    arena.setAimDirection(direction);
+    client.sendCommand(kind, direction);
+  }
 });
 controls.bindKeyboard(window);
 controls.bindButton(document.querySelector<HTMLButtonElement>("#move-up"), "move", { x: 0, y: -1 });

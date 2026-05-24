@@ -50,5 +50,6 @@ Recommended order:
 33. `0038-browser-e2e-playwright-harness.md`
 34. `0039-server-tick-session-lifecycle-audit.md`
 35. `0040-reconnect-resume-design-mvp.md`
+36. `0041-protocol-security-hardening-pass.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

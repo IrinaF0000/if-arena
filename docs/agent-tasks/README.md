@@ -46,5 +46,6 @@ Recommended order:
 29. `0033-fix-core-movement-mechanics-and-arena-rules.md`
 30. `0034-document-and-enforce-architecture-boundaries.md`
 31. `0036-integrate-svg-player-assets.md`
+32. `0037-github-ci-and-public-release-baseline.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

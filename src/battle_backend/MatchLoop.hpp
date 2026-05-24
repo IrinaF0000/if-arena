@@ -83,7 +83,7 @@ namespace if_arena::battle_backend
 		JoinMatchResult joinMatch(SessionId session, std::string_view joinCode);
 		BackendResult submitCommand(SessionId session, MatchId match, std::uint64_t sessionSeq,
 		                            BackendCommand command, std::optional<PlayerId> claimedPlayer = std::nullopt);
-		BackendResult tick(MatchId match);
+		BackendResult tick(MatchId match, bool broadcastSnapshot = true);
 		BackendResult disconnect(SessionId session, DisconnectReason reason);
 
 		[[nodiscard]] std::optional<MatchView> view(MatchId match) const;

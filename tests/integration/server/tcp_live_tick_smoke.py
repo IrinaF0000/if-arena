@@ -138,6 +138,22 @@ def read_snapshot_at_or_after(sock: socket.socket, minimum_tick: int) -> dict[st
     raise AssertionError(f"snapshot did not reach tick {minimum_tick}; last tick={last_tick}")
 
 
+def read_snapshots_until(sock: socket.socket, minimum_tick: int, timeout_seconds: float = 5.0) -> list[dict[str, object]]:
+    deadline = time.monotonic() + timeout_seconds
+    snapshots: list[dict[str, object]] = []
+    last_tick = -1
+    while time.monotonic() < deadline:
+        frame = recv_frame(sock)
+        if frame.get("type") != "snapshot":
+            continue
+        payload = frame["payload"]
+        last_tick = int(payload["tick"])
+        snapshots.append(payload)
+        if last_tick >= minimum_tick:
+            return snapshots
+    raise AssertionError(f"snapshot stream did not reach tick {minimum_tick}; last tick={last_tick}")
+
+
 def player_position(snapshot: dict[str, object], player_id: str) -> tuple[float, float]:
     for player in snapshot["players"]:
         if str(player["playerId"]) == player_id:
@@ -183,6 +199,13 @@ def live_match_ticks_after_idle_and_accepts_late_input(port: int) -> None:
 
         drain_thread = threading.Thread(target=drain_frames, args=(create, drain_stop), daemon=True)
         drain_thread.start()
+        early_snapshots = read_snapshots_until(join, 20)
+        early_ticks = [int(snapshot["tick"]) for snapshot in early_snapshots]
+        require(len(early_ticks) >= 2, f"expected multiple early snapshots, got {early_ticks}")
+        require(
+            any(next_tick - tick > 1 for tick, next_tick in zip(early_ticks, early_ticks[1:])),
+            f"snapshotRate should not broadcast every simulation tick: {early_ticks}",
+        )
         idle_snapshot = read_snapshot_at_or_after(join, 1201)
         before = player_position(idle_snapshot, join_session)
         send_frame(

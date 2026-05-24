@@ -24,6 +24,6 @@ build/battle_server_app --config config/examples/server.local.json --max-clients
 
 The first command validates config and backend initialization. The second starts TCP and exits after two accepted clients, which is useful for local smoke tests.
 
-The TCP slice maps each accepted connection to a backend session, validates every client envelope, closes malformed or oversized frames, enforces handshake and idle timeouts, and uses backend outbound queue limits for slow-client backpressure.
+The TCP/WebSocket slices map each accepted connection to a backend session, validate every client envelope, close malformed or oversized frames, enforce handshake and idle timeouts, advance authoritative matches at `server.tickRate`, broadcast snapshots at `server.snapshotRate`, and use backend outbound queue limits for slow-client backpressure.
 
 For WebSocket local development, use a config with `transports.tcp.enabled=false` and `transports.websocket.enabled=true`. Public deployment still requires WSS/TLS and production auth hardening.

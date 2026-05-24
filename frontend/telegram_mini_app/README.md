@@ -33,6 +33,16 @@ npm run lint
 npm run build
 ```
 
+Browser E2E checks require the C++ server to be built first:
+
+```powershell
+cmake --build ..\..\build --parallel
+npm.cmd run test:e2e
+npm.cmd run test:e2e:headed
+```
+
+If Playwright browsers are not installed on a fresh machine, run `npx.cmd playwright install chromium`.
+
 The frontend reads `VITE_WS_URL` when provided and otherwise connects to `ws://127.0.0.1:8081/ws` for local development.
 
 Controls:

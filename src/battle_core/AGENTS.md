@@ -18,6 +18,8 @@ Do not add dependencies on:
 - Qt, Telegram, browser APIs, JavaScript, TypeScript.
 - Deployment, Docker, cloud providers, environment variables.
 - Server session identity or transport-specific player IDs.
+- `battle_protocol`, `battle_backend`, `battle_transport_tcp`, `battle_transport_ws`, or `battle_qt_client`.
+- Filesystem/config parsing, `<fstream>`, `<iostream>`, or process-level server wiring in production core code.
 
 ## Quality requirements
 
@@ -29,3 +31,4 @@ Do not add dependencies on:
 - Preserve behavior when extracting code from `external/battle_simulation_snapshot/`.
 
 Read also: `docs/agent-rules/quality/CPP.md` and `docs/project/CORE_EXTRACTION_CHECKLIST.md`.
+Boundary reference: `docs/architecture/BATTLE_CORE_BOUNDARIES.md`.

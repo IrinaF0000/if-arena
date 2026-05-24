@@ -42,5 +42,8 @@ Recommended order:
 25. `0028-load-security-hardening-and-portfolio.md`
 26. `0030-release-stabilization-and-qt-verification.md`
 27. `0031-fix-playable-controls-and-arena-readability.md`
+28. `0032-fix-websocket-client-envelope-and-idle-timeout.md`
+29. `0033-fix-core-movement-mechanics-and-arena-rules.md`
+30. `0034-document-and-enforce-architecture-boundaries.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

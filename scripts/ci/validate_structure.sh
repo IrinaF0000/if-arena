@@ -17,7 +17,10 @@ required_paths=(
   "docs/security/SECURITY_REQUIREMENTS.md"
   "docs/architecture/TECHNICAL_ARCHITECTURE.md"
   "docs/architecture/TRANSPORT_ABSTRACTION.md"
+  "docs/architecture/SUBSYSTEM_BOUNDARIES.md"
+  "docs/architecture/BATTLE_CORE_BOUNDARIES.md"
   "docs/telegram/TELEGRAM_SECURITY.md"
+  "scripts/ci/validate_architecture_boundaries.py"
   "src/battle_core"
   "src/battle_backend"
   "src/battle_protocol"
@@ -37,13 +40,14 @@ for path in "${required_paths[@]}"; do
   fi
 done
 
-if find . -type d \( -name build -o -name node_modules -o -name .git \) -prune -false -o -type f -size +5M | grep -q .; then
+if find . -type d \( -name build -o -name 'build-*' -o -name node_modules -o -name .git \) -prune -false -o -type f -size +5M | grep -q .; then
   echo "Large files over 5 MB are present. Keep binaries, dependencies, traces, and build outputs out of the repository." >&2
-  find . -type d \( -name build -o -name node_modules -o -name .git \) -prune -false -o -type f -size +5M >&2
+  find . -type d \( -name build -o -name 'build-*' -o -name node_modules -o -name .git \) -prune -false -o -type f -size +5M >&2
   exit 1
 fi
 
 python3 scripts/ci/scan_secrets.py
+python3 scripts/ci/validate_architecture_boundaries.py
 
 echo "Repository structure looks valid."
 

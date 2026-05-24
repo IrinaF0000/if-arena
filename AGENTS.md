@@ -17,6 +17,7 @@ This repository is designed for scoped coding-agent work. Keep this file short. 
    - `docs/agent-rules/process/ACCESS_BOUNDARIES.md`
 5. Use repo-local skills from `.agents/skills/` only when they match your task.
 6. Work only in files allowed by the task packet.
+7. For post-0034 work, treat `docs/architecture/SUBSYSTEM_BOUNDARIES.md` and `docs/architecture/BATTLE_CORE_BOUNDARIES.md` as canonical and run the architecture-boundary validator when checks are required.
 
 ## Non-negotiable rules
 
@@ -28,6 +29,7 @@ This repository is designed for scoped coding-agent work. Keep this file short. 
 - Follow `docs/agent-rules/quality/TESTING.md`; cover happy path, corner cases, invalid input, authority violations, and resource bounds when touched.
 - Keep diffs small and reviewable.
 - Implementation agents must not commit directly. Role-based tasks must follow `docs/agent-rules/process/SEQUENTIAL_AGENT_PIPELINE.md`.
+- Architecture-boundary violations are blocking review issues. Do not merge a task that fails `scripts/ci/validate_architecture_boundaries.py`.
 
 ## Build and check basics
 

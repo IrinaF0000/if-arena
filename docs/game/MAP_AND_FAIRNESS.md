@@ -67,4 +67,6 @@ The player should understand:
 
 ## Current playable layout
 
-The default local Objective Run scenario keeps the vertical center lane open so both players can move directly from spawn toward the center objective and directly back toward their own base. Obstacles shape the side routes and symmetric hazards add contest pressure around the objective without overlapping spawns, bases, or the objective spawn.
+The default local Objective Run scenario keeps the vertical center lane open so both players can move directly from spawn toward the center objective and directly back toward their own base. Center wall shoulders create three lower/upper approach gates into the objective area, while side mines and towers add symmetric contest pressure without overlapping spawns, bases, or the objective spawn.
+
+Obstacle cells are part of the server-authoritative snapshot payload. Browser clients render those cells from the snapshot instead of drawing decorative blockers locally.

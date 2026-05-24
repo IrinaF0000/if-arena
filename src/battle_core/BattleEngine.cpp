@@ -472,7 +472,7 @@ namespace if_arena::battle_core
 
 	BattleSnapshot BattleEngine::snapshot() const
 	{
-		return BattleSnapshot{_tick, _width, _height, _finished, _players, _objective, _scores, _hazards};
+		return BattleSnapshot{_tick, _width, _height, _finished, _players, _obstacles, _objective, _scores, _hazards};
 	}
 
 	PlayerSnapshot* BattleEngine::findPlayer(PlayerId player)

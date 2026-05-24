@@ -95,6 +95,10 @@ namespace if_arena::battle_core
 			Vec2i{13, 4},
 			Vec2i{6, 8},
 			Vec2i{7, 8},
+			Vec2i{7, 5},
+			Vec2i{13, 7},
+			Vec2i{13, 5},
+			Vec2i{7, 7},
 			Vec2i{9, 5},
 			Vec2i{11, 7},
 			Vec2i{11, 5},
@@ -121,6 +125,11 @@ namespace if_arena::battle_core
 		};
 		const auto hasObstacle = [&config](Vec2i cell) {
 			return std::find(config.obstacles.begin(), config.obstacles.end(), cell) != config.obstacles.end();
+		};
+		const auto insideZone = [](Vec2i cell, const ArenaCircleZone& zone) {
+			const double dx = static_cast<double>(cell.x - zone.center.x);
+			const double dy = static_cast<double>(cell.y - zone.center.y);
+			return dx * dx + dy * dy <= zone.radius * zone.radius;
 		};
 		const auto validateZone = [&](const std::optional<ArenaCircleZone>& zone, const char* name) {
 			if (!zone.has_value())
@@ -241,6 +250,11 @@ namespace if_arena::battle_core
 			{
 				addError("hazard must not be inside an obstacle");
 			}
+			if (std::find_if(config.hazards.begin() + static_cast<std::ptrdiff_t>(index) + 1, config.hazards.end(),
+			                 [&](const HazardConfig& other) { return other.position == hazard.position; }) != config.hazards.end())
+			{
+				addError("hazard cells must be unique");
+			}
 			if (config.objectiveSpawn.has_value() && hazard.position == *config.objectiveSpawn)
 			{
 				addError("hazard must not overlap the objective spawn");
@@ -249,6 +263,11 @@ namespace if_arena::battle_core
 			    (config.blueSpawn.has_value() && hazard.position == config.blueSpawn->cell))
 			{
 				addError("hazard must not overlap a player spawn");
+			}
+			if ((config.redBase.has_value() && insideZone(hazard.position, *config.redBase)) ||
+			    (config.blueBase.has_value() && insideZone(hazard.position, *config.blueBase)))
+			{
+				addError("hazard must not overlap a base");
 			}
 			const Vec2i mirrored = rotate180(hazard.position, config.dimensions);
 			const bool hasMirror = std::any_of(config.hazards.begin(), config.hazards.end(), [&](const HazardConfig& other) {

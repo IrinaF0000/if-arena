@@ -1,6 +1,8 @@
 #include "BattleEngine.hpp"
 #include "ArenaConfig.hpp"
 
+#include <algorithm>
+#include <array>
 #include <exception>
 #include <iostream>
 #include <stdexcept>
@@ -97,6 +99,56 @@ namespace
 			}
 		}
 		return false;
+	}
+
+	bool hasCell(const std::vector<Vec2i>& cells, Vec2i cell)
+	{
+		return std::find(cells.begin(), cells.end(), cell) != cells.end();
+	}
+
+	bool hasHazardAt(const std::vector<HazardConfig>& hazards, HazardKind kind, Vec2i cell)
+	{
+		return std::find_if(hazards.begin(), hazards.end(), [&](const HazardConfig& hazard) {
+			return hazard.kind == kind && hazard.position == cell;
+		}) != hazards.end();
+	}
+
+	bool canReach(const ArenaConfig& arena, Vec2i start, Vec2i goal)
+	{
+		if (!arena.objectiveSpawn.has_value() || hasCell(arena.obstacles, start) || hasCell(arena.obstacles, goal))
+		{
+			return false;
+		}
+		const auto inside = [&arena](Vec2i cell) {
+			return cell.x >= 0 && cell.y >= 0 && cell.x < arena.dimensions.width && cell.y < arena.dimensions.height;
+		};
+		const std::array<Direction, 4> directions{Direction{1, 0}, Direction{-1, 0}, Direction{0, 1}, Direction{0, -1}};
+		std::vector<Vec2i> frontier{start};
+		std::vector<Vec2i> visited{start};
+		for (std::size_t index = 0; index < frontier.size(); ++index)
+		{
+			const auto current = frontier[index];
+			if (current == goal)
+			{
+				return true;
+			}
+			for (const auto direction : directions)
+			{
+				const Vec2i next{current.x + direction.dx, current.y + direction.dy};
+				if (!inside(next) || hasCell(arena.obstacles, next) || hasCell(visited, next))
+				{
+					continue;
+				}
+				visited.push_back(next);
+				frontier.push_back(next);
+			}
+		}
+		return false;
+	}
+
+	bool routeViaCell(const ArenaConfig& arena, Vec2i start, Vec2i gate)
+	{
+		return arena.objectiveSpawn.has_value() && canReach(arena, start, gate) && canReach(arena, gate, *arena.objectiveSpawn);
 	}
 
 	void createsMatchSnapshot()
@@ -543,10 +595,27 @@ namespace
 		require(arena.redSpawn.has_value() && arena.blueSpawn.has_value(), "canonical arena has both spawns");
 		require(!arena.obstacles.empty(), "canonical arena has obstacle contest pressure");
 		require(!arena.hazards.empty(), "canonical arena has hazard contest pressure");
-		require(std::find(arena.obstacles.begin(), arena.obstacles.end(), Vec2i{10, 9}) == arena.obstacles.end(),
-		        "blue direct lane from spawn is open");
-		require(std::find(arena.obstacles.begin(), arena.obstacles.end(), Vec2i{10, 3}) == arena.obstacles.end(),
-		        "red direct lane from spawn is open");
+		require(!hasCell(arena.obstacles, Vec2i{10, 9}), "blue direct lane from spawn is open");
+		require(!hasCell(arena.obstacles, Vec2i{10, 3}), "red direct lane from spawn is open");
+		require(hasCell(arena.obstacles, Vec2i{7, 5}) && hasCell(arena.obstacles, Vec2i{13, 7}),
+		        "center wall shoulders keep rotational symmetry");
+	}
+
+	void canonicalObjectiveRunArenaHasThreeRoutesToObjective()
+	{
+		const auto arena = makeSmallObjectiveRunArenaConfig();
+		require(arena.blueSpawn.has_value() && arena.redSpawn.has_value(), "canonical route test requires both spawns");
+
+		const std::array<Vec2i, 3> blueGates{Vec2i{8, 7}, Vec2i{10, 7}, Vec2i{12, 7}};
+		for (const auto gate : blueGates)
+		{
+			require(routeViaCell(arena, arena.blueSpawn->cell, gate), "blue has a distinct lower route to the objective");
+			require(routeViaCell(arena, arena.redSpawn->cell, rotate180(gate, arena.dimensions)),
+			        "red has the mirrored route to the objective");
+		}
+
+		require(hasHazardAt(arena.hazards, HazardKind::Mine, Vec2i{8, 6}), "left side route has mine pressure");
+		require(hasHazardAt(arena.hazards, HazardKind::Mine, Vec2i{12, 6}), "right side route has mine pressure");
 	}
 
 	void createsMatchFromCanonicalObjectiveRunArena()
@@ -561,6 +630,9 @@ namespace
 		require(snapshot.players.back().team == ArenaTeam::Blue, "blue player keeps team assignment");
 		require(snapshot.players.front().spawn == Vec2i{10, 2}, "red spawn comes from canonical arena");
 		require(snapshot.players.back().spawn == Vec2i{10, 10}, "blue spawn comes from canonical arena");
+		require(snapshot.obstacles.size() == makeSmallObjectiveRunArenaConfig().obstacles.size(),
+		        "canonical match exposes authoritative obstacles");
+		require(hasCell(snapshot.obstacles, Vec2i{7, 5}), "canonical match exposes center wall shoulder");
 		require(!snapshot.hazards.empty(), "canonical match exposes configured hazards");
 	}
 
@@ -582,6 +654,17 @@ namespace
 		const auto validation = validateArenaConfig(arena);
 
 		require(!validation.valid(), "asymmetric hazard layout is rejected");
+	}
+
+	void rejectsOverlappingArenaHazards()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		arena.hazards.push_back(HazardConfig{HazardKind::Mine, arena.redBase->center, 0.7, 1.0, 12, 30});
+		arena.hazards.push_back(arena.hazards.front());
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "overlapping hazard cells and base hazards are rejected");
 	}
 
 	void rejectsInvalidArenaDimensions()
@@ -655,9 +738,11 @@ int main()
 		{"rejectsUnboundedCombatConfig", rejectsUnboundedCombatConfig},
 		{"finishesAtConfiguredTickLimit", finishesAtConfiguredTickLimit},
 		{"acceptsCanonicalObjectiveRunArena", acceptsCanonicalObjectiveRunArena},
+		{"canonicalObjectiveRunArenaHasThreeRoutesToObjective", canonicalObjectiveRunArenaHasThreeRoutesToObjective},
 		{"createsMatchFromCanonicalObjectiveRunArena", createsMatchFromCanonicalObjectiveRunArena},
 		{"rejectsAsymmetricObstacleLayout", rejectsAsymmetricObstacleLayout},
 		{"rejectsAsymmetricHazardLayout", rejectsAsymmetricHazardLayout},
+		{"rejectsOverlappingArenaHazards", rejectsOverlappingArenaHazards},
 		{"rejectsInvalidArenaDimensions", rejectsInvalidArenaDimensions},
 		{"rejectsOutOfBoundsArenaObjects", rejectsOutOfBoundsArenaObjects},
 		{"rejectsMissingBases", rejectsMissingBases},

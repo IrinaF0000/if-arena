@@ -130,6 +130,7 @@ socket.message({
     serverTick: 2,
     finished: false,
     map: { width: 21, height: 13 },
+    obstacles: [{ x: 7, y: 5 }],
     players: [
       {
         playerId: "2",

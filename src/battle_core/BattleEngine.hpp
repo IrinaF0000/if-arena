@@ -211,6 +211,7 @@ namespace if_arena::battle_core
 		int height{};
 		bool finished{};
 		std::vector<PlayerSnapshot> players;
+		std::vector<Vec2i> obstacles;
 		ObjectiveSnapshot objective;
 		std::vector<ScoreSnapshot> scores;
 		std::vector<HazardSnapshot> hazards;

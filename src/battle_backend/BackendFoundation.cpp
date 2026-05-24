@@ -114,7 +114,17 @@ namespace if_arena::battle_backend
 			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << snapshot.tick
 			       << ",\"serverTick\":" << snapshot.tick << ",\"finished\":"
 			       << (snapshot.finished ? "true" : "false") << ",\"map\":{\"width\":" << snapshot.width
-			       << ",\"height\":" << snapshot.height << "},\"players\":[";
+			       << ",\"height\":" << snapshot.height << "},\"obstacles\":[";
+			for (std::size_t index = 0; index < snapshot.obstacles.size(); ++index)
+			{
+				if (index != 0)
+				{
+					output << ',';
+				}
+				const auto& obstacle = snapshot.obstacles[index];
+				output << "{\"x\":" << obstacle.x << ",\"y\":" << obstacle.y << "}";
+			}
+			output << "],\"players\":[";
 			for (std::size_t index = 0; index < snapshot.players.size(); ++index)
 			{
 				const auto& player = snapshot.players[index];

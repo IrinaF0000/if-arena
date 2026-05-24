@@ -177,6 +177,7 @@ namespace
 		require(view->playerCount == 2, "two players in match");
 		require(view->snapshot.has_value(), "started match has snapshot");
 		require(view->snapshot->players.size() == 2, "snapshot contains both players");
+		require(!view->snapshot->obstacles.empty(), "snapshot contains authoritative obstacle cells");
 		require(harness.manager.metrics().activeMatches == 1, "active match metric increments");
 		require(harness.manager.metrics().matchesCreated == 1, "created match metric increments");
 	}
@@ -203,6 +204,15 @@ namespace
 		harness.registry.find(harness.red)->flushOutbound();
 		require(!harness.blueOutbound.sent.empty(), "blue received snapshot/events");
 		require(!harness.redOutbound.sent.empty(), "red received snapshot/events");
+		bool sawObstacles = false;
+		for (const auto& payload : harness.blueOutbound.sent)
+		{
+			if (payload.find("\"obstacles\":[") != std::string::npos && payload.find("\"x\":7") != std::string::npos)
+			{
+				sawObstacles = true;
+			}
+		}
+		require(sawObstacles, "snapshot payload broadcasts authoritative obstacle cells");
 
 		const auto metrics = harness.manager.metrics();
 		require(metrics.commandsAccepted == 1, "accepted command metric increments");

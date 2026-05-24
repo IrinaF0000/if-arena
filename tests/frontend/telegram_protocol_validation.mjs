@@ -44,6 +44,7 @@ const validSnapshot = protocol.parseIncomingMessage(
       serverTick: 3,
       finished: false,
       map: { width: 21, height: 13 },
+      obstacles: [{ x: 7, y: 5 }],
       players: [
         {
           playerId: "1",
@@ -71,6 +72,7 @@ const validSnapshot = protocol.parseIncomingMessage(
   })
 );
 assert.equal(validSnapshot.type, "snapshot");
+assert.deepEqual(validSnapshot.payload.obstacles, [{ x: 7, y: 5 }]);
 
 const authorityClaim = protocol.createInputCommand("1", 1, "move", { x: 1, y: 0 });
 assert.equal(authorityClaim.version, 1);
@@ -123,5 +125,33 @@ const invalidSnapshot = protocol.parseIncomingMessage(
 );
 assert.equal(invalidSnapshot.type, "client_parse_error");
 assert.equal(invalidSnapshot.payload.reason, "invalid_envelope");
+
+const invalidObstacleSnapshot = protocol.parseIncomingMessage(
+  JSON.stringify({
+    version: 1,
+    type: "snapshot",
+    payload: {
+      matchId: "1",
+      tick: 3,
+      serverTick: 3,
+      finished: false,
+      map: { width: 21, height: 13 },
+      obstacles: [{ x: "7", y: 5 }],
+      players: [],
+      objective: {
+        state: "at_spawn",
+        x: 10,
+        y: 6,
+        carrierPlayerId: "0",
+        pickupLockTicks: 0,
+        respawnTicks: 0
+      },
+      scores: [],
+      hazards: []
+    }
+  })
+);
+assert.equal(invalidObstacleSnapshot.type, "client_parse_error");
+assert.equal(invalidObstacleSnapshot.payload.reason, "invalid_envelope");
 
 console.log("[PASS] telegram_protocol_validation");

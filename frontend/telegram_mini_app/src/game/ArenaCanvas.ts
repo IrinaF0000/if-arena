@@ -1,4 +1,4 @@
-import type { Direction, HazardSnapshot, PlayerSnapshot, SnapshotPayload, Team } from "../protocol/ProtocolTypes";
+import type { Direction, HazardSnapshot, ObstacleSnapshot, PlayerSnapshot, SnapshotPayload, Team } from "../protocol/ProtocolTypes";
 
 export const playerSpritePath = "/players/swordsman.svg";
 
@@ -58,6 +58,9 @@ export class ArenaCanvas {
     this.drawBase(originX, originY, cell, mapWidth, mapHeight, "red");
 
     if (snapshot) {
+      for (const obstacle of snapshot.obstacles) {
+        this.drawObstacle(obstacle, snapshot, originX, originY, cell);
+      }
       for (const hazard of snapshot.hazards) {
         this.drawHazard(hazard, originX, originY, cell);
       }
@@ -122,6 +125,16 @@ export class ArenaCanvas {
       this.context.fillText(objective.state.replace("_", " "), point.x, point.y - cell * 0.62);
       this.context.textAlign = "start";
     }
+  }
+
+  private drawObstacle(obstacle: ObstacleSnapshot, snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
+    const point = this.worldToCanvas(obstacle.x, obstacle.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
+    const size = cell * 0.82;
+    this.context.fillStyle = "#314451";
+    this.context.strokeStyle = "#89a7b8";
+    this.context.lineWidth = 1.5;
+    this.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
+    this.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
   }
 
   private drawHazard(hazard: HazardSnapshot, originX: number, originY: number, cell: number): void {

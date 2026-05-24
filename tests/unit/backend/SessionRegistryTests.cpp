@@ -205,14 +205,20 @@ namespace
 		require(!harness.blueOutbound.sent.empty(), "blue received snapshot/events");
 		require(!harness.redOutbound.sent.empty(), "red received snapshot/events");
 		bool sawObstacles = false;
+		bool sawCrow = false;
 		for (const auto& payload : harness.blueOutbound.sent)
 		{
 			if (payload.find("\"obstacles\":[") != std::string::npos && payload.find("\"x\":7") != std::string::npos)
 			{
 				sawObstacles = true;
 			}
+			if (payload.find("\"kind\":\"crow\"") != std::string::npos)
+			{
+				sawCrow = true;
+			}
 		}
 		require(sawObstacles, "snapshot payload broadcasts authoritative obstacle cells");
+		require(sawCrow, "snapshot payload broadcasts neutral crow hazard");
 
 		const auto metrics = harness.manager.metrics();
 		require(metrics.commandsAccepted == 1, "accepted command metric increments");

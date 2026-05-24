@@ -86,16 +86,18 @@ Rules:
 - attacks both players equally;
 - should be visible with clear range indication if possible.
 
-## Drone/Crow
+## Crow
 
-Moving neutral hazard, stretch for MVP.
+Moving neutral hazard.
 
 Rules:
 
-- deterministic movement path or simple nearest-player pressure;
+- deterministic seeded center patrol;
+- pecks nearby players for minor server-owned damage;
 - not a full third-party player;
 - speed and damage must be tuned to avoid chaos;
-- path should be symmetric or centered.
+- never carries or owns the objective;
+- path should stay centered.
 
 ## Wall/Obstacle
 

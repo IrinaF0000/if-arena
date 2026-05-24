@@ -67,12 +67,16 @@ const validSnapshot = protocol.parseIncomingMessage(
         respawnTicks: 0
       },
       scores: [{ team: "blue", score: 0 }],
-      hazards: [{ kind: "mine", x: 7, y: 4, cooldown: 0, triggered: false }]
+      hazards: [
+        { kind: "mine", x: 7, y: 4, cooldown: 0, triggered: false },
+        { kind: "crow", x: 10, y: 5, cooldown: 0, triggered: false }
+      ]
     }
   })
 );
 assert.equal(validSnapshot.type, "snapshot");
 assert.deepEqual(validSnapshot.payload.obstacles, [{ x: 7, y: 5 }]);
+assert.equal(validSnapshot.payload.hazards.at(-1).kind, "crow");
 
 const authorityClaim = protocol.createInputCommand("1", 1, "move", { x: 1, y: 0 });
 assert.equal(authorityClaim.version, 1);

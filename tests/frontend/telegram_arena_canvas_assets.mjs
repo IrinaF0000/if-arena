@@ -130,7 +130,7 @@ arena.setSnapshot(
       { team: "blue", score: 0 },
       { team: "red", score: 0 }
     ],
-    hazards: []
+    hazards: [{ kind: "crow", x: 10, y: 5, cooldown: 0, triggered: false }]
   },
   "local"
 );
@@ -147,5 +147,8 @@ assert.ok(carrierArcs.length > 0, "carrier overlay remains visible");
 
 const fillRects = canvas.context.calls.filter((call) => call.name === "fillRect");
 assert.ok(fillRects.length >= 4, "authoritative obstacle cells render as filled blockers");
+
+const crowArcs = canvas.context.calls.filter((call) => call.name === "arc" && call.args[2] > 8 && call.args[2] < 14);
+assert.ok(crowArcs.length > 0, "crow hazard renders as a visible neutral marker");
 
 console.log("[PASS] telegram_arena_canvas_assets");

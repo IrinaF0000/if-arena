@@ -68,7 +68,16 @@ namespace if_arena::battle_backend
 
 		std::string_view hazardKindName(battle_core::HazardKind kind)
 		{
-			return kind == battle_core::HazardKind::Tower ? "tower" : "mine";
+			switch (kind)
+			{
+			case battle_core::HazardKind::Mine:
+				return "mine";
+			case battle_core::HazardKind::Tower:
+				return "tower";
+			case battle_core::HazardKind::Crow:
+				return "crow";
+			}
+			return "mine";
 		}
 
 		std::string_view eventTypeName(battle_core::BattleEventType type)

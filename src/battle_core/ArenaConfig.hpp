@@ -109,6 +109,7 @@ namespace if_arena::battle_core
 			HazardConfig{HazardKind::Tower, Vec2i{15, 6}, 0.8, 2.2, 6, 20},
 			HazardConfig{HazardKind::Mine, Vec2i{8, 6}, 0.7, 1.0, 12, 30},
 			HazardConfig{HazardKind::Mine, Vec2i{12, 6}, 0.7, 1.0, 12, 30},
+			HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.65, 1.5, 6, 8, 3},
 		};
 		return config;
 	}
@@ -255,7 +256,8 @@ namespace if_arena::battle_core
 			{
 				addError("hazard cells must be unique");
 			}
-			if (config.objectiveSpawn.has_value() && hazard.position == *config.objectiveSpawn)
+			if (config.objectiveSpawn.has_value() && hazard.position == *config.objectiveSpawn &&
+			    hazard.kind != HazardKind::Crow)
 			{
 				addError("hazard must not overlap the objective spawn");
 			}
@@ -272,7 +274,8 @@ namespace if_arena::battle_core
 			const Vec2i mirrored = rotate180(hazard.position, config.dimensions);
 			const bool hasMirror = std::any_of(config.hazards.begin(), config.hazards.end(), [&](const HazardConfig& other) {
 				return other.kind == hazard.kind && other.position == mirrored && other.damage == hazard.damage &&
-				       other.cooldownTicks == hazard.cooldownTicks && other.radius == hazard.radius && other.range == hazard.range;
+				       other.cooldownTicks == hazard.cooldownTicks && other.radius == hazard.radius &&
+				       other.range == hazard.range && other.seed == hazard.seed;
 			});
 			if (!hasMirror)
 			{

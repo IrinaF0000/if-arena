@@ -89,7 +89,8 @@ namespace if_arena::battle_core
 	enum class HazardKind
 	{
 		Mine,
-		Tower
+		Tower,
+		Crow
 	};
 
 	struct HazardConfig
@@ -100,6 +101,7 @@ namespace if_arena::battle_core
 		double range{3.5};
 		int damage{10};
 		std::uint32_t cooldownTicks{10};
+		std::uint32_t seed{};
 	};
 
 	struct PlayerConfig
@@ -303,6 +305,7 @@ namespace if_arena::battle_core
 		void performAttack(PlayerSnapshot& attacker, Direction direction, std::vector<BattleEvent>& events);
 		void performDash(PlayerSnapshot& player, Direction direction, std::vector<BattleEvent>& events);
 		void updatePlayerCooldowns();
+		[[nodiscard]] Vec2i crowPatrolPosition(const HazardConfig& config, std::size_t hazardIndex) const;
 		void updateHazards(std::vector<BattleEvent>& events);
 		void updateObjectiveTimers(std::vector<BattleEvent>& events);
 	};

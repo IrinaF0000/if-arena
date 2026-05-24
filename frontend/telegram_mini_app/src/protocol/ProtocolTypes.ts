@@ -43,6 +43,11 @@ export type HazardSnapshot = {
   triggered: boolean;
 };
 
+export type ObstacleSnapshot = {
+  x: number;
+  y: number;
+};
+
 export type SnapshotPayload = {
   matchId: string;
   tick: number;
@@ -52,6 +57,7 @@ export type SnapshotPayload = {
     width: number;
     height: number;
   };
+  obstacles: ObstacleSnapshot[];
   players: PlayerSnapshot[];
   objective: ObjectiveSnapshot;
   scores: ScoreSnapshot[];
@@ -310,6 +316,8 @@ function isSnapshot(value: { payload: unknown }): value is SnapshotMessage {
     isRecord(payload.map) &&
     isNumber(payload.map.width) &&
     isNumber(payload.map.height) &&
+    Array.isArray(payload.obstacles) &&
+    payload.obstacles.every(isObstacleSnapshot) &&
     Array.isArray(payload.players) &&
     payload.players.every(isPlayerSnapshot) &&
     isObjectiveSnapshot(payload.objective) &&
@@ -380,6 +388,10 @@ function isHazardSnapshot(value: unknown): value is HazardSnapshot {
     isNumber(value.cooldown) &&
     typeof value.triggered === "boolean"
   );
+}
+
+function isObstacleSnapshot(value: unknown): value is ObstacleSnapshot {
+  return isRecord(value) && isNumber(value.x) && isNumber(value.y);
 }
 
 function isTeam(value: unknown): value is Team {

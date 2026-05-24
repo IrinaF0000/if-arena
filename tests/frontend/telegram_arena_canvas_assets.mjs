@@ -90,6 +90,10 @@ arena.setSnapshot(
     serverTick: 4,
     finished: false,
     map: { width: 21, height: 13 },
+    obstacles: [
+      { x: 7, y: 5 },
+      { x: 13, y: 7 }
+    ],
     players: [
       {
         playerId: "local",
@@ -140,5 +144,8 @@ assert.ok(rotations.some((angle) => Math.abs(angle - Math.PI / 2) < 0.0001), "lo
 
 const carrierArcs = canvas.context.calls.filter((call) => call.name === "arc" && call.args[2] > 14);
 assert.ok(carrierArcs.length > 0, "carrier overlay remains visible");
+
+const fillRects = canvas.context.calls.filter((call) => call.name === "fillRect");
+assert.ok(fillRects.length >= 4, "authoritative obstacle cells render as filled blockers");
 
 console.log("[PASS] telegram_arena_canvas_assets");

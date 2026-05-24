@@ -52,5 +52,6 @@ Recommended order:
 35. `0040-reconnect-resume-design-mvp.md`
 36. `0041-protocol-security-hardening-pass.md`
 37. `0042-coverage-baseline-and-test-policy-audit.md`
+38. `0043-map-contest-pressure-and-neutral-hazards.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

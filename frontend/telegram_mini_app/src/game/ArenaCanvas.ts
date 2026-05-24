@@ -1,10 +1,14 @@
-import type { HazardSnapshot, PlayerSnapshot, SnapshotPayload, Team } from "../protocol/ProtocolTypes";
+import type { Direction, HazardSnapshot, PlayerSnapshot, SnapshotPayload, Team } from "../protocol/ProtocolTypes";
+
+export const playerSpritePath = "/players/swordsman.svg";
 
 export class ArenaCanvas {
   private readonly context: CanvasRenderingContext2D;
+  private readonly playerSprite: HTMLImageElement;
   private snapshot: SnapshotPayload | null = null;
   private localPlayerId: string | null = null;
   private status = "offline";
+  private aimDirection: Direction = { x: 0, y: -1 };
 
   public constructor(private readonly canvas: HTMLCanvasElement) {
     const context = canvas.getContext("2d");
@@ -12,6 +16,7 @@ export class ArenaCanvas {
       throw new Error("2D canvas context is unavailable");
     }
     this.context = context;
+    this.playerSprite = this.createPlayerSprite();
   }
 
   public setStatus(status: string): void {
@@ -23,6 +28,13 @@ export class ArenaCanvas {
     this.snapshot = snapshot;
     this.localPlayerId = localPlayerId;
     this.render();
+  }
+
+  public setAimDirection(direction: Direction | undefined): void {
+    if (direction) {
+      this.aimDirection = direction;
+      this.render();
+    }
   }
 
   public render(): void {
@@ -136,13 +148,14 @@ export class ArenaCanvas {
       this.context.arc(point.x, point.y, cell * 0.48, 0, Math.PI * 2);
       this.context.stroke();
     }
-    this.context.fillStyle = player.team === "blue" ? "#44c2ff" : "#ff7060";
-    this.context.strokeStyle = "#ffffff";
-    this.context.lineWidth = 2;
+    const teamColor = player.team === "blue" ? "#44c2ff" : "#ff7060";
+    this.context.fillStyle = teamColor;
+    this.context.strokeStyle = teamColor;
+    this.context.lineWidth = player.playerId === this.localPlayerId ? 4 : 3;
     this.context.beginPath();
-    this.context.arc(point.x, point.y, cell * 0.32, 0, Math.PI * 2);
-    this.context.fill();
+    this.context.arc(point.x, point.y, cell * 0.42, 0, Math.PI * 2);
     this.context.stroke();
+    this.drawPlayerSprite(point.x, point.y, cell * 0.78, player.playerId === this.localPlayerId);
 
     const hpWidth = cell * 0.7;
     const hpRatio = Math.max(0, Math.min(1, player.hp / 100));
@@ -160,6 +173,40 @@ export class ArenaCanvas {
       this.context.closePath();
       this.context.fill();
     }
+  }
+
+  private createPlayerSprite(): HTMLImageElement {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = playerSpritePath;
+    image.addEventListener("load", () => this.render());
+    return image;
+  }
+
+  private drawPlayerSprite(x: number, y: number, size: number, isLocal: boolean): void {
+    const ready = this.playerSprite.complete && this.playerSprite.naturalWidth > 0;
+    if (!ready) {
+      this.context.beginPath();
+      this.context.arc(x, y, size * 0.38, 0, Math.PI * 2);
+      this.context.fill();
+      this.context.stroke();
+      return;
+    }
+
+    this.context.save();
+    this.context.translate(x, y);
+    this.context.rotate(isLocal ? this.directionAngle(this.aimDirection) : 0);
+    this.context.drawImage(this.playerSprite, -size / 2, -size / 2, size, size);
+    this.context.restore();
+  }
+
+  private directionAngle(direction: Direction): number {
+    const dx = direction.x;
+    const dy = direction.y;
+    if (dx === 0 && dy === 0) {
+      return 0;
+    }
+    return Math.atan2(dx, -dy);
   }
 
   private drawHud(snapshot: SnapshotPayload): void {

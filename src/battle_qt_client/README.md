@@ -21,7 +21,7 @@ Current implementation:
 - `QtClientMain.cpp` starts a Qt Widgets desktop client.
 - `network/NetworkClient.*` owns the asynchronous `QTcpSocket`, length-prefixed TCP framing, protocol envelope validation, demo auth, create/join, ping/pong, and intention sending.
 - `ui/MainWindow.*` owns the connection/lobby controls, HUD, event log, and keyboard commands.
-- `ui/ArenaView.*` renders only validated authoritative snapshots and converts mouse input into local intention directions.
+- `ui/ArenaView.*` renders only validated authoritative snapshots, draws player sprites from the embedded SVG resource, and converts mouse input into local intention directions.
 - `game/CoordinateTransform.*` contains the player-oriented view helpers covered by `battle_qt_client_transform_tests`.
 
 Build on Windows with the Qt MinGW kit:
@@ -34,4 +34,4 @@ ctest --test-dir build-qt-mingw --output-on-failure
 build-qt-mingw\battle_qt_client.exe
 ```
 
-The default repository build keeps `BATTLE_BUILD_QT_CLIENT=OFF` so non-Qt CI environments still compile the backend, transports, CLI, load client, and tests. The Qt target links to `battle_protocol` and Qt Widgets/Network; it does not link to `battle_core`.
+The default repository build keeps `BATTLE_BUILD_QT_CLIENT=OFF` so non-Qt CI environments still compile the backend, transports, CLI, load client, and tests. The Qt target links to `battle_protocol` and Qt Widgets/Network/Svg; it does not link to `battle_core`.

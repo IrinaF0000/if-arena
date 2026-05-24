@@ -6,7 +6,7 @@
 - [ ] Build with Qt enabled: `cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"`.
 - [ ] Run `cmake --build build-qt-mingw --parallel`.
 - [ ] Run `ctest --test-dir build-qt-mingw --output-on-failure`.
-- [ ] Build succeeds and `battle_qt_client` links to Qt Widgets/Network and `battle_protocol`, not `battle_core`.
+- [ ] Build succeeds and `battle_qt_client` links to Qt Widgets/Network/Svg and `battle_protocol`, not `battle_core`.
 - [ ] Start local server: `build/battle_server_app --config config/examples/server.local.json --max-clients 2`.
 - [ ] Launch two clients: `build-qt-mingw\battle_qt_client.exe`.
 
@@ -26,6 +26,7 @@
 - [ ] Own base appears at the bottom and enemy base at the top for both clients.
 - [ ] Own hero is cyan/blue with an outline and `YOU` label.
 - [ ] Enemy hero is red with a non-color label.
+- [ ] Player bodies render as SVG sprites; no debug placeholder circles are visible except if the resource fails to load.
 - [ ] Objective is visible at center/start or dropped position with ring/glow and state label.
 - [ ] Carrier state is obvious through a halo/objective marker on the carrying player.
 - [ ] Hazards are distinct from players/objective by shape and color.

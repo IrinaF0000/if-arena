@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/if_arena/assets">
+    <file alias="players/swordsman.svg">../../assets/players/swordsman.svg</file>
+  </qresource>
+</RCC>

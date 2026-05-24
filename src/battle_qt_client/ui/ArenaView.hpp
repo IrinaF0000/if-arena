@@ -3,6 +3,7 @@
 #include "game/ClientTypes.hpp"
 
 #include <QElapsedTimer>
+#include <QSvgRenderer>
 #include <QWidget>
 
 #include <optional>
@@ -42,11 +43,15 @@ namespace if_arena::battle_qt_client::ui
 		void drawHazards(QPainter& painter);
 		void drawLocalActionPreview(QPainter& painter);
 		void drawPlayers(QPainter& painter);
+		void drawPlayerSprite(QPainter& painter, QPointF center, double size,
+		                      if_arena::battle_qt_client::game::Direction facing, bool isLocal);
 		[[nodiscard]] QPointF directionEnd(QPointF origin, if_arena::battle_qt_client::game::Direction direction,
 		                                    double length) const;
+		[[nodiscard]] double directionAngle(if_arena::battle_qt_client::game::Direction direction) const;
 
 		std::optional<if_arena::battle_qt_client::game::ArenaSnapshot> _snapshot;
 		QString _localPlayerId;
+		QSvgRenderer _playerSprite;
 		QElapsedTimer _lastSnapshotAt;
 		QElapsedTimer _lastAttackFeedbackAt;
 		QElapsedTimer _lastDashFeedbackAt;

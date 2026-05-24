@@ -791,9 +791,11 @@ namespace
 		{
 			MatchId match;
 			std::chrono::steady_clock::time_point nextTickAt;
+			std::chrono::steady_clock::time_point nextSnapshotAt;
 		};
 		std::vector<ActiveMatchTick> activeMatchTicks;
 		std::chrono::milliseconds tickInterval{50};
+		std::chrono::milliseconds snapshotInterval{100};
 		std::chrono::milliseconds handshakeTimeout{5000};
 		std::chrono::milliseconds idleTimeout{30000};
 	};
@@ -941,7 +943,8 @@ namespace
 		{
 			return;
 		}
-		state.activeMatchTicks.push_back(TcpRuntimeState::ActiveMatchTick{match, now + state.tickInterval});
+		state.activeMatchTicks.push_back(
+		    TcpRuntimeState::ActiveMatchTick{match, now + state.tickInterval, now + state.snapshotInterval});
 	}
 
 	void advanceDueTcpMatches(TcpRuntimeState& state, std::chrono::steady_clock::time_point now)
@@ -952,14 +955,26 @@ namespace
 			std::size_t catchUpTicks = 0;
 			while (now >= active.nextTickAt && catchUpTicks < 4)
 			{
-				const auto result = state.matches.tick(active.match);
+				const bool broadcastSnapshot = active.nextTickAt >= active.nextSnapshotAt;
+				const auto result = state.matches.tick(active.match, broadcastSnapshot);
 				ticked = ticked || result.accepted;
+				if (broadcastSnapshot)
+				{
+					do
+					{
+						active.nextSnapshotAt += state.snapshotInterval;
+					} while (active.nextSnapshotAt <= active.nextTickAt);
+				}
 				active.nextTickAt += state.tickInterval;
 				++catchUpTicks;
 			}
 			if (now >= active.nextTickAt)
 			{
 				active.nextTickAt = now + state.tickInterval;
+				if (now >= active.nextSnapshotAt)
+				{
+					active.nextSnapshotAt = now + state.snapshotInterval;
+				}
 			}
 		}
 		if (ticked)
@@ -1260,9 +1275,11 @@ namespace
 		{
 			MatchId match;
 			std::chrono::steady_clock::time_point nextTickAt;
+			std::chrono::steady_clock::time_point nextSnapshotAt;
 		};
 		std::vector<ActiveMatchTick> activeMatchTicks;
 		std::chrono::milliseconds tickInterval{50};
+		std::chrono::milliseconds snapshotInterval{100};
 	};
 
 	void activateWebSocketMatchTicker(WebSocketRuntimeState& state, MatchId match, std::chrono::steady_clock::time_point now)
@@ -1273,7 +1290,8 @@ namespace
 		{
 			return;
 		}
-		state.activeMatchTicks.push_back(WebSocketRuntimeState::ActiveMatchTick{match, now + state.tickInterval});
+		state.activeMatchTicks.push_back(
+		    WebSocketRuntimeState::ActiveMatchTick{match, now + state.tickInterval, now + state.snapshotInterval});
 	}
 
 	void advanceDueWebSocketMatches(WebSocketRuntimeState& state, std::chrono::steady_clock::time_point now)
@@ -1284,14 +1302,26 @@ namespace
 			std::size_t catchUpTicks = 0;
 			while (now >= active.nextTickAt && catchUpTicks < 4)
 			{
-				const auto result = state.matches.tick(active.match);
+				const bool broadcastSnapshot = active.nextTickAt >= active.nextSnapshotAt;
+				const auto result = state.matches.tick(active.match, broadcastSnapshot);
 				ticked = ticked || result.accepted;
+				if (broadcastSnapshot)
+				{
+					do
+					{
+						active.nextSnapshotAt += state.snapshotInterval;
+					} while (active.nextSnapshotAt <= active.nextTickAt);
+				}
 				active.nextTickAt += state.tickInterval;
 				++catchUpTicks;
 			}
 			if (now >= active.nextTickAt)
 			{
 				active.nextTickAt = now + state.tickInterval;
+				if (now >= active.nextSnapshotAt)
+				{
+					active.nextSnapshotAt = now + state.snapshotInterval;
+				}
 			}
 		}
 		if (ticked)
@@ -1465,6 +1495,7 @@ namespace
 	                 MatchManager& matches, std::size_t maxClients)
 	{
 		const auto tickIntervalMs = std::max<std::uint32_t>(1u, 1000u / config.tickRate);
+		const auto snapshotIntervalMs = std::max<std::uint32_t>(1u, 1000u / config.snapshotRate);
 		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, tickIntervalMs});
 		TcpEndpoint endpoint;
 		endpoint.host = config.tcp.host;
@@ -1486,6 +1517,7 @@ namespace
 		          << " maxFrameBytes=" << config.tcp.maxBytes << '\n';
 		TcpRuntimeState state{sessions, matches, limits};
 		state.tickInterval = std::chrono::milliseconds{tickIntervalMs};
+		state.snapshotInterval = std::chrono::milliseconds{snapshotIntervalMs};
 		state.handshakeTimeout = std::chrono::milliseconds{config.handshakeTimeoutMs};
 		state.idleTimeout = std::chrono::milliseconds{config.idleTimeoutMs};
 		std::vector<std::thread> workers;
@@ -1526,6 +1558,7 @@ namespace
 	                       MatchManager& matches, std::size_t maxClients)
 	{
 		const auto tickIntervalMs = std::max<std::uint32_t>(1u, 1000u / config.tickRate);
+		const auto snapshotIntervalMs = std::max<std::uint32_t>(1u, 1000u / config.snapshotRate);
 		const auto socketPollTimeoutMs = std::min({config.handshakeTimeoutMs, config.idleTimeoutMs, tickIntervalMs});
 		WebSocketEndpoint endpoint;
 		endpoint.host = config.websocket.host;
@@ -1552,6 +1585,7 @@ namespace
 		          << " path=" << config.websocket.path << " maxMessageBytes=" << config.websocket.maxBytes << '\n';
 		WebSocketRuntimeState state{sessions, matches, limits, config};
 		state.tickInterval = std::chrono::milliseconds{tickIntervalMs};
+		state.snapshotInterval = std::chrono::milliseconds{snapshotIntervalMs};
 		std::vector<std::thread> workers;
 		std::size_t accepted = 0;
 		while (maxClients == 0 || accepted < maxClients)

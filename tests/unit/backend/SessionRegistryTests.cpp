@@ -212,6 +212,22 @@ namespace
 		require(metrics.eventBatchesBroadcast == 2, "event batch broadcast counted per recipient");
 	}
 
+	void tickCanAdvanceWithoutSnapshotBroadcast()
+	{
+		MatchHarness harness;
+
+		const auto first = harness.manager.tick(harness.match, false);
+		require(first.accepted, "tick without snapshot broadcast accepted");
+		const auto afterFirst = harness.manager.view(harness.match);
+		require(afterFirst.has_value() && afterFirst->snapshot.has_value(), "authoritative snapshot remains queryable");
+		require(afterFirst->snapshot->tick == 1, "simulation tick advances without snapshot fanout");
+		require(harness.manager.metrics().snapshotsBroadcast == 0, "snapshot fanout is suppressed until snapshotRate is due");
+
+		const auto second = harness.manager.tick(harness.match, true);
+		require(second.accepted, "snapshot due tick accepted");
+		require(harness.manager.metrics().snapshotsBroadcast == 2, "snapshot due tick broadcasts to both participants");
+	}
+
 	void completeObjectiveRunMatchWithFakeSessions()
 	{
 		MatchHarness harness;
@@ -389,6 +405,7 @@ int main()
 		{"flushSendsQueuedMessages", flushSendsQueuedMessages},
 		{"matchStartsThroughJoinCode", matchStartsThroughJoinCode},
 		{"commandsAreOwnedSequencedAndBroadcast", commandsAreOwnedSequencedAndBroadcast},
+		{"tickCanAdvanceWithoutSnapshotBroadcast", tickCanAdvanceWithoutSnapshotBroadcast},
 		{"completeObjectiveRunMatchWithFakeSessions", completeObjectiveRunMatchWithFakeSessions},
 		{"wrongSessionAndUnstartedMatchCommandsRejected", wrongSessionAndUnstartedMatchCommandsRejected},
 		{"commandQueueBoundRejectsSpamBeforeCore", commandQueueBoundRejectsSpamBeforeCore},

@@ -21,6 +21,8 @@ namespace if_arena::battle_backend
 {
 	namespace
 	{
+		constexpr std::uint32_t defaultObjectiveRunMaxTicks = 3600;
+
 		BackendResult accepted()
 		{
 			return BackendResult{true, BackendRejectReason::None};
@@ -586,7 +588,7 @@ namespace if_arena::battle_backend
 		return accepted();
 	}
 
-	BackendResult MatchManager::tick(MatchId matchId)
+	BackendResult MatchManager::tick(MatchId matchId, bool broadcastSnapshot)
 	{
 		auto* match = findMatch(matchId);
 		if (match == nullptr)
@@ -622,7 +624,10 @@ namespace if_arena::battle_backend
 		{
 			broadcast(*match, eventBatchPayload(match->id, events), false);
 		}
-		broadcast(*match, snapshotPayload(match->id, snapshot), true);
+		if (broadcastSnapshot)
+		{
+			broadcast(*match, snapshotPayload(match->id, snapshot), true);
+		}
 		for (auto& participant : match->participants)
 		{
 			participant.commandsThisTick = 0;
@@ -743,7 +748,7 @@ namespace if_arena::battle_backend
 		config.width = arena.dimensions.width;
 		config.height = arena.dimensions.height;
 		config.playerSpeedPerTick = 0.25;
-		config.maxTicks = 3600;
+		config.maxTicks = defaultObjectiveRunMaxTicks;
 		config.obstacles = arena.obstacles;
 		config.hazards = arena.hazards;
 		config.bases = {

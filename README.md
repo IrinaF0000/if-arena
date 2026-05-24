@@ -1,5 +1,7 @@
 # IF Arena
 
+[![PR CI](https://github.com/IrinaF0000/if-arena/actions/workflows/pr-ci.yml/badge.svg)](https://github.com/IrinaF0000/if-arena/actions/workflows/pr-ci.yml)
+
 IF Arena is a small real-time 2-player arena game built as a C++20 networking, backend, Qt, Telegram Mini App, security, and agentic-development portfolio project.
 
 The name combines the author's initials, `IF`, with a small programming pun. The project name is intentionally independent of any commercial game platform or brand.
@@ -173,6 +175,7 @@ build/battle_load_client --dry-run --scenario gameplay --clients 20 --duration 3
 python tests/load/load_client_dry_run.py
 python tests/load/local_tcp_load_scenarios.py --report build/local-tcp-smoke.md
 python tests/security/tcp_protocol_negative.py
+python scripts/ci/validate_architecture_boundaries.py
 python scripts/ci/scan_secrets.py
 ```
 
@@ -191,7 +194,14 @@ python scripts/ci/scan_secrets.py
 - Raw TCP and WebSocket local transports with bounded frames/messages and session phase checks.
 - CLI, Qt Widgets, and Telegram Mini App clients that send player intentions only.
 - Deterministic Objective Run core, backend match loop, and reproducible local smoke/load reports.
-- Security notes, secret scanning, scoped agent workflow, and honest release limitations are documented.
+- SVG player asset rendering in Qt and Web clients while gameplay remains server-owned.
+- Security notes, architecture-boundary validation, secret scanning, scoped agent workflow, and honest release limitations are documented.
+
+## Current release baseline
+
+Current release candidate notes: [`v0.2.1-playable-alpha`](docs/operations/RELEASE_NOTES_v0.2.1-playable-alpha.md).
+
+No release tag should be created until explicitly approved.
 
 ## CI/CD safety
 

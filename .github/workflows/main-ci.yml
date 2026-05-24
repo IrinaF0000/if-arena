@@ -55,6 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate architecture boundaries
+        run: python3 scripts/ci/validate_architecture_boundaries.py
       - name: Validate repository structure
         run: bash scripts/ci/validate_structure.sh
       - name: Scan for committed secrets

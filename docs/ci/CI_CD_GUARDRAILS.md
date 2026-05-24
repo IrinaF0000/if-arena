@@ -55,6 +55,7 @@ Required properties:
 - runs C++ configure/build/test checks when C++ or CMake files change;
 - runs TypeScript typecheck/lint/build when Mini App files change;
 - runs documentation/path sanity checks when docs or project structure files change;
+- runs architecture-boundary validation;
 - cancels older runs from the same branch to save CI minutes.
 
 PR CI should be fast enough for frequent agent branches. Heavy load tests belong in scheduled/manual workflows or dedicated performance branches.
@@ -67,6 +68,7 @@ Required properties:
 
 - runs on `push` to `main`;
 - repeats the important PR checks on the final merged tree;
+- runs architecture-boundary validation on the merged tree;
 - may build release-style artifacts;
 - may build Docker images;
 - must not deploy automatically unless deployment is explicitly configured and protected by environment approvals;

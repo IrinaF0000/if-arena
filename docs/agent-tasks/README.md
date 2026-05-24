@@ -51,5 +51,6 @@ Recommended order:
 34. `0039-server-tick-session-lifecycle-audit.md`
 35. `0040-reconnect-resume-design-mvp.md`
 36. `0041-protocol-security-hardening-pass.md`
+37. `0042-coverage-baseline-and-test-policy-audit.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

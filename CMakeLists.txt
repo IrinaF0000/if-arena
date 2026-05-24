@@ -12,6 +12,16 @@ option(BATTLE_BUILD_QT_CLIENT "Build Qt desktop client" OFF)
 option(BATTLE_BUILD_CLI_CLIENT "Build CLI client" ON)
 option(BATTLE_BUILD_LOAD_CLIENT "Build load client" ON)
 option(BATTLE_BUILD_TESTS "Build tests" ON)
+option(BATTLE_ENABLE_COVERAGE "Build with GNU/Clang coverage instrumentation" OFF)
+
+if(BATTLE_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_compile_options(-O0 -g --coverage)
+        add_link_options(--coverage)
+    else()
+        message(FATAL_ERROR "BATTLE_ENABLE_COVERAGE requires GNU or Clang")
+    endif()
+endif()
 
 add_library(battle_core STATIC
     src/battle_core/BattleEngine.cpp
@@ -138,4 +148,25 @@ if(BATTLE_BUILD_TESTS)
     )
     target_include_directories(battle_qt_client_transform_tests PRIVATE src/battle_qt_client)
     add_test(NAME battle_qt_client_transform_tests COMMAND battle_qt_client_transform_tests)
+endif()
+
+if(BATTLE_ENABLE_COVERAGE)
+    find_program(GCOVR_EXECUTABLE gcovr)
+    if(GCOVR_EXECUTABLE)
+        add_custom_target(coverage
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/coverage
+            COMMAND ${GCOVR_EXECUTABLE}
+                --root ${CMAKE_SOURCE_DIR}
+                --filter ${CMAKE_SOURCE_DIR}/src
+                --exclude ${CMAKE_SOURCE_DIR}/tests
+                --html-details ${CMAKE_BINARY_DIR}/coverage/index.html
+                --xml ${CMAKE_BINARY_DIR}/coverage/coverage.xml
+                --print-summary
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Run tests and generate gcovr coverage report"
+        )
+    else()
+        message(STATUS "gcovr not found; coverage instrumentation is enabled but the coverage target is unavailable")
+    endif()
 endif()

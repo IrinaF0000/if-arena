@@ -46,6 +46,15 @@ Commit-Agent must refuse implementation commits without the matrix, unless the t
 - Qt/UI: automated tests where practical; otherwise update a manual checklist with exact steps and result.
 - Load/performance: add or update repeatable scenarios when queues, workers, tick loop, broadcasts, or limits change.
 
+## Test type definitions
+
+- Unit tests exercise one module or tightly bounded module group with deterministic inputs.
+- Integration tests exercise cross-module contracts or real local processes.
+- Smoke tests are short end-to-end regressions that prove a representative local flow still works.
+- Browser E2E tests drive the Telegram Mini App through Playwright and local servers.
+- Manual UI checks are allowed only when automation is impractical; record exact steps, result, and why automation was not added.
+- Coverage reports are informational baselines only unless a task explicitly introduces a threshold.
+
 ## Test design
 
 Use deterministic clocks, seeds, and fake transports. Avoid flaky sleeps, real Telegram, real cloud services, production secrets, or live networks unless the task explicitly requires an integration smoke test.

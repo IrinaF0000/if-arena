@@ -8,12 +8,13 @@ No MVP feature is complete until changed behavior is covered by the Test Impact 
 
 ## Required suites
 
-- Core gameplay: deterministic scenarios for map validation, movement/collision, objective pickup/drop/capture/score, carrier slowdown, pickup lock, combat/dash/hazards, match end, and player-oriented transforms.
-- Protocol: valid messages plus malformed JSON, unknown type, missing fields, wrong types, invalid enums, non-finite numbers, oversized strings/frames, partial and combined TCP frames.
-- Backend integration: auth/session lifecycle, create/join match, two-client command flow, snapshots/events, ownership rejection, disconnects, slow clients, spam/rate limits, bounded queues.
-- Security: invalid Telegram hash/date/user/init data, hostile payloads, client attempts to claim position, HP, cooldowns, score, team, objective state, or match result.
-- UI clients: Qt and Telegram manual checklists until automated UI coverage exists; include connect, join, movement, actions, disconnect/reconnect, errors, readability, and own-base-at-bottom view.
+- Unit: deterministic scenarios for core gameplay, protocol parsing, backend ownership/queues, transport framing, Telegram auth, and coordinate transforms.
+- Integration: backend/server process checks for auth/session lifecycle, create/join match, two-client command flow, snapshots/events, ownership rejection, disconnects, and TCP/WebSocket contracts.
+- Smoke: short repeatable hostile-input, local playable, frontend protocol, load, and browser/WebSocket checks.
+- Browser E2E: Playwright scenarios for the Telegram Mini App local playable path.
+- Manual UI: Qt and Telegram manual checklists until automated UI coverage exists; include connect, join, movement, actions, disconnect/reconnect, errors, readability, and own-base-at-bottom view.
 - Load/performance: repeatable normal, spam, slow-reader, malformed-input, and mixed-client scenarios; save reports under `reports/load/`.
+- Coverage baseline: optional local C++ coverage through `BATTLE_ENABLE_COVERAGE`; coverage reports are informational and must not replace focused tests.
 
 ## Acceptance
 

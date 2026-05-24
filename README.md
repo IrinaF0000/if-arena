@@ -6,6 +6,22 @@ IF Arena is a small real-time 2-player arena game built as a C++20 networking, b
 
 The name combines the author's initials, `IF`, with a small programming pun. The project name is intentionally independent of any commercial game platform or brand.
 
+![IF Arena Objective Run demo loop](docs/demo/assets/if-arena-demo-loop.gif)
+
+## Quick portfolio review
+
+Start with the checked-in [demo assets and capture notes](docs/demo/README.md), then skim the architecture diagram below and the local smoke commands. The current review target is a local playable alpha/MVP candidate: public hosting is intentionally out of scope, while local TCP, WebSocket, Qt, and Telegram Mini App flows are present.
+
+### What this demonstrates
+
+- C++20 backend structure with an isolated deterministic `battle_core`.
+- Server-authoritative gameplay: clients send intentions, never owned state.
+- Transport-independent protocol DTOs shared by raw TCP and WebSocket adapters.
+- Qt Widgets desktop client and TypeScript Telegram Mini App client.
+- Local playable Objective Run flow with hazards, objective capture, combat, and readable UI feedback.
+- Focused C++, frontend, browser harness, security, load, and structure checks.
+- Agent workflow discipline with scoped task packets, run notes, quality gates, and review roles.
+
 ## Product concept
 
 Two players join a short real-time objective arena match. Each player controls one hero. The arena is authored on a logical grid but movement is smooth and real-time.

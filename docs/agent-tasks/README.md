@@ -55,5 +55,6 @@ Recommended order:
 38. `0043-map-contest-pressure-and-neutral-hazards.md`
 39. `0044-neutral-crow-hazard-prototype.md`
 40. `0045-visual-combat-and-objective-readability-polish.md`
+41. `0046-demo-and-portfolio-polish.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

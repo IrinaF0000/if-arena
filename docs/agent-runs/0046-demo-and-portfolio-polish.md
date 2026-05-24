@@ -2,7 +2,7 @@
 
 ## State
 
-commit-ready
+completed
 
 ## Coordinator Preflight
 
@@ -97,4 +97,12 @@ Performance Review Agent: not required. No runtime performance path or load-resu
 
 ## Commit-Agent
 
-Pending local commit.
+Completed.
+
+- Task commit: `5e3b8ea docs: add portfolio demo assets`
+- Local merge commit: `809117c Merge task 0046 demo portfolio polish`
+- No push or release tag was created.
+
+## Coordinator Closeout
+
+Task 0046 is locally merged to `master`. The untracked local roadmap file `IF_Arena_Codex_Roadmap_After_Public_0033.md` remains unstaged.

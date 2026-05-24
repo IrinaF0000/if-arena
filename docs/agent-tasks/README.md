@@ -47,5 +47,6 @@ Recommended order:
 30. `0034-document-and-enforce-architecture-boundaries.md`
 31. `0036-integrate-svg-player-assets.md`
 32. `0037-github-ci-and-public-release-baseline.md`
+33. `0038-browser-e2e-playwright-harness.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

@@ -7,6 +7,7 @@ Qt Widgets UI for the local playable client.
 - Keyboard controls send intentions through `NetworkClient`: W/A/S/D or arrows move, Space attacks, Shift dashes, and Esc disconnects.
 - Mouse movement updates aim only; left click attacks and right click dashes toward the current aim.
 - Objective pickup and capture are automatic server rules and are shown through snapshots/events.
+- Objective lock/captured states and match-over state are shown directly on the arena surface.
 - Player sprites are embedded Qt resources from `assets/players/`; the asset is rendering-only and does not define gameplay.
 
 The UI never mutates authoritative positions, HP, score, objective state, or match result.

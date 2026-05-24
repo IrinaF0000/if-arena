@@ -83,12 +83,13 @@ const arena = new ArenaCanvas(canvas);
 assert.equal(arena.playerSprite.src, "/players/swordsman.svg");
 
 arena.setAimDirection({ x: 1, y: 0 });
+arena.showActionFeedback("attack", { x: 1, y: 0 });
 arena.setSnapshot(
   {
     matchId: "1",
     tick: 4,
     serverTick: 4,
-    finished: false,
+    finished: true,
     map: { width: 21, height: 13 },
     obstacles: [
       { x: 7, y: 5 },
@@ -102,8 +103,8 @@ arena.setSnapshot(
         x: 10,
         y: 10,
         hp: 100,
-        attackCooldown: 0,
-        dashCooldown: 0,
+        attackCooldown: 1,
+        dashCooldown: 3,
         inOwnBase: true
       },
       {
@@ -127,16 +128,20 @@ arena.setSnapshot(
       respawnTicks: 0
     },
     scores: [
-      { team: "blue", score: 0 },
+      { team: "blue", score: 1 },
       { team: "red", score: 0 }
     ],
     hazards: [{ kind: "crow", x: 10, y: 5, cooldown: 0, triggered: false }]
   },
   "local"
 );
+arena.showEventFeedback([
+  { type: "attack_hit", targetPlayerId: "enemy", to: { x: 10, y: 2 } },
+  { type: "objective_captured", to: { x: 10, y: 10 } }
+]);
 
 const drawImages = canvas.context.calls.filter((call) => call.name === "drawImage");
-assert.equal(drawImages.length, 2, "both players should render through the SVG image");
+assert.ok(drawImages.length >= 2, "both players should render through the SVG image");
 assert.equal(drawImages[0].args[0].src, "/players/swordsman.svg");
 
 const rotations = canvas.context.calls.filter((call) => call.name === "rotate").map((call) => call.args[0]);
@@ -150,5 +155,14 @@ assert.ok(fillRects.length >= 4, "authoritative obstacle cells render as filled 
 
 const crowArcs = canvas.context.calls.filter((call) => call.name === "arc" && call.args[2] > 8 && call.args[2] < 14);
 assert.ok(crowArcs.length > 0, "crow hazard renders as a visible neutral marker");
+
+const rangeArcs = canvas.context.calls.filter((call) => call.name === "arc" && call.args[2] > 70);
+assert.ok(rangeArcs.length > 0, "attack range indicator renders around the local player");
+
+const textLabels = canvas.context.calls.filter((call) => call.name === "fillText").map((call) => call.args[0]);
+assert.ok(textLabels.includes("hit"), "hit feedback label renders from event batch");
+assert.ok(textLabels.includes("captured"), "capture feedback label renders from event batch");
+assert.ok(textLabels.includes("Match over"), "match-over overlay renders from finished snapshot");
+assert.ok(textLabels.some((label) => String(label).includes("Blue wins 1-0")), "winner score overlay renders");
 
 console.log("[PASS] telegram_arena_canvas_assets");

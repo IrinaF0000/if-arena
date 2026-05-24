@@ -153,6 +153,10 @@ namespace if_arena::battle_qt_client::ui
 		drawObjective(painter);
 		drawLocalActionPreview(painter);
 		drawPlayers(painter);
+		if (_snapshot->finished)
+		{
+			drawMatchOverOverlay(painter);
+		}
 	}
 
 	void ArenaView::mouseMoveEvent(QMouseEvent* event)
@@ -278,7 +282,10 @@ namespace if_arena::battle_qt_client::ui
 		const bool carried = !_snapshot->objective.carrierPlayerId.isEmpty() && _snapshot->objective.carrierPlayerId != "0";
 		if (!carried)
 		{
-			painter.setPen(QPen{QColor{255, 245, 180, 150}, 3});
+			const QColor objectiveGlow = _snapshot->objective.state == "dropped" ? QColor{255, 120, 92, 190}
+			                         : _snapshot->objective.state == "captured" ? QColor{120, 230, 170, 190}
+			                                                                  : QColor{255, 245, 180, 150};
+			painter.setPen(QPen{objectiveGlow, 3});
 			painter.setBrush(Qt::NoBrush);
 			painter.drawEllipse(center, 18, 18);
 			painter.setPen(QPen{QColor{255, 255, 255}, 2});
@@ -290,6 +297,12 @@ namespace if_arena::battle_qt_client::ui
 			painter.setPen(QColor{245, 248, 250});
 			painter.drawText(QRectF{center.x() - 46, center.y() - 34, 92, 20}, Qt::AlignCenter,
 			                 _snapshot->objective.state.toUpper());
+			if (_snapshot->objective.pickupLockTicks > 0)
+			{
+				painter.setPen(QColor{255, 235, 190});
+				painter.drawText(QRectF{center.x() - 48, center.y() + 18, 96, 18}, Qt::AlignCenter,
+				                 "LOCK " + QString::number(_snapshot->objective.pickupLockTicks));
+			}
 		}
 	}
 
@@ -404,6 +417,38 @@ namespace if_arena::battle_qt_client::ui
 			painter.drawText(QRectF{center.x() - 34, center.y() + spriteSize * 0.44, 68, 18}, Qt::AlignCenter,
 			                 isLocal ? "YOU" : teamName(player.team).toUpper());
 		}
+	}
+
+	void ArenaView::drawMatchOverOverlay(QPainter& painter)
+	{
+		QString blueScore{"0"};
+		QString redScore{"0"};
+		for (const auto& score : _snapshot->scores)
+		{
+			if (score.team == Team::Blue)
+			{
+				blueScore = QString::number(score.score);
+			}
+			else if (score.team == Team::Red)
+			{
+				redScore = QString::number(score.score);
+			}
+		}
+		const auto board = boardRect();
+		painter.setBrush(QColor{0, 0, 0, 150});
+		painter.setPen(Qt::NoPen);
+		painter.drawRect(board);
+		painter.setPen(QColor{248, 251, 255});
+		QFont font = painter.font();
+		font.setPointSize(24);
+		font.setBold(true);
+		painter.setFont(font);
+		painter.drawText(QRectF{board.left(), board.center().y() - 42, board.width(), 36}, Qt::AlignCenter, "MATCH OVER");
+		font.setPointSize(15);
+		font.setBold(false);
+		painter.setFont(font);
+		painter.drawText(QRectF{board.left(), board.center().y(), board.width(), 28}, Qt::AlignCenter,
+		                 "Blue " + blueScore + " - " + redScore + " Red");
 	}
 
 	void ArenaView::drawPlayerSprite(QPainter& painter, QPointF center, double size, Direction facing, bool isLocal)

@@ -43,6 +43,7 @@ namespace if_arena::battle_qt_client::ui
 		void drawHazards(QPainter& painter);
 		void drawLocalActionPreview(QPainter& painter);
 		void drawPlayers(QPainter& painter);
+		void drawMatchOverOverlay(QPainter& painter);
 		void drawPlayerSprite(QPainter& painter, QPointF center, double size,
 		                      if_arena::battle_qt_client::game::Direction facing, bool isLocal);
 		[[nodiscard]] QPointF directionEnd(QPointF origin, if_arena::battle_qt_client::game::Direction direction,

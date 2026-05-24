@@ -69,6 +69,9 @@ const client = new WebSocketClient({
 const controls = new TouchControls({
   sendCommand: (kind, direction) => {
     arena.setAimDirection(direction);
+    if (kind === "attack" || kind === "dash") {
+      arena.showActionFeedback(kind, direction);
+    }
     client.sendCommand(kind, direction);
   }
 });
@@ -128,6 +131,7 @@ function handleMessage(message: IncomingMessage): void {
       arena.setStatus(stateLabel.textContent);
       break;
     case "event_batch":
+      arena.showEventFeedback(message.payload.events);
       updateEventStatus(message.payload.events);
       break;
     case "ping":

@@ -36,7 +36,7 @@ export type ScoreSnapshot = {
 };
 
 export type HazardSnapshot = {
-  kind: "mine" | "tower";
+  kind: "mine" | "tower" | "crow";
   x: number;
   y: number;
   cooldown: number;
@@ -382,7 +382,7 @@ function isScoreSnapshot(value: unknown): value is ScoreSnapshot {
 function isHazardSnapshot(value: unknown): value is HazardSnapshot {
   return (
     isRecord(value) &&
-    (value.kind === "mine" || value.kind === "tower") &&
+    (value.kind === "mine" || value.kind === "tower" || value.kind === "crow") &&
     isNumber(value.x) &&
     isNumber(value.y) &&
     isNumber(value.cooldown) &&

@@ -518,6 +518,33 @@ namespace
 		require(snapshot.hazards.front().triggered, "mine records triggered state");
 	}
 
+	void crowHazardPatrolsAndPecksDeterministically()
+	{
+		MatchConfig firstConfig;
+		firstConfig.width = 21;
+		firstConfig.height = 13;
+		firstConfig.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{11, 6}, 100});
+		firstConfig.hazards.push_back(HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.75, 1.5, 6, 2, 0});
+		MatchConfig secondConfig = firstConfig;
+
+		BattleEngine first(firstConfig);
+		BattleEngine second(secondConfig);
+
+		require(first.snapshot().hazards.front().position == Vec2i{11, 5}, "seeded crow starts on deterministic patrol cell");
+		const auto firstEvents = first.tick();
+		const auto secondEvents = second.tick();
+		const auto firstSnapshot = first.snapshot();
+		const auto secondSnapshot = second.snapshot();
+
+		require(hasEvent(firstEvents, BattleEventType::HazardHit), "crow peck emits hazard hit");
+		require(firstSnapshot.hazards.front().position == Vec2i{11, 6}, "crow moves along seeded center patrol");
+		require(firstSnapshot.hazards.front().triggered, "crow records triggered peck state");
+		require(firstSnapshot.players.front().hp == 94, "crow peck applies minor damage");
+		require(firstSnapshot.hazards.front().position == secondSnapshot.hazards.front().position,
+		        "crow patrol is deterministic across engines");
+		require(firstSnapshot.players.front().hp == secondSnapshot.players.front().hp, "crow damage is deterministic");
+	}
+
 	void hitOnCarrierDropsObjective()
 	{
 		MatchConfig config;
@@ -616,6 +643,7 @@ namespace
 
 		require(hasHazardAt(arena.hazards, HazardKind::Mine, Vec2i{8, 6}), "left side route has mine pressure");
 		require(hasHazardAt(arena.hazards, HazardKind::Mine, Vec2i{12, 6}), "right side route has mine pressure");
+		require(hasHazardAt(arena.hazards, HazardKind::Crow, Vec2i{10, 6}), "center route has crow pressure");
 	}
 
 	void createsMatchFromCanonicalObjectiveRunArena()
@@ -634,6 +662,9 @@ namespace
 		        "canonical match exposes authoritative obstacles");
 		require(hasCell(snapshot.obstacles, Vec2i{7, 5}), "canonical match exposes center wall shoulder");
 		require(!snapshot.hazards.empty(), "canonical match exposes configured hazards");
+		require(std::any_of(snapshot.hazards.begin(), snapshot.hazards.end(),
+		                    [](const HazardSnapshot& hazard) { return hazard.kind == HazardKind::Crow; }),
+		        "canonical match exposes the neutral crow hazard");
 	}
 
 	void rejectsAsymmetricObstacleLayout()
@@ -649,7 +680,7 @@ namespace
 	void rejectsAsymmetricHazardLayout()
 	{
 		auto arena = makeSmallObjectiveRunArenaConfig();
-		arena.hazards.pop_back();
+		arena.hazards.erase(arena.hazards.begin());
 
 		const auto validation = validateArenaConfig(arena);
 
@@ -733,6 +764,7 @@ int main()
 		{"rejectsInvalidAttackAim", rejectsInvalidAttackAim},
 		{"dashesWithoutLeavingArena", dashesWithoutLeavingArena},
 		{"hazardsHitDeterministically", hazardsHitDeterministically},
+		{"crowHazardPatrolsAndPecksDeterministically", crowHazardPatrolsAndPecksDeterministically},
 		{"hitOnCarrierDropsObjective", hitOnCarrierDropsObjective},
 		{"defeatedPlayersCannotAct", defeatedPlayersCannotAct},
 		{"rejectsUnboundedCombatConfig", rejectsUnboundedCombatConfig},

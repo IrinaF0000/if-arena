@@ -304,6 +304,17 @@ namespace if_arena::battle_qt_client::ui
 				painter.setPen(QPen{QColor{230, 220, 255}, 1});
 				painter.drawRect(QRectF{center.x() - 9, center.y() - 9, 18, 18});
 			}
+			else if (hazard.kind == "crow")
+			{
+				painter.setBrush(hazard.triggered ? QColor{235, 246, 255} : QColor{176, 196, 208});
+				painter.setPen(QPen{QColor{35, 48, 56}, 1});
+				painter.drawEllipse(center, 9, 7);
+				painter.setBrush(QColor{35, 48, 56});
+				QPolygonF wings;
+				wings << QPointF{center.x() - 13, center.y()} << QPointF{center.x(), center.y() - 5}
+				      << QPointF{center.x() + 13, center.y()} << QPointF{center.x(), center.y() + 4};
+				painter.drawPolygon(wings);
+			}
 			else
 			{
 				painter.setBrush(hazard.triggered ? QColor{255, 145, 77} : QColor{140, 145, 152});

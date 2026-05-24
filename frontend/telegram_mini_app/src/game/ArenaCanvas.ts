@@ -143,11 +143,24 @@ export class ArenaCanvas {
       return;
     }
     const point = this.worldToCanvas(hazard.x, hazard.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
-    this.context.fillStyle = hazard.kind === "tower" ? "#b38cff" : "#ff9f43";
+    this.context.fillStyle = hazard.kind === "tower" ? "#b38cff" : hazard.kind === "crow" ? "#dce8ef" : "#ff9f43";
     this.context.globalAlpha = hazard.triggered ? 0.35 : 0.9;
     this.context.beginPath();
-    this.context.arc(point.x, point.y, cell * 0.24, 0, Math.PI * 2);
-    this.context.fill();
+    if (hazard.kind === "crow") {
+      this.context.arc(point.x, point.y, cell * 0.3, 0, Math.PI * 2);
+      this.context.fill();
+      this.context.fillStyle = "#1e2a31";
+      this.context.beginPath();
+      this.context.moveTo(point.x - cell * 0.32, point.y);
+      this.context.lineTo(point.x, point.y - cell * 0.16);
+      this.context.lineTo(point.x + cell * 0.32, point.y);
+      this.context.lineTo(point.x, point.y + cell * 0.1);
+      this.context.closePath();
+      this.context.fill();
+    } else {
+      this.context.arc(point.x, point.y, cell * 0.24, 0, Math.PI * 2);
+      this.context.fill();
+    }
     this.context.globalAlpha = 1;
   }
 

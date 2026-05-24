@@ -1,6 +1,7 @@
 #include "BattleEngine.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -201,7 +202,9 @@ namespace if_arena::battle_core
 			{
 				throw std::invalid_argument("hazard damage must be positive");
 			}
-			_hazards.push_back(HazardSnapshot{hazard.kind, hazard.position, 0, false});
+			const auto initialPosition =
+				hazard.kind == HazardKind::Crow ? crowPatrolPosition(hazard, _hazards.size()) : hazard.position;
+			_hazards.push_back(HazardSnapshot{hazard.kind, initialPosition, 0, false});
 		}
 		if (_objectiveConfig.has_value())
 		{
@@ -790,16 +793,51 @@ namespace if_arena::battle_core
 		}
 	}
 
+	Vec2i BattleEngine::crowPatrolPosition(const HazardConfig& config, std::size_t hazardIndex) const
+	{
+		constexpr std::array<Vec2i, 6> patrolOffsets{
+			Vec2i{1, -1},
+			Vec2i{1, 0},
+			Vec2i{1, 1},
+			Vec2i{-1, 1},
+			Vec2i{-1, 0},
+			Vec2i{-1, -1},
+		};
+		const auto phase = static_cast<std::size_t>((config.seed + _tick + static_cast<std::uint32_t>(hazardIndex * 17)) %
+		                                            patrolOffsets.size());
+		for (std::size_t attempt = 0; attempt < patrolOffsets.size(); ++attempt)
+		{
+			const auto offset = patrolOffsets[(phase + attempt) % patrolOffsets.size()];
+			const Vec2i candidate{config.position.x + offset.x, config.position.y + offset.y};
+			const double dx = static_cast<double>(candidate.x - config.position.x);
+			const double dy = static_cast<double>(candidate.y - config.position.y);
+			if (!inBounds(candidate) || obstacleAt(candidate) || dx * dx + dy * dy > config.range * config.range)
+			{
+				continue;
+			}
+			if (_objectiveConfig.has_value() && candidate == _objectiveConfig->spawn)
+			{
+				continue;
+			}
+			return candidate;
+		}
+		return config.position;
+	}
+
 	void BattleEngine::updateHazards(std::vector<BattleEvent>& events)
 	{
 		for (std::size_t index = 0; index < _hazardConfigs.size(); ++index)
 		{
 			auto& config = _hazardConfigs[index];
 			auto& hazard = _hazards[index];
+			if (config.kind == HazardKind::Crow)
+			{
+				hazard.position = crowPatrolPosition(config, index);
+			}
 			if (hazard.cooldownTicksRemaining > 0)
 			{
 				--hazard.cooldownTicksRemaining;
-				if (config.kind == HazardKind::Mine && hazard.cooldownTicksRemaining == 0)
+				if ((config.kind == HazardKind::Mine || config.kind == HazardKind::Crow) && hazard.cooldownTicksRemaining == 0)
 				{
 					hazard.triggered = false;
 				}
@@ -813,8 +851,8 @@ namespace if_arena::battle_core
 				{
 					continue;
 				}
-				const double range = config.kind == HazardKind::Mine ? config.radius : config.range;
-				if (distanceSquared(candidate.worldPosition, config.position) <= range * range)
+				const double range = config.kind == HazardKind::Tower ? config.range : config.radius;
+				if (distanceSquared(candidate.worldPosition, hazard.position) <= range * range)
 				{
 					target = &candidate;
 					break;
@@ -827,9 +865,9 @@ namespace if_arena::battle_core
 
 			hazard.triggered = true;
 			hazard.cooldownTicksRemaining = config.cooldownTicks;
-			events.push_back(BattleEvent{BattleEventType::HazardTelegraphed, _tick, {}, config.position, config.position,
+			events.push_back(BattleEvent{BattleEventType::HazardTelegraphed, _tick, {}, hazard.position, hazard.position,
 			                             target->team, 0, target->player, 0});
-			events.push_back(BattleEvent{BattleEventType::HazardHit, _tick, {}, config.position, target->position,
+			events.push_back(BattleEvent{BattleEventType::HazardHit, _tick, {}, hazard.position, target->position,
 			                             target->team, 0, target->player, config.damage});
 			applyDamage(*target, config.damage, events);
 		}

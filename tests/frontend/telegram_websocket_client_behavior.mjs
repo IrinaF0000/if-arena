@@ -178,6 +178,19 @@ assert.equal(socket.sent.some((message) => message.type === "input_command" && m
 
 socket.close(4000, "idle timeout");
 assert.equal(states.at(-1), "closed");
-assert.equal(diagnostics.at(-1), "websocket closed: idle timeout");
+assert.equal(diagnostics.at(-1), "disconnected, rejoin not supported yet (idle timeout)");
+const sentAfterClose = socket.sent.length;
+client.sendCommand("move", { x: 1, y: 0 });
+assert.equal(socket.sent.length, sentAfterClose, "closed socket must not send stale match commands");
+
+client.connect();
+const reconnect = FakeWebSocket.instances[1];
+reconnect.open();
+client.sendAuthRequest("");
+assert.equal(reconnect.sent.at(-1).type, "auth_request");
+reconnect.message({ version: 1, type: "auth_result", payload: { accepted: true, sessionId: "3" } });
+const sentBeforeFreshJoin = reconnect.sent.length;
+client.sendCommand("move", { x: 1, y: 0 });
+assert.equal(reconnect.sent.length, sentBeforeFreshJoin, "reconnect must not resume the old match before a fresh join");
 
 console.log("[PASS] telegram_websocket_client_behavior");

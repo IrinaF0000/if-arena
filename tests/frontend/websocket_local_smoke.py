@@ -9,13 +9,14 @@ import os
 import socket
 import struct
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SERVER = ROOT / "build" / "battle_server_app.exe"
+SERVER = ROOT / "build" / ("battle_server_app.exe" if sys.platform == "win32" else "battle_server_app")
 
 
 def free_port() -> int:

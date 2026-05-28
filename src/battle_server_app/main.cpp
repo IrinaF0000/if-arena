@@ -781,6 +781,13 @@ namespace
 
 	struct TcpRuntimeState
 	{
+		TcpRuntimeState(SessionRegistry& sessionRegistry, MatchManager& matchManager, BackendLimits runtimeLimits)
+			: sessions(sessionRegistry)
+			, matches(matchManager)
+			, limits(runtimeLimits)
+		{
+		}
+
 		SessionRegistry& sessions;
 		MatchManager& matches;
 		BackendLimits limits;
@@ -1264,6 +1271,15 @@ namespace
 
 	struct WebSocketRuntimeState
 	{
+		WebSocketRuntimeState(SessionRegistry& sessionRegistry, MatchManager& matchManager, BackendLimits runtimeLimits,
+		                      const ServerConfig& serverConfig)
+			: sessions(sessionRegistry)
+			, matches(matchManager)
+			, limits(runtimeLimits)
+			, config(serverConfig)
+		{
+		}
+
 		SessionRegistry& sessions;
 		MatchManager& matches;
 		BackendLimits limits;

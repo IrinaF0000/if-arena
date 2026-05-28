@@ -40,9 +40,17 @@ namespace if_arena::battle_qt_client::game
 
 	struct HazardSnapshot
 	{
+		QString id;
 		QString kind;
 		double x{};
 		double y{};
+		double radius{};
+		double range{};
+		int damage{};
+		QString effect;
+		QString trigger;
+		QString icon;
+		int cooldownTicks{};
 		int cooldown{};
 		bool triggered{};
 	};

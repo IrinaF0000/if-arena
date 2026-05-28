@@ -366,12 +366,24 @@ Snapshots use canonical world coordinates. Player clients transform these coordi
         "team": "neutral",
         "x": 7.0,
         "y": 4.0,
+        "radius": 0.7,
+        "range": 1.0,
+        "damage": 12,
+        "effect": "damage_drop_objective",
+        "trigger": "proximity",
+        "icon": "hazard_mine",
+        "cooldownTicks": 30,
+        "cooldown": 0,
+        "triggered": false,
         "state": "armed"
       }
     ]
   }
 }
 ```
+
+The playable snapshot also exposes authoritative hazard metadata in `payload.hazards`.
+This is currently a snapshot-only model: static fields (`id`, `kind`, `radius`, `range`, `damage`, `effect`, `trigger`, `icon`, `cooldownTicks`) are sent beside dynamic fields (`x`, `y`, `cooldown`, `triggered`) until a dedicated static arena metadata message is introduced.
 
 ## 9. Event batches
 

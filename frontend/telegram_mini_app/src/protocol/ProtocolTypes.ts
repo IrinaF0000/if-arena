@@ -36,9 +36,17 @@ export type ScoreSnapshot = {
 };
 
 export type HazardSnapshot = {
+  id: string;
   kind: "mine" | "tower" | "crow";
   x: number;
   y: number;
+  radius: number;
+  range: number;
+  damage: number;
+  effect: "damage" | "damage_drop_objective";
+  trigger: "proximity" | "range";
+  icon: string;
+  cooldownTicks: number;
   cooldown: number;
   triggered: boolean;
 };
@@ -382,9 +390,17 @@ function isScoreSnapshot(value: unknown): value is ScoreSnapshot {
 function isHazardSnapshot(value: unknown): value is HazardSnapshot {
   return (
     isRecord(value) &&
+    typeof value.id === "string" &&
     (value.kind === "mine" || value.kind === "tower" || value.kind === "crow") &&
     isNumber(value.x) &&
     isNumber(value.y) &&
+    isNumber(value.radius) &&
+    isNumber(value.range) &&
+    isNumber(value.damage) &&
+    (value.effect === "damage" || value.effect === "damage_drop_objective") &&
+    (value.trigger === "proximity" || value.trigger === "range") &&
+    typeof value.icon === "string" &&
+    isNumber(value.cooldownTicks) &&
     isNumber(value.cooldown) &&
     typeof value.triggered === "boolean"
   );

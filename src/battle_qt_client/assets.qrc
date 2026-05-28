@@ -1,5 +1,8 @@
 <RCC>
   <qresource prefix="/if_arena/assets">
     <file alias="players/swordsman.svg">../../assets/players/swordsman.svg</file>
+    <file alias="svg/hazard_mine.svg">../../assets/svg/hazard_mine.svg</file>
+    <file alias="svg/hazard_tower.svg">../../assets/svg/hazard_tower.svg</file>
+    <file alias="svg/hazard_crow.svg">../../assets/svg/hazard_crow.svg</file>
   </qresource>
 </RCC>

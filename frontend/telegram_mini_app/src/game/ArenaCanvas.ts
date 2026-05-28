@@ -98,6 +98,7 @@ export class ArenaCanvas {
       }
       this.drawEventFeedback(snapshot, originX, originY, cell);
       this.drawHud(snapshot);
+      this.drawHazardLegend(snapshot);
       if (snapshot.finished) {
         this.drawMatchOverOverlay(snapshot);
       }
@@ -175,10 +176,24 @@ export class ArenaCanvas {
       return;
     }
     const point = this.worldToCanvas(hazard.x, hazard.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
-    this.context.fillStyle = hazard.kind === "tower" ? "#b38cff" : hazard.kind === "crow" ? "#dce8ef" : "#ff9f43";
+    const icon = this.hazardIconKind(hazard);
+    const effectColor = hazard.effect === "damage_drop_objective" ? "#ffcf5c" : "#ff8d7a";
+    const rangeCells = hazard.trigger === "range" ? hazard.range : hazard.radius;
+    this.context.save();
+    this.context.globalAlpha = hazard.triggered ? 0.22 : 0.16;
+    this.context.fillStyle = effectColor;
+    this.context.strokeStyle = effectColor;
+    this.context.lineWidth = 1.5;
+    this.context.beginPath();
+    this.context.arc(point.x, point.y, Math.max(cell * rangeCells, cell * 0.28), 0, Math.PI * 2);
+    this.context.fill();
+    this.context.stroke();
+    this.context.restore();
+
+    this.context.fillStyle = icon === "tower" ? "#b38cff" : icon === "crow" ? "#dce8ef" : "#ff9f43";
     this.context.globalAlpha = hazard.triggered ? 0.35 : 0.9;
     this.context.beginPath();
-    if (hazard.kind === "crow") {
+    if (icon === "crow") {
       this.context.arc(point.x, point.y, cell * 0.3, 0, Math.PI * 2);
       this.context.fill();
       this.context.fillStyle = "#1e2a31";
@@ -189,11 +204,38 @@ export class ArenaCanvas {
       this.context.lineTo(point.x, point.y + cell * 0.1);
       this.context.closePath();
       this.context.fill();
+    } else if (icon === "tower") {
+      const size = cell * 0.46;
+      this.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
+      this.context.strokeStyle = "#f0e9ff";
+      this.context.lineWidth = 1.5;
+      this.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
     } else {
-      this.context.arc(point.x, point.y, cell * 0.24, 0, Math.PI * 2);
+      this.context.moveTo(point.x, point.y - cell * 0.28);
+      this.context.lineTo(point.x + cell * 0.28, point.y + cell * 0.22);
+      this.context.lineTo(point.x - cell * 0.28, point.y + cell * 0.22);
+      this.context.closePath();
       this.context.fill();
     }
     this.context.globalAlpha = 1;
+
+    if (hazard.cooldown > 0) {
+      this.context.fillStyle = "#f8fbff";
+      this.context.font = "11px system-ui, sans-serif";
+      this.context.textAlign = "center";
+      this.context.fillText(String(hazard.cooldown), point.x, point.y + cell * 0.55);
+      this.context.textAlign = "start";
+    }
+  }
+
+  private hazardIconKind(hazard: HazardSnapshot): "mine" | "tower" | "crow" {
+    if (hazard.icon.includes("tower")) {
+      return "tower";
+    }
+    if (hazard.icon.includes("crow") || hazard.icon.includes("drone")) {
+      return "crow";
+    }
+    return "mine";
   }
 
   private drawLocalActionPreview(snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
@@ -364,6 +406,34 @@ export class ArenaCanvas {
     this.context.font = "16px system-ui, sans-serif";
     this.context.fillText(`Blue ${blue} - ${red} Red`, 28, 36);
     this.context.fillText(`Tick ${snapshot.serverTick} | ${snapshot.objective.state} | ${this.status}`, 28, 58);
+  }
+
+  private drawHazardLegend(snapshot: SnapshotPayload): void {
+    const unique = new Map<string, HazardSnapshot>();
+    for (const hazard of snapshot.hazards) {
+      if (!unique.has(hazard.icon)) {
+        unique.set(hazard.icon, hazard);
+      }
+    }
+    if (unique.size === 0) {
+      return;
+    }
+    const lines = [...unique.values()].map((hazard) => {
+      const label = this.hazardIconKind(hazard);
+      const effect = hazard.effect === "damage_drop_objective" ? "damage + drop" : "damage";
+      const reach = hazard.trigger === "range" ? hazard.range : hazard.radius;
+      return `${label}: ${effect}, r${reach}`;
+    });
+    const width = 220;
+    const lineHeight = 16;
+    const height = 18 + lineHeight * lines.length;
+    this.context.fillStyle = "rgba(0,0,0,0.42)";
+    this.context.fillRect(this.canvas.width - width - 14, 12, width, height);
+    this.context.fillStyle = "#f8fbff";
+    this.context.font = "12px system-ui, sans-serif";
+    lines.forEach((line, index) => {
+      this.context.fillText(line, this.canvas.width - width, 32 + index * lineHeight);
+    });
   }
 
   private drawOfflineHud(): void {

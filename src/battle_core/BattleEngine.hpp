@@ -93,6 +93,18 @@ namespace if_arena::battle_core
 		Crow
 	};
 
+	enum class HazardEffect
+	{
+		Damage,
+		DamageAndDropObjective
+	};
+
+	enum class HazardTrigger
+	{
+		Proximity,
+		Range
+	};
+
 	struct HazardConfig
 	{
 		HazardKind kind{HazardKind::Mine};
@@ -102,6 +114,10 @@ namespace if_arena::battle_core
 		int damage{10};
 		std::uint32_t cooldownTicks{10};
 		std::uint32_t seed{};
+		std::string id{"hazard"};
+		HazardEffect effect{HazardEffect::DamageAndDropObjective};
+		HazardTrigger trigger{HazardTrigger::Proximity};
+		std::string icon{"hazard_mine"};
 	};
 
 	struct PlayerConfig
@@ -189,6 +205,14 @@ namespace if_arena::battle_core
 		Vec2i position{};
 		std::uint32_t cooldownTicksRemaining{};
 		bool triggered{};
+		std::string id;
+		double radius{};
+		double range{};
+		int damage{};
+		std::uint32_t cooldownTicks{};
+		HazardEffect effect{HazardEffect::DamageAndDropObjective};
+		HazardTrigger trigger{HazardTrigger::Proximity};
+		std::string icon;
 	};
 
 	struct ObjectiveSnapshot
@@ -301,7 +325,7 @@ namespace if_arena::battle_core
 		void captureObjective(PlayerSnapshot& player, std::vector<BattleEvent>& events);
 		void updateObjectiveContact(std::vector<BattleEvent>& events);
 		void dropObjectiveFromSystem(PlayerSnapshot& carrier, std::vector<BattleEvent>& events);
-		void applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events);
+		void applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events, bool dropsObjective = true);
 		void performAttack(PlayerSnapshot& attacker, Direction direction, std::vector<BattleEvent>& events);
 		void performDash(PlayerSnapshot& player, Direction direction, std::vector<BattleEvent>& events);
 		void updatePlayerCooldowns();

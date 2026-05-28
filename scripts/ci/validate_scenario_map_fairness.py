@@ -100,6 +100,9 @@ def hazard_key(hazard: dict[str, Any]) -> tuple[Any, ...]:
         int(hazard.get("damage", 0)),
         int(hazard.get("cooldownTicks", 0)),
         int(hazard.get("seed", 0)),
+        hazard.get("effect"),
+        hazard.get("trigger"),
+        hazard.get("icon"),
     )
 
 

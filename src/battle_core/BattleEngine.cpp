@@ -204,7 +204,18 @@ namespace if_arena::battle_core
 			}
 			const auto initialPosition =
 				hazard.kind == HazardKind::Crow ? crowPatrolPosition(hazard, _hazards.size()) : hazard.position;
-			_hazards.push_back(HazardSnapshot{hazard.kind, initialPosition, 0, false});
+			_hazards.push_back(HazardSnapshot{hazard.kind,
+			                                  initialPosition,
+			                                  0,
+			                                  false,
+			                                  hazard.id,
+			                                  hazard.radius,
+			                                  hazard.range,
+			                                  hazard.damage,
+			                                  hazard.cooldownTicks,
+			                                  hazard.effect,
+			                                  hazard.trigger,
+			                                  hazard.icon});
 		}
 		if (_objectiveConfig.has_value())
 		{
@@ -660,7 +671,7 @@ namespace if_arena::battle_core
 		                             carrier.position, carrier.team, 0, {}, 0});
 	}
 
-	void BattleEngine::applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events)
+	void BattleEngine::applyDamage(PlayerSnapshot& target, int damage, std::vector<BattleEvent>& events, bool dropsObjective)
 	{
 		if (target.hp <= 0)
 		{
@@ -668,7 +679,7 @@ namespace if_arena::battle_core
 		}
 
 		target.hp = std::max(0, target.hp - damage);
-		if (_objective.state == ObjectiveState::Carried && _objective.carrier == target.player)
+		if (dropsObjective && _objective.state == ObjectiveState::Carried && _objective.carrier == target.player)
 		{
 			dropObjectiveFromSystem(target, events);
 		}
@@ -837,7 +848,7 @@ namespace if_arena::battle_core
 			if (hazard.cooldownTicksRemaining > 0)
 			{
 				--hazard.cooldownTicksRemaining;
-				if ((config.kind == HazardKind::Mine || config.kind == HazardKind::Crow) && hazard.cooldownTicksRemaining == 0)
+				if (hazard.cooldownTicksRemaining == 0)
 				{
 					hazard.triggered = false;
 				}
@@ -851,7 +862,7 @@ namespace if_arena::battle_core
 				{
 					continue;
 				}
-				const double range = config.kind == HazardKind::Tower ? config.range : config.radius;
+				const double range = config.trigger == HazardTrigger::Range ? config.range : config.radius;
 				if (distanceSquared(candidate.worldPosition, hazard.position) <= range * range)
 				{
 					target = &candidate;
@@ -869,7 +880,7 @@ namespace if_arena::battle_core
 			                             target->team, 0, target->player, 0});
 			events.push_back(BattleEvent{BattleEventType::HazardHit, _tick, {}, hazard.position, target->position,
 			                             target->team, 0, target->player, config.damage});
-			applyDamage(*target, config.damage, events);
+			applyDamage(*target, config.damage, events, config.effect == HazardEffect::DamageAndDropObjective);
 		}
 	}
 

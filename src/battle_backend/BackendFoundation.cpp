@@ -80,6 +80,30 @@ namespace if_arena::battle_backend
 			return "mine";
 		}
 
+		std::string_view hazardEffectName(battle_core::HazardEffect effect)
+		{
+			switch (effect)
+			{
+			case battle_core::HazardEffect::Damage:
+				return "damage";
+			case battle_core::HazardEffect::DamageAndDropObjective:
+				return "damage_drop_objective";
+			}
+			return "damage";
+		}
+
+		std::string_view hazardTriggerName(battle_core::HazardTrigger trigger)
+		{
+			switch (trigger)
+			{
+			case battle_core::HazardTrigger::Proximity:
+				return "proximity";
+			case battle_core::HazardTrigger::Range:
+				return "range";
+			}
+			return "proximity";
+		}
+
 		std::string_view eventTypeName(battle_core::BattleEventType type)
 		{
 			using battle_core::BattleEventType;
@@ -170,8 +194,13 @@ namespace if_arena::battle_backend
 				{
 					output << ',';
 				}
-				output << "{\"kind\":\"" << hazardKindName(hazard.kind) << "\",\"x\":" << hazard.position.x
-				       << ",\"y\":" << hazard.position.y << ",\"cooldown\":" << hazard.cooldownTicksRemaining
+				output << "{\"id\":\"" << hazard.id << "\",\"kind\":\"" << hazardKindName(hazard.kind)
+				       << "\",\"x\":" << hazard.position.x << ",\"y\":" << hazard.position.y
+				       << ",\"radius\":" << hazard.radius << ",\"range\":" << hazard.range
+				       << ",\"damage\":" << hazard.damage << ",\"effect\":\"" << hazardEffectName(hazard.effect)
+				       << "\",\"trigger\":\"" << hazardTriggerName(hazard.trigger) << "\",\"icon\":\"" << hazard.icon
+				       << "\",\"cooldownTicks\":" << hazard.cooldownTicks
+				       << ",\"cooldown\":" << hazard.cooldownTicksRemaining
 				       << ",\"triggered\":" << (hazard.triggered ? "true" : "false") << "}";
 			}
 			output << "]}";

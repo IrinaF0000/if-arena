@@ -105,11 +105,16 @@ namespace if_arena::battle_core
 			Vec2i{9, 7},
 		};
 		config.hazards = {
-			HazardConfig{HazardKind::Tower, Vec2i{5, 6}, 0.8, 2.2, 6, 20},
-			HazardConfig{HazardKind::Tower, Vec2i{15, 6}, 0.8, 2.2, 6, 20},
-			HazardConfig{HazardKind::Mine, Vec2i{8, 6}, 0.7, 1.0, 12, 30},
-			HazardConfig{HazardKind::Mine, Vec2i{12, 6}, 0.7, 1.0, 12, 30},
-			HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.65, 1.5, 6, 8, 3},
+			HazardConfig{HazardKind::Tower, Vec2i{5, 6}, 0.8, 2.2, 6, 20, 0, "tower_left",
+			             HazardEffect::DamageAndDropObjective, HazardTrigger::Range, "hazard_tower"},
+			HazardConfig{HazardKind::Tower, Vec2i{15, 6}, 0.8, 2.2, 6, 20, 0, "tower_right",
+			             HazardEffect::DamageAndDropObjective, HazardTrigger::Range, "hazard_tower"},
+			HazardConfig{HazardKind::Mine, Vec2i{8, 6}, 0.7, 1.0, 12, 30, 0, "mine_left",
+			             HazardEffect::DamageAndDropObjective, HazardTrigger::Proximity, "hazard_mine"},
+			HazardConfig{HazardKind::Mine, Vec2i{12, 6}, 0.7, 1.0, 12, 30, 0, "mine_right",
+			             HazardEffect::DamageAndDropObjective, HazardTrigger::Proximity, "hazard_mine"},
+			HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.65, 1.5, 6, 8, 3, "center_crow",
+			             HazardEffect::DamageAndDropObjective, HazardTrigger::Proximity, "hazard_crow"},
 		};
 		return config;
 	}
@@ -247,6 +252,19 @@ namespace if_arena::battle_core
 				addError("hazard must be inside arena bounds");
 				continue;
 			}
+			if (hazard.id.empty())
+			{
+				addError("hazard id is required");
+			}
+			if (hazard.icon.empty())
+			{
+				addError("hazard icon is required");
+			}
+			if (std::find_if(config.hazards.begin() + static_cast<std::ptrdiff_t>(index) + 1, config.hazards.end(),
+			                 [&](const HazardConfig& other) { return other.id == hazard.id; }) != config.hazards.end())
+			{
+				addError("hazard ids must be unique");
+			}
 			if (hasObstacle(hazard.position))
 			{
 				addError("hazard must not be inside an obstacle");
@@ -275,7 +293,8 @@ namespace if_arena::battle_core
 			const bool hasMirror = std::any_of(config.hazards.begin(), config.hazards.end(), [&](const HazardConfig& other) {
 				return other.kind == hazard.kind && other.position == mirrored && other.damage == hazard.damage &&
 				       other.cooldownTicks == hazard.cooldownTicks && other.radius == hazard.radius &&
-				       other.range == hazard.range && other.seed == hazard.seed;
+				       other.range == hazard.range && other.seed == hazard.seed && other.effect == hazard.effect &&
+				       other.trigger == hazard.trigger && other.icon == hazard.icon;
 			});
 			if (!hasMirror)
 			{

@@ -516,6 +516,52 @@ namespace
 		require(hasEvent(events, BattleEventType::HazardHit), "hazard hit event emitted");
 		require(snapshot.players.front().hp == 82, "hazard damage applied deterministically");
 		require(snapshot.hazards.front().triggered, "mine records triggered state");
+		require(snapshot.hazards.front().radius == 0.8, "hazard snapshot exposes configured radius");
+		require(snapshot.hazards.front().range == 1.0, "hazard snapshot exposes configured range");
+		require(snapshot.hazards.front().damage == 18, "hazard snapshot exposes configured damage");
+		require(snapshot.hazards.front().cooldownTicks == 3, "hazard snapshot exposes configured cooldown duration");
+		require(snapshot.hazards.front().effect == HazardEffect::DamageAndDropObjective,
+		        "hazard snapshot exposes configured effect");
+		require(snapshot.hazards.front().trigger == HazardTrigger::Proximity, "hazard snapshot exposes configured trigger");
+		require(snapshot.hazards.front().icon == "hazard_mine", "hazard snapshot exposes configured icon");
+	}
+
+	void hazardDamageOnlyDoesNotDropObjective()
+	{
+		MatchConfig config;
+		config.width = 5;
+		config.height = 5;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{2, 2}, 100});
+		config.objective = ObjectiveConfig{Vec2i{2, 2}, 0.75, 1.0, 2, 1, 1};
+		config.hazards.push_back(HazardConfig{HazardKind::Mine, Vec2i{2, 2}, 0.8, 1.0, 10, 3, 0, "damage_only",
+		                                      HazardEffect::Damage, HazardTrigger::Proximity, "hazard_mine"});
+		BattleEngine engine(config);
+
+		require(engine.submit(PlayerCommand{PlayerId{1}, PlayerCommandType::Interact, {}}).accepted(), "pickup accepted");
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::HazardHit), "damage-only hazard still hits");
+		require(!hasEvent(events, BattleEventType::ObjectiveDropped), "damage-only hazard does not drop objective");
+		require(snapshot.players.front().hp == 90, "damage-only hazard applies configured damage");
+		require(snapshot.objective.state == ObjectiveState::Carried, "objective remains carried after damage-only hazard");
+	}
+
+	void hazardTriggerUsesConfiguredRange()
+	{
+		MatchConfig config;
+		config.width = 5;
+		config.height = 5;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{2, 3}, 100});
+		config.hazards.push_back(HazardConfig{HazardKind::Mine, Vec2i{2, 1}, 0.5, 2.1, 7, 3, 0, "range_mine",
+		                                      HazardEffect::Damage, HazardTrigger::Range, "hazard_mine"});
+		BattleEngine engine(config);
+
+		const auto events = engine.tick();
+		const auto snapshot = engine.snapshot();
+
+		require(hasEvent(events, BattleEventType::HazardHit), "range-trigger hazard uses configured range");
+		require(snapshot.players.front().hp == 93, "range-trigger hazard applies configured damage");
 	}
 
 	void crowHazardPatrolsAndPecksDeterministically()
@@ -764,6 +810,8 @@ int main()
 		{"rejectsInvalidAttackAim", rejectsInvalidAttackAim},
 		{"dashesWithoutLeavingArena", dashesWithoutLeavingArena},
 		{"hazardsHitDeterministically", hazardsHitDeterministically},
+		{"hazardDamageOnlyDoesNotDropObjective", hazardDamageOnlyDoesNotDropObjective},
+		{"hazardTriggerUsesConfiguredRange", hazardTriggerUsesConfiguredRange},
 		{"crowHazardPatrolsAndPecksDeterministically", crowHazardPatrolsAndPecksDeterministically},
 		{"hitOnCarrierDropsObjective", hitOnCarrierDropsObjective},
 		{"defeatedPlayersCannotAct", defeatedPlayersCannotAct},

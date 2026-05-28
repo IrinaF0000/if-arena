@@ -41,6 +41,7 @@ namespace if_arena::battle_qt_client::ui
 		void drawBases(QPainter& painter);
 		void drawObjective(QPainter& painter);
 		void drawHazards(QPainter& painter);
+		void drawHazardLegend(QPainter& painter);
 		void drawLocalActionPreview(QPainter& painter);
 		void drawPlayers(QPainter& painter);
 		void drawMatchOverOverlay(QPainter& painter);

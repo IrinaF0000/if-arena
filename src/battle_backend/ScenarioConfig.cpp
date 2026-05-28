@@ -361,6 +361,44 @@ namespace if_arena::battle_backend
 			return std::nullopt;
 		}
 
+		std::optional<battle_core::HazardEffect> hazardEffectFrom(std::string_view effect)
+		{
+			if (effect == "damage")
+			{
+				return battle_core::HazardEffect::Damage;
+			}
+			if (effect == "damage_drop_objective")
+			{
+				return battle_core::HazardEffect::DamageAndDropObjective;
+			}
+			return std::nullopt;
+		}
+
+		std::optional<battle_core::HazardTrigger> hazardTriggerFrom(std::string_view trigger)
+		{
+			if (trigger == "proximity")
+			{
+				return battle_core::HazardTrigger::Proximity;
+			}
+			if (trigger == "range")
+			{
+				return battle_core::HazardTrigger::Range;
+			}
+			return std::nullopt;
+		}
+
+		bool isSafeIdentifier(std::string_view text)
+		{
+			if (text.empty() || text.size() > 64)
+			{
+				return false;
+			}
+			return std::all_of(text.begin(), text.end(), [](char ch) {
+				return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
+				       ch == '_' || ch == '-';
+			});
+		}
+
 		std::optional<battle_core::HazardConfig> parseHazard(std::string_view object, std::uint32_t tickRate,
 		                                                     std::vector<std::string>& errors)
 		{
@@ -368,23 +406,50 @@ namespace if_arena::battle_backend
 			{
 				return std::nullopt;
 			}
+			const auto id = stringField(object, "id");
 			const auto kindText = stringField(object, "kind");
 			const auto position = pointFromObject(object);
 			const auto radius = numberField(object, "radius");
 			const auto range = numberField(object, "range");
 			const auto damage = intField(object, "damage");
+			const auto effectText = stringField(object, "effect");
+			const auto triggerText = stringField(object, "trigger");
+			const auto icon = stringField(object, "icon");
 			const auto cooldownMs = numberField(object, "cooldownMs");
 			const auto cooldownTicks = intField(object, "cooldownTicks");
-			if (!kindText.has_value() || !position.has_value() || !radius.has_value() || !range.has_value() ||
-			    !damage.has_value() || (!cooldownMs.has_value() && !cooldownTicks.has_value()))
+			if (!id.has_value() || !kindText.has_value() || !position.has_value() || !radius.has_value() ||
+			    !range.has_value() || !damage.has_value() || !effectText.has_value() || !triggerText.has_value() ||
+			    !icon.has_value() || (!cooldownMs.has_value() && !cooldownTicks.has_value()))
 			{
-				addError(errors, "hazard must include kind, x, y, radius, range, damage, and cooldown");
+				addError(errors, "hazard must include id, kind, x, y, radius, range, damage, effect, trigger, icon, and cooldown");
+				return std::nullopt;
+			}
+			if (!isSafeIdentifier(*id))
+			{
+				addError(errors, "hazard id must be a safe identifier");
+				return std::nullopt;
+			}
+			if (!isSafeIdentifier(*icon))
+			{
+				addError(errors, "hazard icon must be a safe identifier");
 				return std::nullopt;
 			}
 			const auto kind = hazardKindFrom(*kindText);
 			if (!kind.has_value())
 			{
 				addError(errors, "unsupported hazard kind: " + *kindText);
+				return std::nullopt;
+			}
+			const auto effect = hazardEffectFrom(*effectText);
+			if (!effect.has_value())
+			{
+				addError(errors, "unsupported hazard effect: " + *effectText);
+				return std::nullopt;
+			}
+			const auto trigger = hazardTriggerFrom(*triggerText);
+			if (!trigger.has_value())
+			{
+				addError(errors, "unsupported hazard trigger: " + *triggerText);
 				return std::nullopt;
 			}
 			if (*damage <= 0 || *damage > std::numeric_limits<int>::max())
@@ -412,8 +477,17 @@ namespace if_arena::battle_backend
 				addError(errors, "hazard seed must be a uint32");
 				return std::nullopt;
 			}
-			return battle_core::HazardConfig{*kind, *position, *radius, *range, static_cast<int>(*damage), cooldown,
-			                                 static_cast<std::uint32_t>(seed)};
+			return battle_core::HazardConfig{*kind,
+			                                 *position,
+			                                 *radius,
+			                                 *range,
+			                                 static_cast<int>(*damage),
+			                                 cooldown,
+			                                 static_cast<std::uint32_t>(seed),
+			                                 *id,
+			                                 *effect,
+			                                 *trigger,
+			                                 *icon};
 		}
 	}
 

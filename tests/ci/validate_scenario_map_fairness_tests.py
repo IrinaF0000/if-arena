@@ -42,9 +42,9 @@ def base_scenario() -> dict:
             "redSpawn": {"x": 10, "y": 2},
         },
         "hazards": [
-            {"id": "left", "kind": "mine", "x": 7, "y": 5, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30},
-            {"id": "right", "kind": "mine", "x": 13, "y": 7, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30},
-            {"id": "center", "kind": "crow", "x": 10, "y": 6, "radius": 0.65, "range": 1.5, "damage": 6, "cooldownTicks": 8, "seed": 3},
+            {"id": "left", "kind": "mine", "x": 7, "y": 5, "radius": 0.7, "range": 1.0, "damage": 12, "effect": "damage_drop_objective", "trigger": "proximity", "icon": "hazard_mine", "cooldownTicks": 30},
+            {"id": "right", "kind": "mine", "x": 13, "y": 7, "radius": 0.7, "range": 1.0, "damage": 12, "effect": "damage_drop_objective", "trigger": "proximity", "icon": "hazard_mine", "cooldownTicks": 30},
+            {"id": "center", "kind": "crow", "x": 10, "y": 6, "radius": 0.65, "range": 1.5, "damage": 6, "effect": "damage_drop_objective", "trigger": "proximity", "icon": "hazard_crow", "cooldownTicks": 8, "seed": 3},
         ],
     }
 

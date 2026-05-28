@@ -2,6 +2,7 @@
 #include "MatchLoop.hpp"
 #include "ScenarioConfig.hpp"
 
+#include <algorithm>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -69,6 +70,12 @@ namespace
 		require(scenario.id == "arena_small_objective_run", "scenario id preserved");
 		require(scenario.arena.obstacles.size() == 16, "scenario obstacles are loaded from config");
 		require(scenario.arena.hazards.size() == 5, "scenario hazards are loaded from config");
+		require(scenario.arena.hazards.front().id == "tower_left", "hazard id is loaded from config");
+		require(scenario.arena.hazards.front().effect == if_arena::battle_core::HazardEffect::DamageAndDropObjective,
+		        "hazard effect is loaded from config");
+		require(scenario.arena.hazards.front().trigger == if_arena::battle_core::HazardTrigger::Range,
+		        "hazard trigger is loaded from config");
+		require(scenario.arena.hazards.front().icon == "hazard_tower", "hazard icon is loaded from config");
 		require(scenario.maxTicks == 3600, "scenario time limit converts to ticks");
 	}
 
@@ -80,6 +87,22 @@ namespace
 			        return error.find("rotational symmetry") != std::string::npos;
 		        }),
 		        "invalid scenario reports symmetry failure");
+	}
+
+	void scenarioConfigRejectsInvalidHazardMetadata()
+	{
+		auto text = readRepoFile("config/scenarios/arena_small_objective_run.json");
+		const auto position = text.find("\"effect\": \"damage_drop_objective\"");
+		require(position != std::string::npos, "fixture contains hazard effect metadata");
+		text.replace(position, std::string{"\"effect\": \"damage_drop_objective\""}.size(), "\"effect\": \"teleport\"");
+
+		const auto loaded = parseScenarioConfig(text);
+
+		require(!loaded.ok(), "invalid hazard metadata is rejected");
+		require(std::any_of(loaded.errors.begin(), loaded.errors.end(), [](const std::string& error) {
+			        return error.find("unsupported hazard effect") != std::string::npos;
+		        }),
+		        "invalid hazard metadata reports effect failure");
 	}
 
 	void sessionCanBeCreatedAndClosed()
@@ -260,6 +283,16 @@ namespace
 		}
 		require(sawObstacles, "snapshot payload broadcasts authoritative obstacle cells");
 		require(sawCrow, "snapshot payload broadcasts neutral crow hazard");
+		require(std::any_of(harness.blueOutbound.sent.begin(), harness.blueOutbound.sent.end(), [](const std::string& payload) {
+			        return payload.find("\"id\":\"tower_left\"") != std::string::npos &&
+			               payload.find("\"radius\":0.8") != std::string::npos &&
+			               payload.find("\"range\":2.2") != std::string::npos &&
+			               payload.find("\"effect\":\"damage_drop_objective\"") != std::string::npos &&
+			               payload.find("\"trigger\":\"range\"") != std::string::npos &&
+			               payload.find("\"icon\":\"hazard_tower\"") != std::string::npos &&
+			               payload.find("\"cooldownTicks\":20") != std::string::npos;
+		        }),
+		        "snapshot payload broadcasts hazard metadata");
 
 		const auto metrics = harness.manager.metrics();
 		require(metrics.commandsAccepted == 1, "accepted command metric increments");
@@ -461,6 +494,7 @@ int main()
 		{"outgoingQueueIsBounded", outgoingQueueIsBounded},
 		{"scenarioConfigLoadsPlayableArena", scenarioConfigLoadsPlayableArena},
 		{"scenarioConfigRejectsInvalidArena", scenarioConfigRejectsInvalidArena},
+		{"scenarioConfigRejectsInvalidHazardMetadata", scenarioConfigRejectsInvalidHazardMetadata},
 		{"flushSendsQueuedMessages", flushSendsQueuedMessages},
 		{"matchStartsThroughJoinCode", matchStartsThroughJoinCode},
 		{"commandsAreOwnedSequencedAndBroadcast", commandsAreOwnedSequencedAndBroadcast},

@@ -190,12 +190,25 @@ namespace if_arena::battle_qt_client::game
 				}
 				const auto hazardObject = hazardValue.toObject();
 				HazardSnapshot hazard;
-				if (!requireString(hazardObject, "kind", hazard.kind) ||
+				if (!requireString(hazardObject, "id", hazard.id) || !requireString(hazardObject, "kind", hazard.kind) ||
 				    !requireNumber(hazardObject, "x", hazard.x) || !requireNumber(hazardObject, "y", hazard.y) ||
+				    !requireNumber(hazardObject, "radius", hazard.radius) ||
+				    !requireNumber(hazardObject, "range", hazard.range) ||
+				    !requireInt(hazardObject, "damage", hazard.damage) ||
+				    !requireString(hazardObject, "effect", hazard.effect) ||
+				    !requireString(hazardObject, "trigger", hazard.trigger) ||
+				    !requireString(hazardObject, "icon", hazard.icon) ||
+				    !requireInt(hazardObject, "cooldownTicks", hazard.cooldownTicks) ||
 				    !requireInt(hazardObject, "cooldown", hazard.cooldown) ||
 				    !requireBool(hazardObject, "triggered", hazard.triggered))
 				{
 					return fail<ArenaSnapshot>("snapshot hazard fields are invalid");
+				}
+				if ((hazard.kind != "mine" && hazard.kind != "tower" && hazard.kind != "crow") ||
+				    (hazard.effect != "damage" && hazard.effect != "damage_drop_objective") ||
+				    (hazard.trigger != "proximity" && hazard.trigger != "range") || hazard.icon.isEmpty())
+				{
+					return fail<ArenaSnapshot>("snapshot hazard metadata is invalid");
 				}
 				snapshot.hazards.push_back(hazard);
 			}

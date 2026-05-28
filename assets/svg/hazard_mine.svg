@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mine hazard">
+  <path d="M32 8 58 54H6Z" fill="#ff9f43" stroke="#ffe1bd" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="32" cy="38" r="6" fill="#2a3036"/>
+  <path d="M32 18v10" stroke="#2a3036" stroke-width="4" stroke-linecap="round"/>
+</svg>

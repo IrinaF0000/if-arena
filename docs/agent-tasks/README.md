@@ -60,5 +60,6 @@ Recommended order:
 43. `0048-scenario-config-single-source.md`
 44. `0049-desktop-movement-reliability.md`
 45. `0050-paired-config-driven-gameplay-scenarios.md`
+46. `0051-config-driven-map-redesign.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

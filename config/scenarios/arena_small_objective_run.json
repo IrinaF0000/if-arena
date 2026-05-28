@@ -10,22 +10,22 @@
     "redBase": { "x": 10, "y": 1, "radius": 1.5 },
     "objectiveSpawn": { "x": 10, "y": 6 },
     "obstacles": [
-      { "x": 6, "y": 4 },
-      { "x": 7, "y": 4 },
-      { "x": 14, "y": 8 },
-      { "x": 13, "y": 8 },
-      { "x": 14, "y": 4 },
-      { "x": 13, "y": 4 },
-      { "x": 6, "y": 8 },
-      { "x": 7, "y": 8 },
+      { "x": 5, "y": 3 },
+      { "x": 15, "y": 9 },
+      { "x": 6, "y": 3 },
+      { "x": 14, "y": 9 },
+      { "x": 12, "y": 4 },
+      { "x": 8, "y": 8 },
+      { "x": 3, "y": 5 },
+      { "x": 17, "y": 7 },
       { "x": 7, "y": 5 },
       { "x": 13, "y": 7 },
-      { "x": 13, "y": 5 },
-      { "x": 7, "y": 7 },
-      { "x": 9, "y": 5 },
-      { "x": 11, "y": 7 },
-      { "x": 11, "y": 5 },
-      { "x": 9, "y": 7 }
+      { "x": 8, "y": 4 },
+      { "x": 12, "y": 8 },
+      { "x": 3, "y": 7 },
+      { "x": 17, "y": 5 },
+      { "x": 5, "y": 9 },
+      { "x": 15, "y": 3 }
     ]
   },
   "players": {
@@ -57,10 +57,10 @@
     "dashCooldownTicks": 5
   },
   "hazards": [
-    { "id": "tower_left", "kind": "tower", "x": 5, "y": 6, "radius": 0.8, "range": 2.2, "damage": 6, "cooldownTicks": 20 },
-    { "id": "tower_right", "kind": "tower", "x": 15, "y": 6, "radius": 0.8, "range": 2.2, "damage": 6, "cooldownTicks": 20 },
-    { "id": "mine_left", "kind": "mine", "x": 8, "y": 6, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30 },
-    { "id": "mine_right", "kind": "mine", "x": 12, "y": 6, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30 },
+    { "id": "tower_left", "kind": "tower", "x": 4, "y": 4, "radius": 0.8, "range": 2.2, "damage": 6, "cooldownTicks": 20 },
+    { "id": "tower_right", "kind": "tower", "x": 16, "y": 8, "radius": 0.8, "range": 2.2, "damage": 6, "cooldownTicks": 20 },
+    { "id": "mine_left", "kind": "mine", "x": 8, "y": 5, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30 },
+    { "id": "mine_right", "kind": "mine", "x": 12, "y": 7, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30 },
     { "id": "center_crow", "kind": "crow", "x": 10, "y": 6, "radius": 0.65, "range": 1.5, "damage": 6, "cooldownTicks": 8, "seed": 3 }
   ],
   "rules": {

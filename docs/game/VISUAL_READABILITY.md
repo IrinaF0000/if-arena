@@ -34,6 +34,8 @@
 | Enemy base | Red zone | Rect/circle zone | Base label |
 | Wall | Dark neutral | Block/tile | Grid aligned |
 
+Current post-0054 palette uses a charcoal tactical board, muted gold grid/borders, cyan own-player accents, coral enemy accents, amber objective highlights, orange mines, violet towers, and pale crow markers. This keeps the arena dark enough for contrast without making every UI surface the same blue/slate family.
+
 ## Player indicators
 
 Use only indicators that are immediately meaningful:

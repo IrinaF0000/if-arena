@@ -26,10 +26,12 @@
 - [ ] Own base appears at the bottom and enemy base at the top for both clients.
 - [ ] Own hero is cyan/blue with an outline and `YOU` label.
 - [ ] Enemy hero is red with a non-color label.
+- [ ] Player tokens are large enough to read in a screenshot without changing authoritative collision.
 - [ ] Player bodies render as SVG sprites; no debug placeholder circles are visible except if the resource fails to load.
 - [ ] Objective is visible at center/start or dropped position with ring/glow and state label.
 - [ ] Carrier state is obvious through a halo/objective marker on the carrying player.
 - [ ] Hazards are distinct from players/objective by shape and color.
+- [ ] Hazard range circles are visible but do not hide the objective, players, or bases.
 - [ ] HUD shows connection, session/match, HP, attack cooldown, dash cooldown, score, objective state, tick, and snapshot age.
 - [ ] Compact controls hint is visible above the arena.
 - [ ] Event log shows auth, join, rejections, server events, ping, and errors without repeated accepted idle input spam.

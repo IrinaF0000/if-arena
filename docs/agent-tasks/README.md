@@ -63,5 +63,6 @@ Recommended order:
 46. `0051-config-driven-map-redesign.md`
 47. `0052-config-driven-hazards-and-visualization.md`
 48. `0053-objective-event-visibility.md`
+49. `0054-desktop-and-mobile-visual-polish.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

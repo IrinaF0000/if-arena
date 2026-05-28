@@ -67,7 +67,7 @@ export class ArenaCanvas {
   public render(): void {
     const { width, height } = this.canvas;
     this.context.clearRect(0, 0, width, height);
-    this.context.fillStyle = "#101820";
+    this.context.fillStyle = "#111416";
     this.context.fillRect(0, 0, width, height);
 
     const snapshot = this.snapshot;
@@ -108,9 +108,9 @@ export class ArenaCanvas {
   }
 
   private drawBoard(originX: number, originY: number, boardWidth: number, boardHeight: number, cell: number, mapWidth: number, mapHeight: number): void {
-    this.context.fillStyle = "#18232b";
+    this.context.fillStyle = "#1a1f20";
     this.context.fillRect(originX, originY, boardWidth, boardHeight);
-    this.context.strokeStyle = "rgba(255,255,255,0.08)";
+    this.context.strokeStyle = "rgba(238,214,160,0.07)";
     this.context.lineWidth = 1;
     for (let x = 0; x <= mapWidth; x += 1) {
       this.line(originX + x * cell, originY, originX + x * cell, originY + boardHeight);
@@ -118,8 +118,8 @@ export class ArenaCanvas {
     for (let y = 0; y <= mapHeight; y += 1) {
       this.line(originX, originY + y * cell, originX + boardWidth, originY + y * cell);
     }
-    this.context.strokeStyle = "#dde7ee";
-    this.context.lineWidth = 2;
+    this.context.strokeStyle = "#bda769";
+    this.context.lineWidth = 2.5;
     this.context.strokeRect(originX, originY, boardWidth, boardHeight);
   }
 
@@ -127,8 +127,8 @@ export class ArenaCanvas {
     const x = Math.floor(mapWidth / 2);
     const y = team === "blue" ? mapHeight - 2 : 1;
     const point = this.worldToCanvas(x, y, originX, originY, cell, mapWidth, mapHeight);
-    this.context.fillStyle = team === "blue" ? "rgba(68, 194, 255, 0.22)" : "rgba(255, 112, 96, 0.22)";
-    this.context.strokeStyle = team === "blue" ? "#44c2ff" : "#ff7060";
+    this.context.fillStyle = team === "blue" ? "rgba(42, 190, 205, 0.22)" : "rgba(226, 82, 88, 0.2)";
+    this.context.strokeStyle = team === "blue" ? "#2abecd" : "#e25258";
     this.roundRect(point.x - cell * 2.5, point.y - cell, cell * 5, cell * 2, 6);
     this.context.fill();
     this.context.stroke();
@@ -137,17 +137,17 @@ export class ArenaCanvas {
   private drawObjective(snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
     const { objective } = snapshot;
     const point = this.worldToCanvas(objective.x, objective.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
-    this.context.fillStyle = objective.state === "carried" ? "#f6d365" : "#f7b731";
-    this.context.strokeStyle = "#fff3b0";
-    this.context.lineWidth = 2;
+    this.context.fillStyle = objective.state === "carried" ? "#ffe071" : "#ffc857";
+    this.context.strokeStyle = "#fff6c7";
+    this.context.lineWidth = 2.5;
     this.context.beginPath();
-    this.context.arc(point.x, point.y, cell * 0.52, 0, Math.PI * 2);
+    this.context.arc(point.x, point.y, cell * 0.58, 0, Math.PI * 2);
     this.context.stroke();
     this.context.beginPath();
-    this.context.moveTo(point.x, point.y - cell * 0.35);
-    this.context.lineTo(point.x + cell * 0.35, point.y);
-    this.context.lineTo(point.x, point.y + cell * 0.35);
-    this.context.lineTo(point.x - cell * 0.35, point.y);
+    this.context.moveTo(point.x, point.y - cell * 0.4);
+    this.context.lineTo(point.x + cell * 0.4, point.y);
+    this.context.lineTo(point.x, point.y + cell * 0.4);
+    this.context.lineTo(point.x - cell * 0.4, point.y);
     this.context.closePath();
     this.context.fill();
     this.context.stroke();
@@ -163,8 +163,8 @@ export class ArenaCanvas {
   private drawObstacle(obstacle: ObstacleSnapshot, snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
     const point = this.worldToCanvas(obstacle.x, obstacle.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
     const size = cell * 0.82;
-    this.context.fillStyle = "#314451";
-    this.context.strokeStyle = "#89a7b8";
+    this.context.fillStyle = "#303633";
+    this.context.strokeStyle = "#b49a62";
     this.context.lineWidth = 1.5;
     this.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
     this.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
@@ -280,16 +280,16 @@ export class ArenaCanvas {
       this.context.arc(point.x, point.y, cell * 0.48, 0, Math.PI * 2);
       this.context.stroke();
     }
-    const teamColor = player.team === "blue" ? "#44c2ff" : "#ff7060";
+    const teamColor = player.team === "blue" ? "#2abecd" : "#e25258";
     this.context.fillStyle = teamColor;
     this.context.strokeStyle = teamColor;
     this.context.lineWidth = player.playerId === this.localPlayerId ? 4 : 3;
     this.context.beginPath();
-    this.context.arc(point.x, point.y, cell * 0.42, 0, Math.PI * 2);
+    this.context.arc(point.x, point.y, cell * 0.5, 0, Math.PI * 2);
     this.context.stroke();
-    this.drawPlayerSprite(point.x, point.y, cell * 0.78, player.playerId === this.localPlayerId);
+    this.drawPlayerSprite(point.x, point.y, cell * 0.92, player.playerId === this.localPlayerId);
 
-    const hpWidth = cell * 0.7;
+    const hpWidth = cell * 0.82;
     const hpRatio = Math.max(0, Math.min(1, player.hp / 100));
     this.context.fillStyle = "rgba(0,0,0,0.45)";
     this.context.fillRect(point.x - hpWidth / 2, point.y - cell * 0.58, hpWidth, 4);
@@ -302,9 +302,9 @@ export class ArenaCanvas {
       this.context.fillStyle = "#ffd640";
       this.context.beginPath();
       this.context.moveTo(point.x, point.y - cell * 0.74);
-      this.context.lineTo(point.x + cell * 0.16, point.y - cell * 0.58);
-      this.context.lineTo(point.x, point.y - cell * 0.42);
-      this.context.lineTo(point.x - cell * 0.16, point.y - cell * 0.58);
+      this.context.lineTo(point.x + cell * 0.18, point.y - cell * 0.58);
+      this.context.lineTo(point.x, point.y - cell * 0.4);
+      this.context.lineTo(point.x - cell * 0.18, point.y - cell * 0.58);
       this.context.closePath();
       this.context.fill();
     }
@@ -400,7 +400,7 @@ export class ArenaCanvas {
   private drawHud(snapshot: SnapshotPayload): void {
     const blue = snapshot.scores.find((score) => score.team === "blue")?.score ?? 0;
     const red = snapshot.scores.find((score) => score.team === "red")?.score ?? 0;
-    this.context.fillStyle = "rgba(0,0,0,0.45)";
+    this.context.fillStyle = "rgba(0,0,0,0.5)";
     this.context.fillRect(14, 12, 270, 58);
     this.context.fillStyle = "#f8fbff";
     this.context.font = "16px system-ui, sans-serif";
@@ -429,7 +429,7 @@ export class ArenaCanvas {
     const height = 18 + lineHeight * lines.length;
     this.context.fillStyle = "rgba(0,0,0,0.42)";
     this.context.fillRect(this.canvas.width - width - 14, 12, width, height);
-    this.context.fillStyle = "#f8fbff";
+    this.context.fillStyle = "#f7f3e8";
     this.context.font = "12px system-ui, sans-serif";
     lines.forEach((line, index) => {
       this.context.fillText(line, this.canvas.width - width, 32 + index * lineHeight);
@@ -437,7 +437,7 @@ export class ArenaCanvas {
   }
 
   private drawOfflineHud(): void {
-    this.context.fillStyle = "#f8fbff";
+    this.context.fillStyle = "#f7f3e8";
     this.context.font = "16px system-ui, sans-serif";
     this.context.fillText(`Connection: ${this.status}`, 28, 36);
   }

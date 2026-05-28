@@ -65,5 +65,6 @@ Recommended order:
 48. `0053-objective-event-visibility.md`
 49. `0054-desktop-and-mobile-visual-polish.md`
 50. `0055-docs-for-config-driven-playable-milestone.md`
+51. `0056-final-validation-gate.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

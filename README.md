@@ -193,13 +193,12 @@ build-qt-mingw\battle_qt_client.exe
 Run the Telegram Mini App locally:
 
 ```bash
-build/battle_server_app --config config/examples/server.ws.local.json --max-clients 2
 cd frontend/telegram_mini_app
 npm install
 npm run dev
 ```
 
-Then open the Vite local URL. The local frontend defaults to the local WebSocket endpoint `ws://127.0.0.1:8081/ws`. Browser/Mini App clients use WebSocket; raw TCP remains for Qt, CLI, and load clients.
+In another terminal, run `battle_server_app` with a local config that has `transports.tcp.enabled=false` and `transports.websocket.enabled=true` on `127.0.0.1:8081` with path `/ws`. The local frontend defaults to `ws://127.0.0.1:8081/ws`. Browser/Mini App clients use WebSocket; raw TCP remains for Qt, CLI, and load clients.
 
 ## Tests and validators
 

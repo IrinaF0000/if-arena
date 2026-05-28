@@ -490,7 +490,9 @@ export class ArenaCanvas {
       return null;
     }
     const targetPlayerId = typeof event.targetPlayerId === "string" ? event.targetPlayerId : undefined;
+    const playerId = typeof event.playerId === "string" ? event.playerId : undefined;
     const to = isPoint(event.to) ? event.to : undefined;
+    const actor = playerId && this.localPlayerId && playerId === this.localPlayerId ? "You" : "Enemy";
     const feedback = (kind: VisualEventKind, label: string): VisualEventFeedback => ({
       kind,
       label,
@@ -503,11 +505,11 @@ export class ArenaCanvas {
       case "hazard_hit":
         return feedback("hazard_hit", "hazard hit");
       case "objective_picked_up":
-        return feedback("objective_picked_up", "picked up");
+        return feedback("objective_picked_up", `${actor} picked up`);
       case "objective_dropped":
-        return feedback("objective_dropped", "dropped");
+        return feedback("objective_dropped", `${actor} dropped`);
       case "objective_captured":
-        return feedback("objective_captured", "captured");
+        return feedback("objective_captured", `${actor} captured`);
       default:
         return null;
     }

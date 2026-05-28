@@ -145,7 +145,7 @@ function updateConnectionState(state: ConnectionState): void {
 }
 
 function updateEventStatus(events: unknown[] | undefined): void {
-  const label = readableEvent(events);
+  const label = readableEvent(events, localPlayerId);
   if (!label) {
     return;
   }
@@ -153,7 +153,7 @@ function updateEventStatus(events: unknown[] | undefined): void {
   arena.setStatus(label);
 }
 
-function readableEvent(events: unknown[] | undefined): string | null {
+function readableEvent(events: unknown[] | undefined, localId: string | null): string | null {
   if (!events) {
     return null;
   }
@@ -163,11 +163,13 @@ function readableEvent(events: unknown[] | undefined): string | null {
     }
     switch (event.type) {
       case "objective_picked_up":
-        return "objective picked up";
+        return `${eventActorLabel(event.playerId, localId)} picked up the crystal`;
       case "objective_dropped":
-        return "objective dropped";
+        return `${eventActorLabel(event.playerId, localId)} dropped the crystal`;
       case "objective_captured":
-        return "objective captured";
+        return `${eventActorLabel(event.playerId, localId)} captured the crystal`;
+      case "score_changed":
+        return `${event.team ?? "team"} score ${event.score ?? ""}`.trim();
       case "attack_hit":
         return "attack hit";
       case "player_dashed":
@@ -181,7 +183,14 @@ function readableEvent(events: unknown[] | undefined): string | null {
   return null;
 }
 
-function isEventRecord(value: unknown): value is { type: string } {
+function eventActorLabel(playerId: string | undefined, localId: string | null): string {
+  if (playerId && localId && playerId === localId) {
+    return "You";
+  }
+  return "Enemy";
+}
+
+function isEventRecord(value: unknown): value is { type: string; playerId?: string; team?: string; score?: number } {
   return typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
 }
 

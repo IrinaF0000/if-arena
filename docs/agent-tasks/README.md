@@ -62,5 +62,6 @@ Recommended order:
 45. `0050-paired-config-driven-gameplay-scenarios.md`
 46. `0051-config-driven-map-redesign.md`
 47. `0052-config-driven-hazards-and-visualization.md`
+48. `0053-objective-event-visibility.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

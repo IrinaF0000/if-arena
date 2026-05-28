@@ -4,6 +4,7 @@
 #include "game/ProtocolJson.hpp"
 
 #include <QDateTime>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -29,6 +30,53 @@ namespace if_arena::battle_qt_client::network
 		QByteArray payloadBytes(const QJsonObject& payload)
 		{
 			return QJsonDocument(payload).toJson(QJsonDocument::Compact);
+		}
+
+		QString objectiveActorLabel(const QJsonObject& event, const QString& localSessionId)
+		{
+			const auto playerId = event.value("playerId").toString();
+			return !playerId.isEmpty() && playerId == localSessionId ? QStringLiteral("You") : QStringLiteral("Enemy");
+		}
+
+		QString readableEventBatchPayload(const QString& payloadJson, const QString& localSessionId)
+		{
+			const auto document = QJsonDocument::fromJson(payloadJson.toUtf8());
+			if (!document.isObject())
+			{
+				return "Server events: " + payloadJson;
+			}
+			const auto events = document.object().value("events");
+			if (!events.isArray())
+			{
+				return "Server events: " + payloadJson;
+			}
+			for (const auto& value : events.toArray())
+			{
+				if (!value.isObject())
+				{
+					continue;
+				}
+				const auto event = value.toObject();
+				const auto type = event.value("type").toString();
+				if (type == "objective_picked_up")
+				{
+					return objectiveActorLabel(event, localSessionId) + " picked up the crystal.";
+				}
+				if (type == "objective_dropped")
+				{
+					return objectiveActorLabel(event, localSessionId) + " dropped the crystal.";
+				}
+				if (type == "objective_captured")
+				{
+					return objectiveActorLabel(event, localSessionId) + " captured the crystal.";
+				}
+				if (type == "score_changed")
+				{
+					return event.value("team").toString("team") + " score " +
+					       QString::number(event.value("score").toInt()) + ".";
+				}
+			}
+			return "Server events: " + payloadJson;
 		}
 
 		ClientSessionPhase toProtocolPhase(NetworkClient::ProtocolPhase phase)
@@ -385,7 +433,7 @@ namespace if_arena::battle_qt_client::network
 			return;
 		}
 		case MessageType::EventBatch:
-			emit eventReceived("Server events: " + payloadJson);
+			emit eventReceived(readableEventBatchPayload(payloadJson, _sessionId));
 			return;
 		case MessageType::InputAck: {
 			const bool accepted = acceptedPayload(payloadJson);

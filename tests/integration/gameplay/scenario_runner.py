@@ -84,6 +84,7 @@ def write_server_config(path: Path, scenario: dict[str, Any], transport: str, po
 class ScenarioClient(Protocol):
     session_id: str
     session_seq: int
+    events: list[dict[str, Any]]
 
     def send_json(self, value: dict[str, Any]) -> None: ...
     def recv_json(self) -> dict[str, Any]: ...
@@ -95,6 +96,11 @@ class TcpClient:
     sock: socket.socket
     session_id: str = ""
     session_seq: int = 1
+    events: list[dict[str, Any]] | None = None
+
+    def __post_init__(self) -> None:
+        if self.events is None:
+            self.events = []
 
     def send_json(self, value: dict[str, Any]) -> None:
         encoded = json.dumps(value, separators=(",", ":")).encode("utf-8")
@@ -122,6 +128,11 @@ class WebSocketClient:
     sock: socket.socket
     session_id: str = ""
     session_seq: int = 1
+    events: list[dict[str, Any]] | None = None
+
+    def __post_init__(self) -> None:
+        if self.events is None:
+            self.events = []
 
     def send_json(self, value: dict[str, Any]) -> None:
         payload = json.dumps(value, separators=(",", ":")).encode("utf-8")
@@ -202,6 +213,10 @@ def connect_client(transport: str, port: int) -> ScenarioClient:
 def handle_control(client: ScenarioClient, message: dict[str, Any]) -> None:
     if message.get("type") == "ping":
         client.send_json({"version": 1, "type": "pong", "payload": {}})
+    if message.get("type") == "event_batch":
+        for event in message.get("payload", {}).get("events", []):
+            require(isinstance(event, dict), "event batch item must be an object")
+            client.events.append(event)
     if message.get("type") == "error":
         raise AssertionError(f"server error: {message}")
 
@@ -296,7 +311,35 @@ def assert_step(step: dict[str, Any], snapshot: dict[str, Any], actors: dict[str
     if step["assert"] == "score":
         require(score(snapshot, step["team"]) == int(step["equals"]), f"unexpected score: {snapshot['scores']}")
         return
+    if step["assert"] == "objective_state":
+        require(
+            snapshot["objective"]["state"] == step["state"],
+            f"unexpected objective state: {snapshot['objective']} players={snapshot['players']}",
+        )
+        return
+    if step["assert"] == "events":
+        observed = actors["blue"].events
+        for expected in step["contains"]:
+            require(
+                any(event_matches(event, expected, actors) for event in observed),
+                f"missing expected event {expected}; observed={observed}",
+            )
+        return
     raise AssertionError(f"unsupported assertion {step['assert']}")
+
+
+def event_matches(event: dict[str, Any], expected: dict[str, Any], actors: dict[str, ScenarioClient]) -> bool:
+    if event.get("type") != expected.get("type"):
+        return False
+    if "player" in expected and str(event.get("playerId")) != actors[expected["player"]].session_id:
+        return False
+    if "target" in expected and str(event.get("targetPlayerId")) != actors[expected["target"]].session_id:
+        return False
+    if "team" in expected and event.get("team") != expected["team"]:
+        return False
+    if "score" in expected and int(event.get("score", -1)) != int(expected["score"]):
+        return False
+    return True
 
 
 def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
@@ -345,7 +388,7 @@ def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
                     snapshots_for_assertions.extend(snapshots)
                     snapshot = snapshots[-1]
                     if step["command"] == "move" and scenario.get("movementAssertions", {}).get("smooth", False):
-                        assert_smooth(snapshots, blue.session_id)
+                        assert_smooth(snapshots, actor.session_id)
                     continue
                 if "assert" in step:
                     assert_step(step, snapshot, actors)

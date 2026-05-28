@@ -1,0 +1,46 @@
+{
+  "name": "objective_event_sequence",
+  "gameScenario": "config/scenarios/arena_small_objective_run.json",
+  "server": {
+    "tickRate": 20,
+    "snapshotRate": 10,
+    "maxInputCommandsPerSecond": 60,
+    "maxPendingCommandsPerSession": 128
+  },
+  "steps": [
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 15 },
+    { "actor": "blue", "command": "stop", "ticks": 2 },
+    { "assert": "objective_picked", "by": "blue" },
+    { "assert": "events", "contains": [
+      { "type": "objective_picked_up", "player": "blue" }
+    ] },
+    { "actor": "red", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 16 },
+    { "actor": "red", "command": "stop", "ticks": 1 },
+    { "actor": "red", "command": "attack", "direction": { "x": 1, "y": 0 }, "ticks": 2 },
+    { "assert": "objective_state", "state": "dropped" },
+    { "assert": "events", "contains": [
+      { "type": "attack_hit", "player": "red", "target": "blue" },
+      { "type": "objective_dropped", "player": "blue" }
+    ] },
+    { "actor": "red", "command": "move", "direction": { "x": 0, "y": 1 }, "ticks": 8 },
+    { "actor": "red", "command": "stop", "ticks": 1 },
+    { "actor": "blue", "command": "stop", "ticks": 12 },
+    { "assert": "objective_picked", "by": "blue" },
+    { "assert": "events", "contains": [
+      { "type": "objective_picked_up", "player": "blue" }
+    ] },
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": 1 }, "ticks": 17 },
+    { "actor": "blue", "command": "stop", "ticks": 2 },
+    { "assert": "capture", "by": "blue" },
+    { "assert": "score", "team": "blue", "equals": 1 },
+    { "assert": "events", "contains": [
+      { "type": "objective_captured", "player": "blue" },
+      { "type": "score_changed", "player": "blue", "team": "blue", "score": 1 }
+    ] }
+  ],
+  "movementAssertions": {
+    "smooth": true,
+    "noTeleport": true,
+    "respectMaxSpeed": true
+  }
+}

@@ -1,11 +1,15 @@
 #include "Session.hpp"
 #include "MatchLoop.hpp"
+#include "ScenarioConfig.hpp"
 
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <sstream>
 #include <vector>
 
 namespace
@@ -39,6 +43,43 @@ namespace
 		{
 			throw std::runtime_error(message);
 		}
+	}
+
+	std::string readRepoFile(const std::filesystem::path& relative)
+	{
+		for (const auto& root : {std::filesystem::path{"."}, std::filesystem::path{".."}})
+		{
+			const auto path = root / relative;
+			std::ifstream input(path);
+			if (input)
+			{
+				std::ostringstream buffer;
+				buffer << input.rdbuf();
+				return buffer.str();
+			}
+		}
+		throw std::runtime_error("unable to read " + relative.string());
+	}
+
+	void scenarioConfigLoadsPlayableArena()
+	{
+		const auto loaded = parseScenarioConfig(readRepoFile("config/scenarios/arena_small_objective_run.json"));
+		require(loaded.ok(), "playable scenario config parses");
+		const auto& scenario = *loaded.scenario;
+		require(scenario.id == "arena_small_objective_run", "scenario id preserved");
+		require(scenario.arena.obstacles.size() == 16, "scenario obstacles are loaded from config");
+		require(scenario.arena.hazards.size() == 5, "scenario hazards are loaded from config");
+		require(scenario.maxTicks == 3600, "scenario time limit converts to ticks");
+	}
+
+	void scenarioConfigRejectsInvalidArena()
+	{
+		const auto loaded = parseScenarioConfig(readRepoFile("config/test_scenarios/invalid_asymmetric_obstacle.json"));
+		require(!loaded.ok(), "invalid scenario config is rejected");
+		require(std::any_of(loaded.errors.begin(), loaded.errors.end(), [](const std::string& error) {
+			        return error.find("rotational symmetry") != std::string::npos;
+		        }),
+		        "invalid scenario reports symmetry failure");
 	}
 
 	void sessionCanBeCreatedAndClosed()
@@ -418,6 +459,8 @@ int main()
 		{"sessionCanBeCreatedAndClosed", sessionCanBeCreatedAndClosed},
 		{"commandBeforeAuthRejected", commandBeforeAuthRejected},
 		{"outgoingQueueIsBounded", outgoingQueueIsBounded},
+		{"scenarioConfigLoadsPlayableArena", scenarioConfigLoadsPlayableArena},
+		{"scenarioConfigRejectsInvalidArena", scenarioConfigRejectsInvalidArena},
 		{"flushSendsQueuedMessages", flushSendsQueuedMessages},
 		{"matchStartsThroughJoinCode", matchStartsThroughJoinCode},
 		{"commandsAreOwnedSequencedAndBroadcast", commandsAreOwnedSequencedAndBroadcast},

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "ScenarioConfig.hpp"
 #include "Session.hpp"
-#include "BattleEngine.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -77,7 +77,8 @@ namespace if_arena::battle_backend
 	class MatchManager
 	{
 	public:
-		MatchManager(SessionRegistry& sessions, BackendLimits limits = {});
+		MatchManager(SessionRegistry& sessions, BackendLimits limits = {},
+		             PlayableScenarioConfig scenario = makeFallbackObjectiveRunScenario());
 
 		CreateMatchResult createMatch(SessionId owner);
 		JoinMatchResult joinMatch(SessionId session, std::string_view joinCode);
@@ -130,6 +131,7 @@ namespace if_arena::battle_backend
 
 		SessionRegistry& _sessions;
 		BackendLimits _limits;
+		PlayableScenarioConfig _scenario;
 		MatchMetrics _metrics;
 		std::uint64_t _nextMatchId{1};
 		std::vector<MatchRecord> _matches;

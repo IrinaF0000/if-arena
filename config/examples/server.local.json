@@ -6,6 +6,9 @@
     "maxConnections": 128,
     "maxMatches": 32
   },
+  "game": {
+    "scenarioPath": "config/scenarios/arena_small_objective_run.json"
+  },
   "transports": {
     "tcp": {
       "enabled": true,

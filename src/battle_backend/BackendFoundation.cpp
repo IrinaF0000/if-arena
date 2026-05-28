@@ -416,9 +416,10 @@ namespace if_arena::battle_backend
 		return result.accepted;
 	}
 
-	MatchManager::MatchManager(SessionRegistry& sessions, BackendLimits limits)
+	MatchManager::MatchManager(SessionRegistry& sessions, BackendLimits limits, PlayableScenarioConfig scenario)
 		: _sessions(sessions),
-		  _limits(limits)
+		  _limits(limits),
+		  _scenario(std::move(scenario))
 	{
 		_limits.maxPlayersPerMatch = 2;
 	}
@@ -756,7 +757,7 @@ namespace if_arena::battle_backend
 
 	battle_core::MatchConfig MatchManager::makeMatchConfig(const MatchRecord& match) const
 	{
-		const auto arena = battle_core::makeSmallObjectiveRunArenaConfig();
+		const auto& arena = _scenario.arena;
 		const auto validation = battle_core::validateArenaConfig(arena);
 		if (!validation.valid())
 		{
@@ -766,20 +767,16 @@ namespace if_arena::battle_backend
 		battle_core::MatchConfig config;
 		config.width = arena.dimensions.width;
 		config.height = arena.dimensions.height;
-		config.playerSpeedPerTick = 0.25;
-		config.maxTicks = defaultObjectiveRunMaxTicks;
+		config.playerSpeedPerTick = _scenario.playerSpeedPerTick;
+		config.maxTicks = _scenario.maxTicks == 0 ? defaultObjectiveRunMaxTicks : _scenario.maxTicks;
 		config.obstacles = arena.obstacles;
 		config.hazards = arena.hazards;
 		config.bases = {
 			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Red, arena.redBase->center, arena.redBase->radius},
 			battle_core::BaseZoneConfig{battle_core::ArenaTeam::Blue, arena.blueBase->center, arena.blueBase->radius},
 		};
-		config.objective = battle_core::ObjectiveConfig{*arena.objectiveSpawn, 0.75, 0.8, 10, 20, 1};
-		config.combat.attackDamage = 25;
-		config.combat.attackRange = 1.25;
-		config.combat.attackCooldownTicks = 3;
-		config.combat.dashDistance = 2.0;
-		config.combat.dashCooldownTicks = 5;
+		config.objective = _scenario.objective;
+		config.combat = _scenario.combat;
 
 		config.players.reserve(match.participants.size());
 		for (const auto& participant : match.participants)
@@ -789,7 +786,8 @@ namespace if_arena::battle_backend
 			{
 				throw std::invalid_argument("backend arena spawn is missing");
 			}
-			config.players.push_back(battle_core::PlayerConfig{participant.corePlayer, participant.team, spawn->cell, 100});
+			config.players.push_back(
+			    battle_core::PlayerConfig{participant.corePlayer, participant.team, spawn->cell, _scenario.heroHp});
 		}
 		return config;
 	}

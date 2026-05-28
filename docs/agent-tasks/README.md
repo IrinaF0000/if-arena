@@ -57,5 +57,6 @@ Recommended order:
 40. `0045-visual-combat-and-objective-readability-polish.md`
 41. `0046-demo-and-portfolio-polish.md`
 42. `0047-repo-hygiene-and-ci-fixes.md`
+43. `0048-scenario-config-single-source.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

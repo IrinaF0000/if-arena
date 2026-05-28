@@ -1,5 +1,6 @@
 #include "MatchLoop.hpp"
 #include "Protocol.hpp"
+#include "ScenarioConfig.hpp"
 #include "Session.hpp"
 #include "TcpFrameCodec.hpp"
 #include "WebSocketSession.hpp"
@@ -32,6 +33,8 @@ namespace
 	using if_arena::battle_backend::MatchManager;
 	using if_arena::battle_backend::MatchId;
 	using if_arena::battle_backend::PlayerId;
+	using if_arena::battle_backend::parseScenarioConfig;
+	using if_arena::battle_backend::PlayableScenarioConfig;
 	using if_arena::battle_backend::SessionId;
 	using if_arena::battle_backend::SessionRegistry;
 	using if_arena::battle_protocol::ClientSessionPhase;
@@ -82,6 +85,7 @@ namespace
 		std::size_t maxPendingCommandsPerMatch{128};
 		std::size_t maxCommandsPerTick{64};
 		std::uint32_t metricsLogEverySeconds{5};
+		std::filesystem::path scenarioPath{"config/scenarios/arena_small_objective_run.json"};
 	};
 
 	struct CliOptions
@@ -102,6 +106,17 @@ namespace
 		[[nodiscard]] bool ok() const
 		{
 			return config.has_value() && errors.empty();
+		}
+	};
+
+	struct ScenarioFileLoadResult
+	{
+		std::optional<PlayableScenarioConfig> scenario;
+		std::vector<std::string> errors;
+
+		[[nodiscard]] bool ok() const
+		{
+			return scenario.has_value() && errors.empty();
 		}
 	};
 
@@ -585,6 +600,7 @@ namespace
 		const auto transports = objectField(json, "transports");
 		const auto security = objectField(json, "security");
 		const auto metrics = objectField(json, "metrics");
+		const auto game = objectField(json, "game");
 		if (!server.has_value())
 		{
 			addError(result.errors, "missing server object");
@@ -632,12 +648,37 @@ namespace
 		config.maxCommandsPerTick = readSize(*security, "maxCommandsPerTick", config.maxCommandsPerTick, result.errors);
 		config.metricsLogEverySeconds =
 			readUint32(*metrics, "logEverySeconds", config.metricsLogEverySeconds, result.errors);
+		if (game.has_value())
+		{
+			config.scenarioPath = readString(*game, "scenarioPath", config.scenarioPath.string(), result.errors);
+		}
 
 		validateConfig(config, result.errors);
 		if (result.errors.empty())
 		{
 			result.config = config;
 		}
+		return result;
+	}
+
+	ScenarioFileLoadResult loadScenarioConfigFile(const std::filesystem::path& path)
+	{
+		ScenarioFileLoadResult result;
+		if (!std::filesystem::exists(path))
+		{
+			addError(result.errors, "scenario config file not found: " + path.string());
+			return result;
+		}
+		const auto scenario = parseScenarioConfig(readFile(path));
+		if (!scenario.ok())
+		{
+			for (const auto& error : scenario.errors)
+			{
+				addError(result.errors, "scenario config error: " + error);
+			}
+			return result;
+		}
+		result.scenario = *scenario.scenario;
 		return result;
 	}
 
@@ -1662,10 +1703,16 @@ int main(int argc, char** argv)
 	}
 
 	const auto& config = *loaded.config;
+	const auto scenario = loadScenarioConfigFile(config.scenarioPath);
+	if (!scenario.ok())
+	{
+		return failWithErrors(scenario.errors);
+	}
 	const auto limits = backendLimitsFrom(config);
 	SessionRegistry sessions{limits};
-	MatchManager matches{sessions, limits};
+	MatchManager matches{sessions, limits, *scenario.scenario};
 	logStartup(config, limits);
+	std::cout << "Scenario loaded id=" << scenario.scenario->id << " path=" << config.scenarioPath.string() << '\n';
 	std::cout << "Backend initialized activeSessions=" << sessions.metrics().activeSessions
 	          << " activeMatches=" << matches.metrics().activeMatches << '\n';
 

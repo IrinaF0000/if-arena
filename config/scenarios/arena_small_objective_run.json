@@ -18,13 +18,21 @@
       { "x": 13, "y": 4 },
       { "x": 6, "y": 8 },
       { "x": 7, "y": 8 },
-      { "x": 10, "y": 3 },
-      { "x": 10, "y": 9 }
+      { "x": 7, "y": 5 },
+      { "x": 13, "y": 7 },
+      { "x": 13, "y": 5 },
+      { "x": 7, "y": 7 },
+      { "x": 9, "y": 5 },
+      { "x": 11, "y": 7 },
+      { "x": 11, "y": 5 },
+      { "x": 9, "y": 7 }
     ]
   },
   "players": {
     "blueSpawn": { "x": 10, "y": 10 },
     "redSpawn": { "x": 10, "y": 2 },
+    "speedPerTick": 0.25,
+    "heroHp": 100,
     "playerView": {
       "ownBaseAtBottom": true,
       "replayOrientation": "canonical"
@@ -41,15 +49,22 @@
     "captureRespawnDelayMs": 1000,
     "pickupRadius": 0.75
   },
+  "combat": {
+    "attackDamage": 25,
+    "attackRange": 1.25,
+    "attackCooldownTicks": 3,
+    "dashDistance": 2.0,
+    "dashCooldownTicks": 5
+  },
   "hazards": [
-    { "id": "tower_top", "kind": "tower", "x": 4, "y": 4, "range": 3.5, "damage": 8, "cooldownMs": 1400 },
-    { "id": "tower_bottom", "kind": "tower", "x": 16, "y": 8, "range": 3.5, "damage": 8, "cooldownMs": 1400 },
-    { "id": "mine_top", "kind": "mine", "x": 15, "y": 4, "radius": 0.8, "damage": 18 },
-    { "id": "mine_bottom", "kind": "mine", "x": 5, "y": 8, "radius": 0.8, "damage": 18 },
-    { "id": "center_drone", "kind": "drone", "enabled": false, "path": [{ "x": 8, "y": 6 }, { "x": 12, "y": 6 }], "damage": 6, "speed": 1.0 }
+    { "id": "tower_left", "kind": "tower", "x": 5, "y": 6, "radius": 0.8, "range": 2.2, "damage": 6, "cooldownTicks": 20 },
+    { "id": "tower_right", "kind": "tower", "x": 15, "y": 6, "radius": 0.8, "range": 2.2, "damage": 6, "cooldownTicks": 20 },
+    { "id": "mine_left", "kind": "mine", "x": 8, "y": 6, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30 },
+    { "id": "mine_right", "kind": "mine", "x": 12, "y": 6, "radius": 0.7, "range": 1.0, "damage": 12, "cooldownTicks": 30 },
+    { "id": "center_crow", "kind": "crow", "x": 10, "y": 6, "radius": 0.65, "range": 1.5, "damage": 6, "cooldownTicks": 8, "seed": 3 }
   ],
   "rules": {
-    "timeLimitSeconds": 240,
+    "timeLimitSeconds": 180,
     "tickRate": 20,
     "snapshotRate": 10
   }

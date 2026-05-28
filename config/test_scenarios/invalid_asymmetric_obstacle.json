@@ -1,0 +1,46 @@
+{
+  "scenario": "arena_small_objective_run",
+  "mode": "objective_run",
+  "map": {
+    "width": 21,
+    "height": 13,
+    "symmetry": "rotational_180",
+    "center": { "x": 10, "y": 6 },
+    "blueBase": { "x": 10, "y": 11, "radius": 1.5 },
+    "redBase": { "x": 10, "y": 1, "radius": 1.5 },
+    "objectiveSpawn": { "x": 10, "y": 6 },
+    "obstacles": [
+      { "x": 6, "y": 4 }
+    ]
+  },
+  "players": {
+    "blueSpawn": { "x": 10, "y": 10 },
+    "redSpawn": { "x": 10, "y": 2 },
+    "speedPerTick": 0.25,
+    "heroHp": 100
+  },
+  "objective": {
+    "kind": "carry_objective",
+    "scoreLimit": 3,
+    "carrierSpeedMultiplier": 0.8,
+    "dropOnCarrierHit": true,
+    "dropOnCarrierDefeat": true,
+    "dropOnHazardHit": true,
+    "pickupLockMs": 500,
+    "captureRespawnDelayMs": 1000,
+    "pickupRadius": 0.75
+  },
+  "combat": {
+    "attackDamage": 25,
+    "attackRange": 1.25,
+    "attackCooldownTicks": 3,
+    "dashDistance": 2.0,
+    "dashCooldownTicks": 5
+  },
+  "hazards": [],
+  "rules": {
+    "timeLimitSeconds": 180,
+    "tickRate": 20,
+    "snapshotRate": 10
+  }
+}

@@ -7,6 +7,7 @@ Example local/server/client configs.
 - `mode`: `local` or `public`. Public mode enables stricter validation.
 - `server.tickRate` / `server.snapshotRate`: deterministic backend timing targets.
 - `server.maxConnections` / `server.maxMatches`: backend capacity limits.
+- `game.scenarioPath`: JSON scenario config loaded before listeners start. The local default is `config/scenarios/arena_small_objective_run.json`.
 - `transports.tcp` and `transports.websocket`: listener intent and frame/message limits. The current server app validates these but exits with an actionable error until listener integration lands.
 - `security.demoAuthEnabled`: allowed for local demos only.
 - `security.telegramAuthEnabled`: public Telegram auth switch. Secrets are referenced by environment variable name only.

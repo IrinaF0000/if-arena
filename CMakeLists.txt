@@ -38,6 +38,7 @@ target_include_directories(battle_backend_api INTERFACE src/battle_backend)
 
 add_library(battle_backend STATIC
     src/battle_backend/BackendFoundation.cpp
+    src/battle_backend/ScenarioConfig.cpp
 )
 target_link_libraries(battle_backend PUBLIC battle_backend_api battle_core battle_protocol)
 

@@ -1,0 +1,25 @@
+{
+  "name": "objective_run_full_capture",
+  "gameScenario": "config/scenarios/arena_small_objective_run.json",
+  "server": {
+    "tickRate": 20,
+    "snapshotRate": 10,
+    "maxInputCommandsPerSecond": 60,
+    "maxPendingCommandsPerSession": 128
+  },
+  "players": ["blue", "red"],
+  "steps": [
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 15 },
+    { "actor": "blue", "command": "stop", "ticks": 2 },
+    { "assert": "objective_picked", "by": "blue" },
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": 1 }, "ticks": 17 },
+    { "actor": "blue", "command": "stop", "ticks": 2 },
+    { "assert": "capture", "by": "blue" },
+    { "assert": "score", "team": "blue", "equals": 1 }
+  ],
+  "movementAssertions": {
+    "smooth": true,
+    "noTeleportExceptRespawn": true,
+    "respectMaxSpeed": true
+  }
+}

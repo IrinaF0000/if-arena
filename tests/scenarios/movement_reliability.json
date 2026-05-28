@@ -1,0 +1,13 @@
+{
+  "name": "movement_reliability",
+  "resendIntervalMs": 150,
+  "steps": [
+    { "action": "setDesired", "direction": { "dx": 0, "dy": -1 }, "atMs": 0, "expect": "move" },
+    { "action": "poll", "atMs": 50, "expect": "none" },
+    { "action": "poll", "direction": { "dx": 0, "dy": -1 }, "atMs": 150, "expect": "move" },
+    { "action": "reject", "atMs": 160, "expect": "none" },
+    { "action": "poll", "direction": { "dx": 0, "dy": -1 }, "atMs": 170, "expect": "move" },
+    { "action": "setDesired", "direction": { "dx": 0, "dy": 0 }, "atMs": 180, "expect": "stop" },
+    { "action": "poll", "atMs": 400, "expect": "none" }
+  ]
+}

@@ -58,5 +58,6 @@ Recommended order:
 41. `0046-demo-and-portfolio-polish.md`
 42. `0047-repo-hygiene-and-ci-fixes.md`
 43. `0048-scenario-config-single-source.md`
+44. `0049-desktop-movement-reliability.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

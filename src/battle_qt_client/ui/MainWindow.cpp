@@ -2,6 +2,7 @@
 
 #include "game/CoordinateTransform.hpp"
 
+#include <QDateTime>
 #include <QFormLayout>
 #include <QEvent>
 #include <QHBoxLayout>
@@ -17,6 +18,8 @@ namespace if_arena::battle_qt_client::ui
 		using if_arena::battle_qt_client::game::ClientIntent;
 		using if_arena::battle_qt_client::game::ClientIntentKind;
 		using if_arena::battle_qt_client::game::Direction;
+		using if_arena::battle_qt_client::game::MovementInputCommand;
+		using if_arena::battle_qt_client::game::MovementInputCommandKind;
 		using if_arena::battle_qt_client::game::clampDirection;
 
 		bool isMovementKey(int key)
@@ -25,9 +28,9 @@ namespace if_arena::battle_qt_client::ui
 			       key == Qt::Key_Up || key == Qt::Key_Left || key == Qt::Key_Down || key == Qt::Key_Right;
 		}
 
-		bool sameDirection(Direction lhs, Direction rhs)
+		std::int64_t nowMs()
 		{
-			return lhs.dx == rhs.dx && lhs.dy == rhs.dy;
+			return QDateTime::currentMSecsSinceEpoch();
 		}
 	}
 
@@ -105,6 +108,8 @@ namespace if_arena::battle_qt_client::ui
 		}
 
 		wireSignals();
+		_movementResendTimer.setInterval(static_cast<int>(_movementInput.resendIntervalMs()));
+		connect(&_movementResendTimer, &QTimer::timeout, this, &MainWindow::pollHeldMovement);
 		refreshControls();
 	}
 
@@ -237,7 +242,7 @@ namespace if_arena::battle_qt_client::ui
 			_joinCode->setText(code);
 			_identity->setText("session " + _client.sessionId() + ", match " + matchId + ", code " + code);
 			_movementKeys.clear();
-			_lastMovementIntent.reset();
+			_movementInput.reset();
 			_hasAimDirection = false;
 			_arena->setFocus(Qt::OtherFocusReason);
 			refreshControls();
@@ -251,7 +256,9 @@ namespace if_arena::battle_qt_client::ui
 		        [this](bool accepted, const QString& reason) {
 			        if (!accepted)
 			        {
+				        _movementInput.markRejected();
 				        appendEvent("input rejected (" + reason + ")");
+				        _error->setText("movement blocked: " + reason);
 			        }
 		        });
 		connect(&_client, &network::NetworkClient::latencyUpdated, this,
@@ -269,6 +276,16 @@ namespace if_arena::battle_qt_client::ui
 		_create->setEnabled(authenticated);
 		_join->setEnabled(authenticated);
 		_joinCode->setEnabled(authenticated || inMatch);
+		if (inMatch && !_movementResendTimer.isActive())
+		{
+			_movementResendTimer.start();
+		}
+		if (!inMatch && _movementResendTimer.isActive())
+		{
+			_movementResendTimer.stop();
+			_movementKeys.clear();
+			_movementInput.reset();
+		}
 		_error->setVisible(!_error->text().isEmpty());
 	}
 
@@ -280,22 +297,27 @@ namespace if_arena::battle_qt_client::ui
 	void MainWindow::sendMovement()
 	{
 		const auto direction = currentMoveDirection();
-		if (direction.dx == 0 && direction.dy == 0)
+		const auto command = _movementInput.updateDesired(direction, nowMs());
+		if (command.has_value())
 		{
-			if (!_lastMovementIntent.has_value())
-			{
-				return;
-			}
-			_lastMovementIntent.reset();
-			_client.sendIntent(ClientIntent{ClientIntentKind::Stop, {}});
-			return;
+			sendMovementCommand(*command);
 		}
-		if (_lastMovementIntent.has_value() && sameDirection(*_lastMovementIntent, direction))
+	}
+
+	void MainWindow::pollHeldMovement()
+	{
+		const auto command = _movementInput.poll(nowMs());
+		if (command.has_value())
 		{
-			return;
+			sendMovementCommand(*command);
 		}
-		_lastMovementIntent = direction;
-		_client.sendIntent(ClientIntent{ClientIntentKind::Move, direction});
+	}
+
+	void MainWindow::sendMovementCommand(MovementInputCommand command)
+	{
+		const ClientIntentKind kind =
+		    command.kind == MovementInputCommandKind::Move ? ClientIntentKind::Move : ClientIntentKind::Stop;
+		_client.sendIntent(ClientIntent{kind, command.direction});
 	}
 
 	void MainWindow::sendAction(ClientIntentKind kind)

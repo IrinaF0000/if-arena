@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ArenaView.hpp"
+#include "game/MovementInputController.hpp"
 #include "network/NetworkClient.hpp"
 
 #include <QLabel>
@@ -9,8 +10,8 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QTimer>
 
-#include <optional>
 #include <set>
 
 namespace if_arena::battle_qt_client::ui
@@ -32,6 +33,8 @@ namespace if_arena::battle_qt_client::ui
 		void refreshControls();
 		void appendEvent(const QString& message);
 		void sendMovement();
+		void pollHeldMovement();
+		void sendMovementCommand(if_arena::battle_qt_client::game::MovementInputCommand command);
 		void sendAction(if_arena::battle_qt_client::game::ClientIntentKind kind);
 		[[nodiscard]] bool handleGameplayKeyPress(QKeyEvent* event);
 		[[nodiscard]] bool handleGameplayKeyRelease(QKeyEvent* event);
@@ -55,8 +58,9 @@ namespace if_arena::battle_qt_client::ui
 		QLabel* _error{};
 		QPlainTextEdit* _events{};
 		std::set<int> _movementKeys;
+		QTimer _movementResendTimer;
+		if_arena::battle_qt_client::game::MovementInputController _movementInput;
 		if_arena::battle_qt_client::game::Direction _aimDirection{0, -1};
 		bool _hasAimDirection{};
-		std::optional<if_arena::battle_qt_client::game::Direction> _lastMovementIntent;
 	};
 }

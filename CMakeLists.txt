@@ -98,6 +98,8 @@ if(BATTLE_BUILD_QT_CLIENT)
         src/battle_qt_client/game/ClientTypes.hpp
         src/battle_qt_client/game/CoordinateTransform.cpp
         src/battle_qt_client/game/CoordinateTransform.hpp
+        src/battle_qt_client/game/MovementInputController.cpp
+        src/battle_qt_client/game/MovementInputController.hpp
         src/battle_qt_client/game/ProtocolJson.cpp
         src/battle_qt_client/game/ProtocolJson.hpp
         src/battle_qt_client/network/NetworkClient.cpp
@@ -149,6 +151,13 @@ if(BATTLE_BUILD_TESTS)
     )
     target_include_directories(battle_qt_client_transform_tests PRIVATE src/battle_qt_client)
     add_test(NAME battle_qt_client_transform_tests COMMAND battle_qt_client_transform_tests)
+
+    add_executable(battle_qt_client_movement_input_tests
+        src/battle_qt_client/game/MovementInputController.cpp
+        src/battle_qt_client/tests/MovementInputControllerTests.cpp
+    )
+    target_include_directories(battle_qt_client_movement_input_tests PRIVATE src/battle_qt_client)
+    add_test(NAME battle_qt_client_movement_input_tests COMMAND battle_qt_client_movement_input_tests)
 endif()
 
 if(BATTLE_ENABLE_COVERAGE)

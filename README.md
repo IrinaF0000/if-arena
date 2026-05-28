@@ -29,7 +29,7 @@ Two players join a short real-time objective arena match. Each player controls o
 The MVP mode is **Objective Run**:
 
 - two players spawn on opposite sides of a compact arena;
-- a objective starts at the exact center;
+- an objective starts at the exact center;
 - players compete to pick it up and carry it back to their own base;
 - the first player to score 3 captures wins;
 - the carrier moves slower;
@@ -38,6 +38,14 @@ The MVP mode is **Objective Run**:
 - neutral server-controlled hazards such as mines, towers, and drones/crows create tactical pressure.
 
 The clients do not own game state. They send player intentions such as move, aim, attack, and dash. Objective pickup and capture are server-side automatic rules. The server validates every command and applies accepted commands to the authoritative simulation.
+
+Current hazard behavior is also server-owned and driven by scenario metadata:
+
+- **Mine**: proximity hazard with a visible range; damages a player and can force the carried objective to drop.
+- **Tower**: area-control hazard with a larger marked range and cooldown; damages players in range and can force a carrier drop.
+- **Crow**: deterministic neutral center-pressure hazard; applies light configured damage/drop pressure near the objective.
+
+Clients render hazard icons, ranges, cooldown/trigger state, and short labels from protocol/config metadata. They must not infer damage, range, drop behavior, or cooldowns from hardcoded hazard names.
 
 ## MVP arena requirements
 
@@ -149,20 +157,71 @@ This repository has the foundation modules, an in-process backend match loop, lo
 
 The tree is a local playable alpha/MVP candidate for review, testing, and portfolio demonstration. Public deployment is still intentionally out of scope: local Qt/TCP and browser/WebSocket flows are supported, while production WSS/HTTPS deployment, public operations, and account/session hardening remain follow-up work.
 
-Local raw TCP smoke:
+## Local build and run
+
+Build the default C++ targets:
 
 ```bash
+cmake -S . -B build -DBATTLE_BUILD_TESTS=ON
 cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
+Run the local server:
+
+```bash
 build/battle_server_app --config config/examples/server.local.json --max-clients 2
+```
+
+Run a local raw TCP smoke with two CLI clients:
+
+```bash
 build/battle_cli_client --create --display-name cli-one --script tests/integration/server/cli_idle.script
 build/battle_cli_client --join M1 --display-name cli-two --script tests/integration/server/cli_scenario_b.script
 ```
 
-For repeatable hostile-input coverage after building, run:
+Run the Qt desktop client on Windows with the Qt MinGW kit:
+
+```powershell
+$env:Path = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;$env:Path"
+cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
+cmake --build build-qt-mingw --parallel
+ctest --test-dir build-qt-mingw --output-on-failure
+build-qt-mingw\battle_qt_client.exe
+```
+
+Run the Telegram Mini App locally:
 
 ```bash
+build/battle_server_app --config config/examples/server.ws.local.json --max-clients 2
+cd frontend/telegram_mini_app
+npm install
+npm run dev
+```
+
+Then open the Vite local URL. The local frontend defaults to the local WebSocket endpoint `ws://127.0.0.1:8081/ws`. Browser/Mini App clients use WebSocket; raw TCP remains for Qt, CLI, and load clients.
+
+## Tests and validators
+
+Core/server checks:
+
+```bash
+cmake -S . -B build -DBATTLE_BUILD_TESTS=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 python tests/integration/server/tcp_vertical_slice_smoke.py
 python tests/frontend/websocket_local_smoke.py
+```
+
+Config-driven gameplay scenarios:
+
+```bash
+python tests/integration/desktop/objective_run_full_capture_desktop.py
+python tests/integration/mobile/objective_run_full_capture_mobile.py
+python tests/integration/desktop/objective_event_sequence_desktop.py
+python tests/integration/mobile/objective_event_sequence_mobile.py
+python scripts/ci/validate_no_hardcoded_scenarios.py
+python scripts/ci/validate_gameplay_scenario_pairs.py
 ```
 
 Telegram Mini App frontend checks:
@@ -172,16 +231,6 @@ cd frontend/telegram_mini_app
 npm run typecheck
 npm run lint
 npm run build
-```
-
-Qt desktop client on Windows with the Qt MinGW kit:
-
-```powershell
-$env:Path = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;$env:Path"
-cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
-cmake --build build-qt-mingw --parallel
-ctest --test-dir build-qt-mingw --output-on-failure
-build-qt-mingw\battle_qt_client.exe
 ```
 
 Load and security smoke:
@@ -194,6 +243,24 @@ python tests/security/tcp_protocol_negative.py
 python scripts/ci/validate_architecture_boundaries.py
 python scripts/ci/scan_secrets.py
 ```
+
+## Scenario configs
+
+The playable default arena is config-owned:
+
+```text
+config/scenarios/arena_small_objective_run.json
+```
+
+This file defines the Objective Run map, bases, spawns, objective rules, combat values, hazards, tick rate, and snapshot rate. `battle_server_app` loads scenario files and backend code converts them into value config for `battle_core`; `battle_core` remains deterministic and does not read files or parse JSON.
+
+Gameplay test scripts are generic runners. Scenario-specific routes, command sequences, and expected objective events live in:
+
+```text
+tests/scenarios/*.json
+```
+
+Every gameplay scenario must keep paired desktop and mobile coverage. `validate_no_hardcoded_scenarios.py` guards against duplicating map/routes/events in tests, and `validate_gameplay_scenario_pairs.py` checks the desktop/mobile pairing.
 
 ## Known limitations
 

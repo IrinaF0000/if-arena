@@ -85,6 +85,15 @@ Playable planning/task changes also require:
 python3 scripts/agent/validate_playable_task_sequence.py
 ```
 
+Playable gameplay scenario changes also require:
+
+```bash
+python3 scripts/ci/validate_no_hardcoded_scenarios.py
+python3 scripts/ci/validate_gameplay_scenario_pairs.py
+```
+
+For playable gameplay work, all game scenarios must be config-driven. Tests must not hardcode scenario routes, map data, hazards, or expected event sequences. Every `tests/scenarios/*.json` gameplay scenario must have both desktop and mobile coverage that can be proven by `validate_gameplay_scenario_pairs.py`.
+
 ### Required Review-Agent(s)
 
 Run only the reviewers required by the task packet and quality gates.

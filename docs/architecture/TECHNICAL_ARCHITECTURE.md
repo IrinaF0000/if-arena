@@ -33,6 +33,7 @@ Both clients use the same gameplay model, protocol DTOs, and authoritative backe
 ## Core constraints
 
 - `battle_core` has no transport, Qt, Telegram, deployment, or server-process dependencies.
+- `battle_core` receives already-parsed value config; it does not read scenario files or parse JSON.
 - `battle_protocol` is transport-independent.
 - `battle_backend` owns authority, validation, sessions, match workers, metrics, rate limiting, and resource limits.
 - `battle_transport_tcp` and `battle_transport_ws` are adapters.
@@ -101,6 +102,10 @@ Replay, spectator, and debug tools use canonical orientation.
 
 The arena is authored on a logical grid, but movement is smooth.
 
+The normal playable arena is config-driven. `config/scenarios/arena_small_objective_run.json` is the source of truth for the default Objective Run map, spawns, bases, objective settings, combat settings, hazards, and tick/snapshot rates. `battle_server_app` loads scenario files, backend code converts loaded config into core value types, and `battle_core` validates and simulates those values deterministically.
+
+Gameplay tests must follow the same ownership model. Test routes, command sequences, and expected objective/hazard events live in scenario JSON under `tests/scenarios/`, while runners stay generic.
+
 Grid-authored data:
 
 - walls/obstacles;
@@ -151,6 +156,8 @@ The tick loop:
 5. resolves objective state;
 6. emits events;
 7. publishes snapshots.
+
+Hazard behavior is also scenario/config driven. Snapshots expose authoritative hazard metadata such as id, kind, radius, range, damage, effect, trigger, icon, configured cooldown, current cooldown, and triggered state. Clients render that metadata and may explain it in the UI, but they do not infer damage, range, drops, or cooldowns from hardcoded hazard kinds.
 
 ## Backend resource limits
 

@@ -28,18 +28,17 @@ Owns pure deterministic game rules:
 
 Feature code may know game-specific concepts, but it still must not know transport, UI, config-file parsing, or server sessions.
 
-### Scenarios And Map Config
+### Scenario Value Config
 
-Owns default scenario construction:
+Owns deterministic validation and use of already-parsed arena values:
 
-- `arena_small_objective_run`;
-- current 21x13 MVP map;
-- base/spawn/objective placement;
-- obstacle and hazard configs;
+- map dimensions and geometry;
+- base/spawn/objective placement values;
+- obstacle and hazard values;
 - scenario validation;
-- hardcoded fallback/default configs.
+- gameplay rule parameters such as objective, combat, movement, and hazard settings.
 
-Default scenarios should not drift into minimal foundation primitives.
+Must not own filesystem paths, JSON parsing, or normal default scenario construction. The playable default scenario lives in `config/scenarios/arena_small_objective_run.json` and is parsed outside `battle_core` before value-type config reaches the simulation.
 
 ### View/Input Transforms
 
@@ -49,7 +48,7 @@ Player-oriented view/input transforms are pure helpers, not gameplay truth. They
 
 These exceptions are tolerated only until a dedicated refactor splits them cleanly:
 
-- `ArenaConfig.hpp` may contain default Objective Run arena helpers.
+- `ArenaConfig.hpp` may contain legacy/default Objective Run helpers for focused tests or explicit fallback paths only.
 - Player-view transform helpers may live in `battle_core` while backend and clients still share the MVP direction contract.
 
 Do not grow these exceptions. New gameplay should live in feature/scenario layers, and new IO/config parsing must stay outside `battle_core`.

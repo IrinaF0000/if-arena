@@ -90,6 +90,7 @@ arena.setSnapshot(
     tick: 4,
     serverTick: 4,
     finished: true,
+    scenario: { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" },
     map: { width: 21, height: 13 },
     obstacles: [
       { x: 7, y: 5 },
@@ -131,13 +132,30 @@ arena.setSnapshot(
       { team: "blue", score: 1 },
       { team: "red", score: 0 }
     ],
-    hazards: [{ kind: "crow", x: 10, y: 5, cooldown: 0, triggered: false }]
+    hazards: [
+      {
+        id: "center_crow",
+        kind: "crow",
+        x: 10,
+        y: 5,
+        radius: 0.65,
+        range: 1.5,
+        damage: 6,
+        effect: "damage_drop_objective",
+        trigger: "proximity",
+        icon: "hazard_crow",
+        cooldownTicks: 8,
+        cooldown: 0,
+        triggered: false
+      }
+    ]
   },
   "local"
 );
 arena.showEventFeedback([
   { type: "attack_hit", targetPlayerId: "enemy", to: { x: 10, y: 2 } },
-  { type: "objective_captured", to: { x: 10, y: 10 } }
+  { type: "objective_captured", to: { x: 10, y: 10 } },
+  { type: "score_changed", team: "blue", score: 1, to: { x: 10, y: 10 } }
 ]);
 
 const drawImages = canvas.context.calls.filter((call) => call.name === "drawImage");
@@ -161,7 +179,8 @@ assert.ok(rangeArcs.length > 0, "attack range indicator renders around the local
 
 const textLabels = canvas.context.calls.filter((call) => call.name === "fillText").map((call) => call.args[0]);
 assert.ok(textLabels.includes("hit"), "hit feedback label renders from event batch");
-assert.ok(textLabels.includes("captured"), "capture feedback label renders from event batch");
+assert.ok(textLabels.some((label) => String(label).includes("captured")), "capture feedback label renders from event batch");
+assert.ok(textLabels.some((label) => String(label).includes("Blue scores! 1")), "score feedback label renders from event batch");
 assert.ok(textLabels.includes("Match over"), "match-over overlay renders from finished snapshot");
 assert.ok(textLabels.some((label) => String(label).includes("Blue wins 1-0")), "winner score overlay renders");
 

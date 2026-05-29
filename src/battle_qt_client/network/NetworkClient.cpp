@@ -72,8 +72,9 @@ namespace if_arena::battle_qt_client::network
 				}
 				if (type == "score_changed")
 				{
-					return event.value("team").toString("team") + " score " +
-					       QString::number(event.value("score").toInt()) + ".";
+					const auto team = event.value("team").toString("team");
+					const auto score = QString::number(event.value("score").toInt());
+					return team.left(1).toUpper() + team.mid(1) + " scores! " + team + " score " + score + ".";
 				}
 			}
 			return "Server events: " + payloadJson;

@@ -145,7 +145,7 @@ namespace if_arena::battle_qt_client::ui
 		const auto age = _lastSnapshotAt.isValid() ? QString::number(_lastSnapshotAt.elapsed()) : "?";
 		return "scenario " + _snapshot->scenario.id + " | tick " + QString::number(_snapshot->tick) +
 		       " | team " + team + " | HP " + hp +
-		       " | attack " + attack + " | dash " + dash + " | score B/R " + blueScore + "/" + redScore +
+		       " | attack " + attack + " | dash " + dash + " | score Blue " + blueScore + " - " + redScore + " Red" +
 		       " | objective " + _snapshot->objective.state + " | snapshot age " + age + "ms";
 	}
 
@@ -498,6 +498,9 @@ namespace if_arena::battle_qt_client::ui
 				redScore = QString::number(score.score);
 			}
 		}
+		const auto winner = blueScore == redScore ? QStringLiteral("Draw") :
+		                    blueScore.toInt() > redScore.toInt() ? QStringLiteral("Blue wins") :
+		                                                         QStringLiteral("Red wins");
 		const auto board = boardRect();
 		painter.setBrush(QColor{0, 0, 0, 150});
 		painter.setPen(Qt::NoPen);
@@ -512,7 +515,7 @@ namespace if_arena::battle_qt_client::ui
 		font.setBold(false);
 		painter.setFont(font);
 		painter.drawText(QRectF{board.left(), board.center().y(), board.width(), 28}, Qt::AlignCenter,
-		                 "Blue " + blueScore + " - " + redScore + " Red");
+		                 winner + " " + blueScore + " - " + redScore);
 	}
 
 	void ArenaView::drawPlayerSprite(QPainter& painter, QPointF center, double size, Direction facing, bool isLocal)

@@ -3,7 +3,13 @@ import type { Direction, HazardSnapshot, ObstacleSnapshot, PlayerSnapshot, Snaps
 export const playerSpritePath = "/players/swordsman.svg";
 
 type ActionFeedbackKind = "attack" | "dash";
-type VisualEventKind = "attack_hit" | "hazard_hit" | "objective_picked_up" | "objective_dropped" | "objective_captured";
+type VisualEventKind =
+  | "attack_hit"
+  | "hazard_hit"
+  | "objective_picked_up"
+  | "objective_dropped"
+  | "objective_captured"
+  | "score_changed";
 
 type VisualEventFeedback = {
   kind: VisualEventKind;
@@ -510,6 +516,12 @@ export class ArenaCanvas {
         return feedback("objective_dropped", `${actor} dropped`);
       case "objective_captured":
         return feedback("objective_captured", `${actor} captured`);
+      case "score_changed": {
+        const team = event.team === "blue" || event.team === "red" ? event.team : undefined;
+        const score = typeof event.score === "number" ? event.score : undefined;
+        const label = team ? `${teamLabel(team)} scores!${score !== undefined ? ` ${score}` : ""}` : "Score!";
+        return feedback("score_changed", label);
+      }
       default:
         return null;
     }
@@ -534,4 +546,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isPoint(value: unknown): value is { x: number; y: number } {
   return isRecord(value) && typeof value.x === "number" && Number.isFinite(value.x) && typeof value.y === "number" && Number.isFinite(value.y);
+}
+
+function teamLabel(team: Team): string {
+  return team === "blue" ? "Blue" : "Red";
 }

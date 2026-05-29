@@ -55,6 +55,7 @@ const joinCodeInput = requireElement<HTMLInputElement>("#join-code");
 const startNextMatchButton = requireElement<HTMLButtonElement>("#start-next-match");
 const arena = new ArenaCanvas(canvas);
 let localPlayerId: string | null = null;
+let lastScores = { blue: 0, red: 0 };
 
 const wsUrl = configuredWsUrl();
 const client = new WebSocketClient({
@@ -123,6 +124,7 @@ function handleMessage(message: IncomingMessage): void {
       break;
     case "snapshot":
       matchLine.textContent = `Match ${message.payload.matchId} | ${message.payload.scenario.id}`;
+      lastScores = scoresFromSnapshot(message.payload.scores);
       arena.setSnapshot(message.payload, localPlayerId);
       setStartNextMatchEnabled(message.payload.finished);
       break;
@@ -185,8 +187,14 @@ function readableEvent(events: unknown[] | undefined, localId: string | null): s
         return `${eventActorLabel(event.playerId, localId)} dropped the crystal`;
       case "objective_captured":
         return `${eventActorLabel(event.playerId, localId)} captured the crystal`;
-      case "score_changed":
-        return `${event.team ?? "team"} score ${event.score ?? ""}`.trim();
+      case "score_changed": {
+        if (event.team === "blue" || event.team === "red") {
+          const score = typeof event.score === "number" ? event.score : lastScores[event.team];
+          lastScores = { ...lastScores, [event.team]: score };
+          return `${teamLabel(event.team)} scores! ${scoreLine()}`;
+        }
+        return "Score changed";
+      }
       case "attack_hit":
         return "attack hit";
       case "player_dashed":
@@ -209,6 +217,21 @@ function eventActorLabel(playerId: string | undefined, localId: string | null): 
 
 function isEventRecord(value: unknown): value is { type: string; playerId?: string; team?: string; score?: number } {
   return typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
+}
+
+function scoresFromSnapshot(scores: Array<{ team: string; score: number }>): { blue: number; red: number } {
+  return {
+    blue: scores.find((score) => score.team === "blue")?.score ?? 0,
+    red: scores.find((score) => score.team === "red")?.score ?? 0
+  };
+}
+
+function scoreLine(): string {
+  return `Blue ${lastScores.blue} - ${lastScores.red} Red`;
+}
+
+function teamLabel(team: "blue" | "red"): string {
+  return team === "blue" ? "Blue" : "Red";
 }
 
 function requireElement<T extends Element>(selector: string): T {

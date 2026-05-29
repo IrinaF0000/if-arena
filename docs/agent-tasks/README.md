@@ -69,5 +69,6 @@ Recommended order:
 52. `0057-pre-push-baseline-inspection.md`
 53. `0058-desktop-mobile-scenario-consistency.md`
 54. `0059-rematch-from-current-screen.md`
+55. `0060-score-capture-winner-clarity.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

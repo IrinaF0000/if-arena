@@ -5,7 +5,7 @@
 State: committed
 Branch: `agent/0047-playable-stabilization`
 Task packet: `docs/agent-tasks/0063-object-taxonomy-and-danger-semantics.md`
-Commit: `5b0da57`
+Implementation commit: `5e5c7f6`
 
 ## Scope
 

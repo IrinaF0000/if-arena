@@ -25,6 +25,7 @@ namespace if_arena::battle_protocol
 		AuthResult,
 		CreateMatch,
 		JoinMatch,
+		StartNextMatch,
 		MatchJoined,
 		InputCommand,
 		InputAck,

@@ -214,6 +214,18 @@ namespace if_arena::battle_qt_client::network
 		sendEnvelope(MessageType::JoinMatch, payload);
 	}
 
+	void NetworkClient::startNextMatch()
+	{
+		if (_matchId.isEmpty())
+		{
+			emit eventReceived("Cannot start next match before joining.");
+			return;
+		}
+		QJsonObject payload;
+		payload.insert("matchId", _matchId);
+		sendEnvelope(MessageType::StartNextMatch, payload);
+	}
+
 	void NetworkClient::sendIntent(ClientIntent intent)
 	{
 		if (intent.kind == ClientIntentKind::Aim)
@@ -423,6 +435,7 @@ namespace if_arena::battle_qt_client::network
 			_matchId = parsed.value->matchId;
 			_matchCode = parsed.value->matchCode;
 			_scenarioId = parsed.value->scenario.id;
+			_sessionSeq = 1;
 			_phase = ProtocolPhase::InMatch;
 			setState(ConnectionState::InMatch);
 			emit matchJoined(_matchId, _matchCode, _scenarioId);
@@ -469,6 +482,7 @@ namespace if_arena::battle_qt_client::network
 		case MessageType::AuthRequest:
 		case MessageType::CreateMatch:
 		case MessageType::JoinMatch:
+		case MessageType::StartNextMatch:
 		case MessageType::InputCommand:
 		case MessageType::Handshake:
 			fail("Server sent a client-originated message type.");

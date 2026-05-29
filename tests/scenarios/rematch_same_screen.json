@@ -1,0 +1,35 @@
+{
+  "name": "rematch_same_screen",
+  "gameScenario": "config/scenarios/arena_small_objective_run.json",
+  "gameOverrides": {
+    "objective": {
+      "scoreLimit": 1
+    }
+  },
+  "server": {
+    "tickRate": 20,
+    "snapshotRate": 10,
+    "maxInputCommandsPerSecond": 60,
+    "maxPendingCommandsPerSession": 128
+  },
+  "steps": [
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 15 },
+    { "actor": "blue", "command": "stop", "ticks": 2 },
+    { "assert": "objective_picked", "by": "blue" },
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": 1 }, "ticks": 17 },
+    { "actor": "blue", "command": "stop", "ticks": 2 },
+    { "assert": "score", "team": "blue", "equals": 1 },
+    { "assert": "finished", "equals": true },
+    { "actor": "blue", "command": "start_next_match", "ticks": 1 },
+    { "assert": "score", "team": "blue", "equals": 0 },
+    { "assert": "score", "team": "red", "equals": 0 },
+    { "assert": "finished", "equals": false },
+    { "assert": "objective_state", "state": "at_spawn" },
+    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 4 }
+  ],
+  "movementAssertions": {
+    "smooth": true,
+    "noTeleportExceptRespawn": true,
+    "respectMaxSpeed": true
+  }
+}

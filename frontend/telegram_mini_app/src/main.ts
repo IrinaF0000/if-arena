@@ -31,6 +31,7 @@ root.innerHTML = `
         <input id="join-code" autocomplete="off" maxlength="32" placeholder="M1" />
       </label>
       <button id="join-match">Join</button>
+      <button id="start-next-match">Next</button>
     </section>
     <section class="controls" aria-label="Player controls">
       <button id="move-up">↑</button>
@@ -51,6 +52,7 @@ const canvas = requireElement<HTMLCanvasElement>("#arena");
 const stateLabel = requireElement<HTMLParagraphElement>("#connection-state");
 const matchLine = requireElement<HTMLParagraphElement>("#match-line");
 const joinCodeInput = requireElement<HTMLInputElement>("#join-code");
+const startNextMatchButton = requireElement<HTMLButtonElement>("#start-next-match");
 const arena = new ArenaCanvas(canvas);
 let localPlayerId: string | null = null;
 
@@ -97,7 +99,12 @@ document.querySelector<HTMLButtonElement>("#join-match")?.addEventListener("clic
   client.joinMatch(joinCodeInput.value);
 });
 
+startNextMatchButton.addEventListener("click", () => {
+  client.startNextMatch();
+});
+
 updateConnectionState("disconnected");
+setStartNextMatchEnabled(false);
 arena.render();
 
 function handleMessage(message: IncomingMessage): void {
@@ -112,10 +119,12 @@ function handleMessage(message: IncomingMessage): void {
     case "match_joined":
       matchLine.textContent = `Match ${message.payload.matchId} | Code ${message.payload.matchCode} | ${message.payload.scenario.id}`;
       joinCodeInput.value = message.payload.matchCode;
+      setStartNextMatchEnabled(false);
       break;
     case "snapshot":
       matchLine.textContent = `Match ${message.payload.matchId} | ${message.payload.scenario.id}`;
       arena.setSnapshot(message.payload, localPlayerId);
+      setStartNextMatchEnabled(message.payload.finished);
       break;
     case "input_ack":
       if (!message.payload.accepted) {
@@ -143,6 +152,13 @@ function handleMessage(message: IncomingMessage): void {
 function updateConnectionState(state: ConnectionState): void {
   stateLabel.textContent = state;
   arena.setStatus(state);
+  if (state !== "in_match") {
+    setStartNextMatchEnabled(false);
+  }
+}
+
+function setStartNextMatchEnabled(enabled: boolean): void {
+  startNextMatchButton.disabled = !enabled;
 }
 
 function updateEventStatus(events: unknown[] | undefined): void {

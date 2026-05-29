@@ -221,6 +221,19 @@ namespace if_arena::battle_backend
 			return serialized.ok() ? *serialized.json : std::string{"{\"version\":1,\"type\":\"snapshot\",\"payload\":{}}"};
 		}
 
+		std::string matchJoinedPayload(MatchId match, std::string_view matchCode, const ScenarioMetadata& metadata,
+		                               battle_core::ArenaTeam team)
+		{
+			std::ostringstream output;
+			output << "{\"matchId\":\"" << match.value << "\",\"matchCode\":\"" << matchCode << "\","
+			       << scenarioJson(metadata) << ",\"team\":\"" << teamName(team) << "\"}";
+			battle_protocol::Envelope envelope;
+			envelope.type = battle_protocol::MessageType::MatchJoined;
+			envelope.payloadJson = output.str();
+			const auto serialized = battle_protocol::serializeEnvelope(envelope);
+			return serialized.ok() ? *serialized.json : std::string{"{\"version\":1,\"type\":\"match_joined\",\"payload\":{}}"};
+		}
+
 		std::string eventBatchPayload(MatchId match, const std::vector<battle_core::BattleEvent>& events)
 		{
 			const auto tick = events.empty() ? 0 : events.back().tick;
@@ -455,6 +468,11 @@ namespace if_arena::battle_backend
 		return result.accepted;
 	}
 
+	bool StartNextMatchResult::accepted() const
+	{
+		return result.accepted;
+	}
+
 	MatchManager::MatchManager(SessionRegistry& sessions, BackendLimits limits, PlayableScenarioConfig scenario)
 		: _sessions(sessions),
 		  _limits(limits),
@@ -575,6 +593,84 @@ namespace if_arena::battle_backend
 			return JoinMatchResult{started, std::nullopt, std::nullopt};
 		}
 		return JoinMatchResult{accepted(), match->id, session->player()};
+	}
+
+	StartNextMatchResult MatchManager::startNextMatch(SessionId requester, MatchId previous)
+	{
+		auto* session = _sessions.find(requester);
+		if (session == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::NotFound), std::nullopt, {}};
+		}
+		if (session->authState() == SessionAuthState::Closed)
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::Closed), std::nullopt, {}};
+		}
+
+		const auto* previousMatch = findMatch(previous);
+		if (previousMatch == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::InvalidMatch), std::nullopt, {}};
+		}
+		if (findParticipant(*previousMatch, requester) == nullptr)
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::InvalidOwnership), std::nullopt, {}};
+		}
+		if (!previousMatch->engine.has_value())
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::MatchNotStarted), std::nullopt, {}};
+		}
+		if (!previousMatch->engine->snapshot().finished)
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::MatchNotFinished), std::nullopt, {}};
+		}
+		if (_matches.size() >= _limits.maxMatches)
+		{
+			++_metrics.commandsRejected;
+			return StartNextMatchResult{rejected(BackendRejectReason::CapacityReached), std::nullopt, {}};
+		}
+
+		MatchRecord record;
+		record.id = MatchId{_nextMatchId++};
+		record.joinCode = "M" + std::to_string(record.id.value);
+		record.participants.reserve(previousMatch->participants.size());
+		for (const auto& participant : previousMatch->participants)
+		{
+			record.participants.push_back(Participant{
+				participant.session,
+				participant.player,
+				participant.corePlayer,
+				participant.team,
+				0,
+				0,
+			});
+		}
+		record.engine.emplace(makeMatchConfig(record));
+		_matches.push_back(std::move(record));
+		++_metrics.activeMatches;
+		++_metrics.matchesCreated;
+		for (const auto& participant : _matches.back().participants)
+		{
+			auto* targetSession = _sessions.find(participant.session);
+			if (targetSession == nullptr || targetSession->authState() == SessionAuthState::Closed)
+			{
+				continue;
+			}
+			const auto enqueued =
+				targetSession->enqueueOutbound(matchJoinedPayload(_matches.back().id, _matches.back().joinCode,
+				                                                  scenarioMetadata(), participant.team));
+			if (!enqueued.accepted && enqueued.reason == BackendRejectReason::QueueFull)
+			{
+				++_metrics.queueOverflows;
+			}
+		}
+		return StartNextMatchResult{accepted(), _matches.back().id, _matches.back().joinCode};
 	}
 
 	BackendResult MatchManager::submitCommand(SessionId sessionId, MatchId matchId, std::uint64_t sessionSeq,

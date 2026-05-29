@@ -176,6 +176,41 @@ for (const [kind, direction] of [
   assert.equal(socket.sent.at(-1).payload.command.kind, kind);
 }
 
+socket.message({
+  version: 1,
+  type: "snapshot",
+  payload: {
+    matchId: "1",
+    tick: 42,
+    serverTick: 42,
+    finished: true,
+    scenario,
+    map: { width: 21, height: 13 },
+    obstacles: [],
+    players: [],
+    objective: {
+      state: "captured",
+      x: 10,
+      y: 11,
+      carrierPlayerId: "0",
+      pickupLockTicks: 0,
+      respawnTicks: 0
+    },
+    scores: [{ team: "red", score: 3 }],
+    hazards: []
+  }
+});
+client.startNextMatch();
+assert.equal(socket.sent.at(-1).type, "start_next_match");
+assert.equal(socket.sent.at(-1).payload.matchId, "1");
+assert.equal(socket.sent.at(-1).sessionSeq, undefined, "next match request is not a gameplay sequence command");
+
+socket.message({ version: 1, type: "match_joined", payload: { matchId: "2", matchCode: "M2", scenario, team: "red" } });
+client.sendCommand("stop");
+assert.equal(socket.sent.at(-1).type, "input_command");
+assert.equal(socket.sent.at(-1).sessionSeq, 1, "fresh match resets gameplay sequence");
+assert.equal(socket.sent.at(-1).payload.matchId, "2");
+
 socket.message({ version: 1, type: "ping", payload: {} });
 assert.equal(socket.sent.at(-1).version, 1);
 assert.equal(socket.sent.at(-1).type, "pong");

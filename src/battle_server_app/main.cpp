@@ -920,6 +920,8 @@ namespace
 			return "invalid_match";
 		case BackendRejectReason::MatchNotStarted:
 			return "match_not_started";
+		case BackendRejectReason::MatchNotFinished:
+			return "match_not_finished";
 		case BackendRejectReason::MatchFull:
 			return "match_full";
 		case BackendRejectReason::InvalidOwnership:
@@ -994,6 +996,14 @@ namespace
 		}
 		state.activeMatchTicks.push_back(
 		    TcpRuntimeState::ActiveMatchTick{match, now + state.tickInterval, now + state.snapshotInterval});
+	}
+
+	void deactivateTcpMatchTicker(TcpRuntimeState& state, MatchId match)
+	{
+		state.activeMatchTicks.erase(
+			std::remove_if(state.activeMatchTicks.begin(), state.activeMatchTicks.end(),
+			               [match](const auto& active) { return active.match.value == match.value; }),
+			state.activeMatchTicks.end());
 	}
 
 	void advanceDueTcpMatches(TcpRuntimeState& state, std::chrono::steady_clock::time_point now)
@@ -1249,6 +1259,31 @@ namespace
 				continue;
 			}
 
+			if (parsed.envelope->type == MessageType::StartNextMatch)
+			{
+				const auto matchId = stringField(parsed.envelope->payloadJson, "matchId");
+				const auto parsedMatch = matchId.has_value() ? parseUint64Text(*matchId) : std::nullopt;
+				if (!parsedMatch.has_value())
+				{
+					sendError(connection, "start_next_match_rejected", "invalid match id");
+					continue;
+				}
+				std::lock_guard lock(state.mutex);
+				const auto started = state.matches.startNextMatch(sessionId, MatchId{*parsedMatch});
+				if (!started.accepted() || !started.match.has_value())
+				{
+					sendError(connection, "start_next_match_rejected", backendReasonName(started.result.reason));
+					continue;
+				}
+				deactivateTcpMatchTicker(state, MatchId{*parsedMatch});
+				currentMatch = *started.match;
+				phase = ClientSessionPhase::InMatch;
+				activateTcpMatchTicker(state, *currentMatch, std::chrono::steady_clock::now());
+				state.matches.tick(*currentMatch);
+				flushAllSessions(state);
+				continue;
+			}
+
 			if (parsed.envelope->type == MessageType::InputCommand)
 			{
 				MatchId match{};
@@ -1365,6 +1400,14 @@ namespace
 		}
 		state.activeMatchTicks.push_back(
 		    WebSocketRuntimeState::ActiveMatchTick{match, now + state.tickInterval, now + state.snapshotInterval});
+	}
+
+	void deactivateWebSocketMatchTicker(WebSocketRuntimeState& state, MatchId match)
+	{
+		state.activeMatchTicks.erase(
+			std::remove_if(state.activeMatchTicks.begin(), state.activeMatchTicks.end(),
+			               [match](const auto& active) { return active.match.value == match.value; }),
+			state.activeMatchTicks.end());
 	}
 
 	void advanceDueWebSocketMatches(WebSocketRuntimeState& state, std::chrono::steady_clock::time_point now)
@@ -1519,6 +1562,31 @@ namespace
 				adapter.markInMatch();
 				sendServerEnvelope(connection, MessageType::MatchJoined,
 				                   matchJoinedPayload(*joined.match, *joinCode, state.matches.scenarioMetadata(), "red"));
+				activateWebSocketMatchTicker(state, *currentMatch, WebSocketSessionAdapter::Clock::now());
+				state.matches.tick(*currentMatch);
+				flushAllSessions(state);
+				continue;
+			}
+
+			if (received.envelope->type == MessageType::StartNextMatch)
+			{
+				const auto matchId = stringField(received.envelope->payloadJson, "matchId");
+				const auto parsedMatch = matchId.has_value() ? parseUint64Text(*matchId) : std::nullopt;
+				if (!parsedMatch.has_value())
+				{
+					sendError(connection, "start_next_match_rejected", "invalid match id");
+					continue;
+				}
+				std::lock_guard lock(state.mutex);
+				const auto started = state.matches.startNextMatch(sessionId, MatchId{*parsedMatch});
+				if (!started.accepted() || !started.match.has_value())
+				{
+					sendError(connection, "start_next_match_rejected", backendReasonName(started.result.reason));
+					continue;
+				}
+				deactivateWebSocketMatchTicker(state, MatchId{*parsedMatch});
+				currentMatch = *started.match;
+				adapter.markInMatch();
 				activateWebSocketMatchTicker(state, *currentMatch, WebSocketSessionAdapter::Clock::now());
 				state.matches.tick(*currentMatch);
 				flushAllSessions(state);

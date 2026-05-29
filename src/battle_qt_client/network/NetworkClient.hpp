@@ -57,6 +57,7 @@ namespace if_arena::battle_qt_client::network
 		void disconnectFromServer();
 		void createMatch();
 		void joinMatch(QString matchCode);
+		void startNextMatch();
 		void sendIntent(if_arena::battle_qt_client::game::ClientIntent intent);
 
 	signals:

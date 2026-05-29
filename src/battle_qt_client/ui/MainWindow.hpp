@@ -51,6 +51,7 @@ namespace if_arena::battle_qt_client::ui
 		QPushButton* _disconnect{};
 		QPushButton* _create{};
 		QPushButton* _join{};
+		QPushButton* _nextMatch{};
 		QLabel* _connection{};
 		QLabel* _identity{};
 		QLabel* _hud{};
@@ -62,5 +63,6 @@ namespace if_arena::battle_qt_client::ui
 		if_arena::battle_qt_client::game::MovementInputController _movementInput;
 		if_arena::battle_qt_client::game::Direction _aimDirection{0, -1};
 		bool _hasAimDirection{};
+		bool _matchFinished{};
 	};
 }

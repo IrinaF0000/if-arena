@@ -46,6 +46,18 @@ namespace
 		}
 	}
 
+	int scoreFor(const if_arena::battle_core::BattleSnapshot& snapshot, if_arena::battle_core::ArenaTeam team)
+	{
+		for (const auto& score : snapshot.scores)
+		{
+			if (score.team == team)
+			{
+				return static_cast<int>(score.score);
+			}
+		}
+		throw std::runtime_error("missing score");
+	}
+
 	std::string readRepoFile(const std::filesystem::path& relative)
 	{
 		for (const auto& root : {std::filesystem::path{"."}, std::filesystem::path{".."}})
@@ -384,6 +396,72 @@ namespace
 		require(harness.manager.metrics().snapshotsBroadcast >= 20, "snapshots broadcast during full fake-session match");
 	}
 
+	void startNextMatchRequiresFinishedOwnedMatch()
+	{
+		MatchHarness harness;
+		const auto early = harness.manager.startNextMatch(harness.blue, harness.match);
+		require(!early.accepted(), "next match before finish is rejected");
+		require(early.result.reason == BackendRejectReason::MatchNotFinished, "unfinished match reason returned");
+
+		std::uint64_t seq = 1;
+		const BackendCommand moveNorth{BackendCommandKind::Move, {0, -1}};
+		const BackendCommand moveSouth{BackendCommandKind::Move, {0, 1}};
+		const BackendCommand stop{BackendCommandKind::Stop, {}};
+		for (int step = 0; step < 14; ++step)
+		{
+			require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveNorth).accepted,
+			        "blue movement toward objective accepted for rematch setup");
+			require(harness.manager.tick(harness.match).accepted, "setup movement tick accepted");
+		}
+		require(harness.manager.submitCommand(harness.blue, harness.match, seq++, stop).accepted,
+		        "blue stop at objective accepted for rematch setup");
+		require(harness.manager.tick(harness.match).accepted, "setup pickup tick accepted");
+		for (int step = 0; step < 24; ++step)
+		{
+			require(harness.manager.submitCommand(harness.blue, harness.match, seq++, moveSouth).accepted,
+			        "blue return movement accepted for rematch setup");
+			require(harness.manager.tick(harness.match).accepted, "setup return tick accepted");
+			const auto progress = harness.manager.view(harness.match);
+			if (progress.has_value() && progress->snapshot.has_value() && progress->snapshot->finished)
+			{
+				break;
+			}
+		}
+		const auto finished = harness.manager.view(harness.match);
+		require(finished.has_value() && finished->snapshot.has_value() && finished->snapshot->finished,
+		        "previous match is finished before starting next match");
+
+		const auto started = harness.manager.startNextMatch(harness.red, harness.match);
+		require(started.accepted(), "finished match can start next match");
+		require(started.match.has_value(), "next match id returned");
+		require(!(started.match->value == harness.match.value), "next match receives a fresh id");
+		const auto nextView = harness.manager.view(*started.match);
+		require(nextView.has_value() && nextView->started, "next match starts immediately with same participants");
+		require(nextView->snapshot.has_value() && !nextView->snapshot->finished, "next match snapshot is reset");
+		require(scoreFor(*nextView->snapshot, if_arena::battle_core::ArenaTeam::Blue) == 0, "blue score resets");
+		require(scoreFor(*nextView->snapshot, if_arena::battle_core::ArenaTeam::Red) == 0, "red score resets");
+		require(harness.manager.submitCommand(harness.blue, *started.match, 1, stop).accepted,
+		        "next match accepts fresh per-session sequence");
+
+		harness.registry.find(harness.blue)->flushOutbound();
+		harness.registry.find(harness.red)->flushOutbound();
+		const auto expectedId = "\"matchId\":\"" + std::to_string(started.match->value) + "\"";
+		require(std::any_of(harness.blueOutbound.sent.begin(), harness.blueOutbound.sent.end(),
+		                    [&expectedId](const std::string& payload) {
+			                    return payload.find("\"type\":\"match_joined\"") != std::string::npos &&
+			                           payload.find(expectedId) != std::string::npos &&
+			                           payload.find("\"team\":\"blue\"") != std::string::npos;
+		                    }),
+		        "blue receives next match joined payload");
+		require(std::any_of(harness.redOutbound.sent.begin(), harness.redOutbound.sent.end(),
+		                    [&expectedId](const std::string& payload) {
+			                    return payload.find("\"type\":\"match_joined\"") != std::string::npos &&
+			                           payload.find(expectedId) != std::string::npos &&
+			                           payload.find("\"team\":\"red\"") != std::string::npos;
+		                    }),
+		        "red receives next match joined payload");
+	}
+
 	void wrongSessionAndUnstartedMatchCommandsRejected()
 	{
 		FakeOutboundSession ownerOutbound;
@@ -507,6 +585,7 @@ int main()
 		{"commandsAreOwnedSequencedAndBroadcast", commandsAreOwnedSequencedAndBroadcast},
 		{"tickCanAdvanceWithoutSnapshotBroadcast", tickCanAdvanceWithoutSnapshotBroadcast},
 		{"completeObjectiveRunMatchWithFakeSessions", completeObjectiveRunMatchWithFakeSessions},
+		{"startNextMatchRequiresFinishedOwnedMatch", startNextMatchRequiresFinishedOwnedMatch},
 		{"wrongSessionAndUnstartedMatchCommandsRejected", wrongSessionAndUnstartedMatchCommandsRejected},
 		{"commandQueueBoundRejectsSpamBeforeCore", commandQueueBoundRejectsSpamBeforeCore},
 		{"spamAndSlowSessionAreBounded", spamAndSlowSessionAreBounded},

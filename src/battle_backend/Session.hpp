@@ -55,6 +55,7 @@ namespace if_arena::battle_backend
 		NotFound,
 		InvalidMatch,
 		MatchNotStarted,
+		MatchNotFinished,
 		MatchFull,
 		InvalidOwnership,
 		InvalidSequence,

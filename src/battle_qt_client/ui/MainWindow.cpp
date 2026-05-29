@@ -65,9 +65,11 @@ namespace if_arena::battle_qt_client::ui
 		_joinCode = new QLineEdit(root);
 		_joinCode->setPlaceholderText("Match code");
 		_join = new QPushButton("Join", root);
+		_nextMatch = new QPushButton("Next match", root);
 		lobbyRow->addWidget(_create);
 		lobbyRow->addWidget(_joinCode, 1);
 		lobbyRow->addWidget(_join);
+		lobbyRow->addWidget(_nextMatch);
 
 		auto* statusRow = new QHBoxLayout();
 		_connection = new QLabel("disconnected", root);
@@ -96,7 +98,7 @@ namespace if_arena::battle_qt_client::ui
 		layout->addWidget(_events);
 		setCentralWidget(root);
 		setFocusPolicy(Qt::StrongFocus);
-		for (auto* button : {_connect, _disconnect, _create, _join})
+		for (auto* button : {_connect, _disconnect, _create, _join, _nextMatch})
 		{
 			button->setFocusPolicy(Qt::NoFocus);
 			button->installEventFilter(this);
@@ -206,6 +208,7 @@ namespace if_arena::battle_qt_client::ui
 		connect(_disconnect, &QPushButton::clicked, &_client, &network::NetworkClient::disconnectFromServer);
 		connect(_create, &QPushButton::clicked, &_client, &network::NetworkClient::createMatch);
 		connect(_join, &QPushButton::clicked, this, [this] { _client.joinMatch(_joinCode->text()); });
+		connect(_nextMatch, &QPushButton::clicked, &_client, &network::NetworkClient::startNextMatch);
 		connect(_arena, &ArenaView::aimChanged, this, [this](Direction direction) {
 			_aimDirection = direction;
 			_hasAimDirection = true;
@@ -227,10 +230,14 @@ namespace if_arena::battle_qt_client::ui
 		});
 
 		connect(&_client, &network::NetworkClient::connectionStateChanged, this,
-		        [this](network::ConnectionState, const QString& label) {
+		        [this](network::ConnectionState state, const QString& label) {
 			        _connection->setText("connection " + label);
 			        _identity->setText("session " + _client.sessionId() + ", match " + _client.matchId() +
 			                           (_client.scenarioId().isEmpty() ? QString{} : ", scenario " + _client.scenarioId()));
+			        if (state != network::ConnectionState::InMatch)
+			        {
+				        _matchFinished = false;
+			        }
 			        refreshControls();
 		        });
 		connect(&_client, &network::NetworkClient::errorChanged, this, [this](const QString& message) {
@@ -247,6 +254,7 @@ namespace if_arena::battle_qt_client::ui
 			_movementKeys.clear();
 			_movementInput.reset();
 			_hasAimDirection = false;
+			_matchFinished = false;
 			_arena->setFocus(Qt::OtherFocusReason);
 			refreshControls();
 		});
@@ -254,6 +262,8 @@ namespace if_arena::battle_qt_client::ui
 		        [this](const game::ArenaSnapshot& snapshot, const QString& localPlayerId) {
 			        _arena->setSnapshot(snapshot, localPlayerId);
 			        _hud->setText(_arena->hudText());
+			        _matchFinished = snapshot.finished;
+			        refreshControls();
 		        });
 		connect(&_client, &network::NetworkClient::inputAckReceived, this,
 		        [this](bool accepted, const QString& reason) {
@@ -278,6 +288,7 @@ namespace if_arena::battle_qt_client::ui
 		_disconnect->setEnabled(!disconnected);
 		_create->setEnabled(authenticated);
 		_join->setEnabled(authenticated);
+		_nextMatch->setEnabled(inMatch && _matchFinished);
 		_joinCode->setEnabled(authenticated || inMatch);
 		if (inMatch && !_movementResendTimer.isActive())
 		{

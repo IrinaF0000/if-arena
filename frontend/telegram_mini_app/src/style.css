@@ -37,6 +37,13 @@ button:active {
   background: #39443b;
 }
 
+button:disabled {
+  color: #89918a;
+  background: #1d2421;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .app-shell {
   width: min(1180px, 100vw);
   min-height: 100vh;

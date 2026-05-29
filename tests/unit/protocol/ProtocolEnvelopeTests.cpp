@@ -135,9 +135,11 @@ namespace
 		require(messageTypeFromString("handshake") == MessageType::Handshake, "handshake type recognized");
 		require(messageTypeFromString("ping") == MessageType::Ping, "ping type recognized");
 		require(messageTypeFromString("pong") == MessageType::Pong, "pong type recognized");
+		require(messageTypeFromString("start_next_match") == MessageType::StartNextMatch, "next match type recognized");
 		require(messageTypeName(MessageType::Handshake) == "handshake", "handshake name serialized");
 		require(messageTypeName(MessageType::Ping) == "ping", "ping name serialized");
 		require(messageTypeName(MessageType::Pong) == "pong", "pong name serialized");
+		require(messageTypeName(MessageType::StartNextMatch) == "start_next_match", "next match name serialized");
 	}
 
 	void demoAuthPayloadValidates()
@@ -210,6 +212,28 @@ namespace
 		require(error.code == ProtocolErrorCode::InvalidMessageOrder, "command before joining match rejected");
 	}
 
+	void nextMatchRequestValidatesInMatchOnly()
+	{
+		const auto envelope =
+			mustParse("{\"version\":1,\"type\":\"start_next_match\",\"payload\":{\"matchId\":\"m1\"}}");
+
+		const auto accepted = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+		const auto beforeMatch = validateClientEnvelope(envelope, ClientSessionPhase::Authenticated);
+
+		require(accepted.code == ProtocolErrorCode::None, "next match request validates in match");
+		require(beforeMatch.code == ProtocolErrorCode::InvalidMessageOrder, "next match before match is rejected");
+	}
+
+	void nextMatchRejectsAuthorityFields()
+	{
+		const auto envelope =
+			mustParse("{\"version\":1,\"type\":\"start_next_match\",\"payload\":{\"matchId\":\"m1\",\"score\":9}}");
+
+		const auto error = validateClientEnvelope(envelope, ClientSessionPhase::InMatch);
+
+		require(error.code == ProtocolErrorCode::InvalidField, "next match authority field rejected");
+	}
+
 	void createMatchAfterJoinRejected()
 	{
 		const auto envelope = mustParse(
@@ -262,6 +286,8 @@ int main()
 		{"invalidDirectionRejected", invalidDirectionRejected},
 		{"inputCommandRequiresSessionSeq", inputCommandRequiresSessionSeq},
 		{"commandBeforeJoinRejected", commandBeforeJoinRejected},
+		{"nextMatchRequestValidatesInMatchOnly", nextMatchRequestValidatesInMatchOnly},
+		{"nextMatchRejectsAuthorityFields", nextMatchRejectsAuthorityFields},
 		{"createMatchAfterJoinRejected", createMatchAfterJoinRejected},
 		{"repeatedAuthRejected", repeatedAuthRejected},
 		{"serverMessagesRejectedFromClient", serverMessagesRejectedFromClient},

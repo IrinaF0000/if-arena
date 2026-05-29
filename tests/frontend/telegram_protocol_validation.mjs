@@ -34,6 +34,13 @@ const join = protocol.createJoinRequest("M1");
 assert.equal(join.version, 1);
 assert.deepEqual(join.payload, { matchCode: "M1" });
 
+const next = protocol.createStartNextMatchRequest("1");
+assert.equal(next.version, 1);
+assert.equal(next.type, "start_next_match");
+assert.deepEqual(next.payload, { matchId: "1" });
+
+const scenario = { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" };
+
 const validSnapshot = protocol.parseIncomingMessage(
   JSON.stringify({
     version: 1,
@@ -43,6 +50,7 @@ const validSnapshot = protocol.parseIncomingMessage(
       tick: 3,
       serverTick: 3,
       finished: false,
+      scenario,
       map: { width: 21, height: 13 },
       obstacles: [{ x: 7, y: 5 }],
       players: [
@@ -68,8 +76,36 @@ const validSnapshot = protocol.parseIncomingMessage(
       },
       scores: [{ team: "blue", score: 0 }],
       hazards: [
-        { kind: "mine", x: 7, y: 4, cooldown: 0, triggered: false },
-        { kind: "crow", x: 10, y: 5, cooldown: 0, triggered: false }
+        {
+          id: "mine_left",
+          kind: "mine",
+          x: 7,
+          y: 4,
+          radius: 0.7,
+          range: 1,
+          damage: 12,
+          effect: "damage_drop_objective",
+          trigger: "proximity",
+          icon: "hazard_mine",
+          cooldownTicks: 30,
+          cooldown: 0,
+          triggered: false
+        },
+        {
+          id: "center_crow",
+          kind: "crow",
+          x: 10,
+          y: 5,
+          radius: 0.65,
+          range: 1.5,
+          damage: 6,
+          effect: "damage_drop_objective",
+          trigger: "proximity",
+          icon: "hazard_crow",
+          cooldownTicks: 8,
+          cooldown: 0,
+          triggered: false
+        }
       ]
     }
   })
@@ -139,6 +175,7 @@ const invalidObstacleSnapshot = protocol.parseIncomingMessage(
       tick: 3,
       serverTick: 3,
       finished: false,
+      scenario,
       map: { width: 21, height: 13 },
       obstacles: [{ x: "7", y: 5 }],
       players: [],

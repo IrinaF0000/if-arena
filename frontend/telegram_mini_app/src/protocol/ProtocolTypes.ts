@@ -173,7 +173,7 @@ export type IncomingMessage = ServerMessage | ClientParseError;
 
 export type ClientEnvelope = {
   version: typeof protocolVersion;
-  type: "auth_request" | "create_match" | "join_match" | "input_command" | "pong";
+  type: "auth_request" | "create_match" | "join_match" | "start_next_match" | "input_command" | "pong";
   requestId?: string;
   sessionSeq?: number;
   payload: Record<string, unknown>;
@@ -225,6 +225,15 @@ export function createJoinRequest(matchCode: string): ClientEnvelope {
     type: "join_match",
     requestId: requestId(),
     payload: { matchCode }
+  };
+}
+
+export function createStartNextMatchRequest(matchId: string): ClientEnvelope {
+  return {
+    version: protocolVersion,
+    type: "start_next_match",
+    requestId: requestId(),
+    payload: { matchId }
   };
 }
 

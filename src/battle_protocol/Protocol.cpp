@@ -506,6 +506,10 @@ namespace if_arena::battle_protocol
 		{
 			return MessageType::JoinMatch;
 		}
+		if (value == "start_next_match")
+		{
+			return MessageType::StartNextMatch;
+		}
 		if (value == "match_joined")
 		{
 			return MessageType::MatchJoined;
@@ -557,6 +561,8 @@ namespace if_arena::battle_protocol
 			return "create_match";
 		case MessageType::JoinMatch:
 			return "join_match";
+		case MessageType::StartNextMatch:
+			return "start_next_match";
 		case MessageType::MatchJoined:
 			return "match_joined";
 		case MessageType::InputCommand:
@@ -680,6 +686,12 @@ namespace if_arena::battle_protocol
 				return rejectOrder();
 			}
 			break;
+		case MessageType::StartNextMatch:
+			if (phase != ClientSessionPhase::InMatch)
+			{
+				return rejectOrder();
+			}
+			break;
 		case MessageType::AuthRequest:
 		case MessageType::Handshake:
 			if (phase != ClientSessionPhase::Connected)
@@ -755,6 +767,15 @@ namespace if_arena::battle_protocol
 		if (envelope.type == MessageType::JoinMatch)
 		{
 			return requireStringField(*payload, "matchCode", 32);
+		}
+
+		if (envelope.type == MessageType::StartNextMatch)
+		{
+			if (hasForbiddenAuthorityField(*payload))
+			{
+				return validationError(ProtocolErrorCode::InvalidField, "next match request contains authority field");
+			}
+			return requireStringField(*payload, "matchId", 64);
 		}
 
 		if (envelope.type == MessageType::InputCommand)

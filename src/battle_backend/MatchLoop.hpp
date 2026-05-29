@@ -51,6 +51,15 @@ namespace if_arena::battle_backend
 		[[nodiscard]] bool accepted() const;
 	};
 
+	struct StartNextMatchResult
+	{
+		BackendResult result;
+		std::optional<MatchId> match;
+		std::string joinCode;
+
+		[[nodiscard]] bool accepted() const;
+	};
+
 	struct ScenarioMetadata
 	{
 		std::string id{"arena_small_objective_run"};
@@ -90,6 +99,7 @@ namespace if_arena::battle_backend
 
 		CreateMatchResult createMatch(SessionId owner);
 		JoinMatchResult joinMatch(SessionId session, std::string_view joinCode);
+		StartNextMatchResult startNextMatch(SessionId requester, MatchId previous);
 		BackendResult submitCommand(SessionId session, MatchId match, std::uint64_t sessionSeq,
 		                            BackendCommand command, std::optional<PlayerId> claimedPlayer = std::nullopt);
 		BackendResult tick(MatchId match, bool broadcastSnapshot = true);

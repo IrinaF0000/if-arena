@@ -94,6 +94,7 @@ auth_request
 auth_result
 create_match
 join_match
+start_next_match
 match_joined
 input_command
 input_ack
@@ -240,6 +241,23 @@ Backend must validate `initData` before trusting Telegram identity.
   }
 }
 ```
+
+### 6.4 Start next match
+
+After an authoritative snapshot reports `finished: true`, either participant may request a fresh match with the same server-owned scenario and participants:
+
+```json
+{
+  "version": 1,
+  "type": "start_next_match",
+  "requestId": "r4",
+  "payload": {
+    "matchId": "m_1"
+  }
+}
+```
+
+The server rejects requests before match completion, from non-participants, or with client-owned authority fields. A successful request emits a new `match_joined` payload and fresh snapshots; clients must treat the returned `matchId` as a new match and reset gameplay command sequencing.
 
 ## 7. Input commands
 

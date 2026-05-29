@@ -257,6 +257,10 @@ def send_command(client: ScenarioClient, match_id: str, step: dict[str, Any]) ->
     require(ack["payload"]["accepted"] is True, f"input rejected: {ack}")
 
 
+def send_start_next_match(client: ScenarioClient, match_id: str) -> None:
+    client.send_json({"version": 1, "type": "start_next_match", "payload": {"matchId": match_id}})
+
+
 def latest_snapshots_until(client: ScenarioClient, target_tick: int) -> list[dict[str, Any]]:
     snapshots: list[dict[str, Any]] = []
     last_tick = -1
@@ -269,7 +273,7 @@ def latest_snapshots_until(client: ScenarioClient, target_tick: int) -> list[dic
         snapshot = message["payload"]
         snapshots.append(snapshot)
         last_tick = int(snapshot["tick"])
-        if last_tick >= target_tick:
+        if last_tick >= target_tick or snapshot.get("finished") is True:
             return snapshots
     raise AssertionError(f"snapshot stream did not reach tick {target_tick}; last tick={last_tick}")
 
@@ -293,6 +297,30 @@ def load_game_config(scenario: dict[str, Any]) -> dict[str, Any]:
     game_config = json.loads(path.read_text(encoding="utf-8"))
     require(isinstance(game_config, dict), "game scenario config must be an object")
     return game_config
+
+
+def merged_config(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    result = json.loads(json.dumps(base))
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = merged_config(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def prepare_game_config(scenario: dict[str, Any], temp_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    game_config = load_game_config(scenario)
+    overrides = scenario.get("gameOverrides", {})
+    if not overrides:
+        return scenario, game_config
+    require(isinstance(overrides, dict), "gameOverrides must be an object")
+    merged = merged_config(game_config, overrides)
+    game_path = temp_dir / "game.scenario.json"
+    game_path.write_text(json.dumps(merged), encoding="utf-8")
+    runtime_scenario = dict(scenario)
+    runtime_scenario["gameScenario"] = str(game_path)
+    return runtime_scenario, merged
 
 
 def scenario_metadata(value: dict[str, Any]) -> dict[str, Any]:
@@ -355,6 +383,9 @@ def assert_step(step: dict[str, Any], snapshot: dict[str, Any], actors: dict[str
             f"unexpected objective state: {snapshot['objective']} players={snapshot['players']}",
         )
         return
+    if step["assert"] == "finished":
+        require(snapshot["finished"] is bool(step["equals"]), f"unexpected finished state: {snapshot}")
+        return
     if step["assert"] == "events":
         observed = actors["blue"].events
         for expected in step["contains"]:
@@ -383,11 +414,12 @@ def event_matches(event: dict[str, Any], expected: dict[str, Any], actors: dict[
 def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
     require(transport in {"desktop", "mobile"}, "transport must be desktop or mobile")
     require(SERVER_EXE.exists(), f"missing server executable: {SERVER_EXE}")
-    game_config = load_game_config(scenario)
     port = free_port()
     with tempfile.TemporaryDirectory(prefix=f"if-arena-{transport}-scenario-") as temp:
-        config = Path(temp) / "server.local.json"
-        write_server_config(config, scenario, transport, port)
+        temp_dir = Path(temp)
+        runtime_scenario, game_config = prepare_game_config(scenario, temp_dir)
+        config = temp_dir / "server.local.json"
+        write_server_config(config, runtime_scenario, transport, port)
         server = subprocess.Popen(
             [str(SERVER_EXE), "--config", str(config), "--max-clients", "2"],
             cwd=ROOT,
@@ -426,12 +458,36 @@ def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
             for step in scenario["steps"]:
                 if "command" in step:
                     actor = actors[step["actor"]]
+                    if step["command"] == "start_next_match":
+                        previous_match_id = match_id
+                        send_start_next_match(actor, match_id)
+                        joined_blue = expect_type(blue, "match_joined")
+                        joined_red = expect_type(red, "match_joined")
+                        match_id = str(joined_blue["payload"]["matchId"])
+                        require(match_id != previous_match_id, "next match did not receive a fresh match id")
+                        require(str(joined_red["payload"]["matchId"]) == match_id, "players joined different next matches")
+                        blue.session_seq = 1
+                        red.session_seq = 1
+                        snapshot = expect_type(blue, "snapshot")["payload"]
+                        red_snapshot = expect_type(red, "snapshot")["payload"]
+                        assert_same_scenario_metadata(joined_blue["payload"], joined_red["payload"], snapshot, red_snapshot)
+                        assert_authoritative_layout(snapshot, game_config)
+                        assert_authoritative_layout(red_snapshot, game_config)
+                        require(score(snapshot, "blue") == 0 and score(snapshot, "red") == 0, "next match scores did not reset")
+                        require(snapshot["finished"] is False, "next match starts finished")
+                        snapshots_for_assertions.append(snapshot)
+                        continue
                     send_command(actor, match_id, step)
                     target_tick = int(snapshot["tick"]) + int(step.get("ticks", 1))
                     snapshots = latest_snapshots_until(blue, target_tick)
                     snapshots_for_assertions.extend(snapshots)
                     snapshot = snapshots[-1]
-                    if step["command"] == "move" and scenario.get("movementAssertions", {}).get("smooth", False):
+                    if (
+                        step["command"] == "move"
+                        and scenario.get("movementAssertions", {}).get("smooth", False)
+                        and len(snapshots) > 1
+                        and snapshot.get("finished") is not True
+                    ):
                         assert_smooth(snapshots, actor.session_id)
                     continue
                 if "assert" in step:

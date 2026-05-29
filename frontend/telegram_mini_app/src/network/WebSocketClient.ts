@@ -8,6 +8,7 @@ import {
   createJoinRequest,
   createMatchRequest,
   createPong,
+  createStartNextMatchRequest,
   parseIncomingMessage
 } from "../protocol/ProtocolTypes";
 
@@ -80,6 +81,13 @@ export class WebSocketClient {
     if (trimmed.length > 0) {
       this.send(createJoinRequest(trimmed));
     }
+  }
+
+  public startNextMatch(): void {
+    if (!this.matchId) {
+      return;
+    }
+    this.send(createStartNextMatchRequest(this.matchId));
   }
 
   public sendCommand(kind: CommandKind, direction?: Direction): void {

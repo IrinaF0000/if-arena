@@ -293,6 +293,13 @@ namespace
 			               payload.find("\"cooldownTicks\":20") != std::string::npos;
 		        }),
 		        "snapshot payload broadcasts hazard metadata");
+		require(std::any_of(harness.blueOutbound.sent.begin(), harness.blueOutbound.sent.end(), [](const std::string& payload) {
+			        return payload.find("\"scenario\":{\"id\":\"arena_small_objective_run\"") != std::string::npos &&
+			               payload.find("\"mode\":\"objective_run\"") != std::string::npos &&
+			               payload.find("\"version\":1") != std::string::npos &&
+			               payload.find("\"source\":\"server_config\"") != std::string::npos;
+		        }),
+		        "snapshot payload broadcasts scenario metadata");
 
 		const auto metrics = harness.manager.metrics();
 		require(metrics.commandsAccepted == 1, "accepted command metric increments");

@@ -51,6 +51,13 @@ export type HazardSnapshot = {
   triggered: boolean;
 };
 
+export type ScenarioMetadata = {
+  id: string;
+  mode: string;
+  version: number;
+  source: string;
+};
+
 export type ObstacleSnapshot = {
   x: number;
   y: number;
@@ -61,6 +68,7 @@ export type SnapshotPayload = {
   tick: number;
   serverTick: number;
   finished: boolean;
+  scenario: ScenarioMetadata;
   map: {
     width: number;
     height: number;
@@ -92,6 +100,7 @@ export type MatchJoinedMessage = {
   payload: {
     matchId: string;
     matchCode: string;
+    scenario: ScenarioMetadata;
     team?: Team;
   };
 };
@@ -305,7 +314,12 @@ function isAuthResult(value: { payload: unknown }): value is AuthResultMessage {
 
 function isMatchJoined(value: { payload: unknown }): value is MatchJoinedMessage {
   const payload = value.payload;
-  return isRecord(payload) && typeof payload.matchId === "string" && typeof payload.matchCode === "string";
+  return (
+    isRecord(payload) &&
+    typeof payload.matchId === "string" &&
+    typeof payload.matchCode === "string" &&
+    isScenarioMetadata(payload.scenario)
+  );
 }
 
 function isInputAck(value: { payload: unknown }): value is InputAckMessage {
@@ -321,6 +335,7 @@ function isSnapshot(value: { payload: unknown }): value is SnapshotMessage {
     isNumber(payload.tick) &&
     isNumber(payload.serverTick) &&
     typeof payload.finished === "boolean" &&
+    isScenarioMetadata(payload.scenario) &&
     isRecord(payload.map) &&
     isNumber(payload.map.width) &&
     isNumber(payload.map.height) &&
@@ -403,6 +418,16 @@ function isHazardSnapshot(value: unknown): value is HazardSnapshot {
     isNumber(value.cooldownTicks) &&
     isNumber(value.cooldown) &&
     typeof value.triggered === "boolean"
+  );
+}
+
+function isScenarioMetadata(value: unknown): value is ScenarioMetadata {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.mode === "string" &&
+    isNumber(value.version) &&
+    typeof value.source === "string"
   );
 }
 

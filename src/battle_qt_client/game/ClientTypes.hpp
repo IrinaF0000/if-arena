@@ -55,11 +55,20 @@ namespace if_arena::battle_qt_client::game
 		bool triggered{};
 	};
 
+	struct ScenarioMetadata
+	{
+		QString id;
+		QString mode;
+		int version{};
+		QString source;
+	};
+
 	struct ArenaSnapshot
 	{
 		QString matchId;
 		std::uint64_t tick{};
 		bool finished{};
+		ScenarioMetadata scenario;
 		MapSize map{21.0, 13.0};
 		QVector<PlayerSnapshot> players;
 		ObjectiveSnapshot objective;
@@ -71,6 +80,7 @@ namespace if_arena::battle_qt_client::game
 	{
 		QString matchId;
 		QString matchCode;
+		ScenarioMetadata scenario;
 	};
 
 	enum class ClientIntentKind

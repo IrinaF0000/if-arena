@@ -229,7 +229,8 @@ namespace if_arena::battle_qt_client::ui
 		connect(&_client, &network::NetworkClient::connectionStateChanged, this,
 		        [this](network::ConnectionState, const QString& label) {
 			        _connection->setText("connection " + label);
-			        _identity->setText("session " + _client.sessionId() + ", match " + _client.matchId());
+			        _identity->setText("session " + _client.sessionId() + ", match " + _client.matchId() +
+			                           (_client.scenarioId().isEmpty() ? QString{} : ", scenario " + _client.scenarioId()));
 			        refreshControls();
 		        });
 		connect(&_client, &network::NetworkClient::errorChanged, this, [this](const QString& message) {
@@ -238,9 +239,11 @@ namespace if_arena::battle_qt_client::ui
 			refreshControls();
 		});
 		connect(&_client, &network::NetworkClient::eventReceived, this, &MainWindow::appendEvent);
-		connect(&_client, &network::NetworkClient::matchJoined, this, [this](const QString& matchId, const QString& code) {
+		connect(&_client, &network::NetworkClient::matchJoined, this,
+		        [this](const QString& matchId, const QString& code, const QString& scenarioId) {
 			_joinCode->setText(code);
-			_identity->setText("session " + _client.sessionId() + ", match " + matchId + ", code " + code);
+			_identity->setText("session " + _client.sessionId() + ", match " + matchId + ", code " + code +
+			                   ", scenario " + scenarioId);
 			_movementKeys.clear();
 			_movementInput.reset();
 			_hasAimDirection = false;

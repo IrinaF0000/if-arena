@@ -35,6 +35,7 @@ namespace
 	using if_arena::battle_backend::PlayerId;
 	using if_arena::battle_backend::parseScenarioConfig;
 	using if_arena::battle_backend::PlayableScenarioConfig;
+	using if_arena::battle_backend::ScenarioMetadata;
 	using if_arena::battle_backend::SessionId;
 	using if_arena::battle_backend::SessionRegistry;
 	using if_arena::battle_protocol::ClientSessionPhase;
@@ -1102,6 +1103,23 @@ namespace
 		return result;
 	}
 
+	std::string matchJoinedPayload(MatchId match, std::string_view matchCode, const ScenarioMetadata& scenario,
+	                               std::string_view team = {})
+	{
+		std::string payload = "{\"matchId\":\"" + std::to_string(match.value) + "\",\"matchCode\":\"" +
+		                      std::string{matchCode} + "\",\"scenario\":{\"id\":\"" + scenario.id +
+		                      "\",\"mode\":\"" + scenario.mode + "\",\"version\":" +
+		                      std::to_string(scenario.version) + ",\"source\":\"" + scenario.source + "\"}";
+		if (!team.empty())
+		{
+			payload += ",\"team\":\"";
+			payload += team;
+			payload += "\"";
+		}
+		payload += "}";
+		return payload;
+	}
+
 	void handleTcpClient(TcpConnection connection, TcpRuntimeState& state)
 	{
 		TcpBackendOutbound outbound{connection};
@@ -1202,8 +1220,7 @@ namespace
 				currentMatch = *created.match;
 				phase = ClientSessionPhase::InMatch;
 				sendServerEnvelope(connection, MessageType::MatchJoined,
-				                   "{\"matchId\":\"" + std::to_string(created.match->value) + "\",\"matchCode\":\"" +
-				                    created.joinCode + "\"}");
+				                   matchJoinedPayload(*created.match, created.joinCode, state.matches.scenarioMetadata()));
 				continue;
 			}
 
@@ -1225,8 +1242,7 @@ namespace
 				currentMatch = *joined.match;
 				phase = ClientSessionPhase::InMatch;
 				sendServerEnvelope(connection, MessageType::MatchJoined,
-				                   "{\"matchId\":\"" + std::to_string(joined.match->value) + "\",\"matchCode\":\"" +
-				                    *joinCode + "\"}");
+				                   matchJoinedPayload(*joined.match, *joinCode, state.matches.scenarioMetadata()));
 				activateTcpMatchTicker(state, *currentMatch, std::chrono::steady_clock::now());
 				state.matches.tick(*currentMatch);
 				flushAllSessions(state);
@@ -1479,8 +1495,8 @@ namespace
 				currentMatch = *created.match;
 				adapter.markInMatch();
 				sendServerEnvelope(connection, MessageType::MatchJoined,
-				                   "{\"matchId\":\"" + std::to_string(created.match->value) + "\",\"matchCode\":\"" +
-				                    created.joinCode + "\",\"team\":\"blue\"}");
+				                   matchJoinedPayload(*created.match, created.joinCode, state.matches.scenarioMetadata(),
+				                                      "blue"));
 				continue;
 			}
 
@@ -1502,8 +1518,7 @@ namespace
 				currentMatch = *joined.match;
 				adapter.markInMatch();
 				sendServerEnvelope(connection, MessageType::MatchJoined,
-				                   "{\"matchId\":\"" + std::to_string(joined.match->value) + "\",\"matchCode\":\"" +
-				                    *joinCode + "\",\"team\":\"red\"}");
+				                   matchJoinedPayload(*joined.match, *joinCode, state.matches.scenarioMetadata(), "red"));
 				activateWebSocketMatchTicker(state, *currentMatch, WebSocketSessionAdapter::Clock::now());
 				state.matches.tick(*currentMatch);
 				flushAllSessions(state);

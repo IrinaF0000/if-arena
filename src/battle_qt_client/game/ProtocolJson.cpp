@@ -69,6 +69,20 @@ namespace if_arena::battle_qt_client::game
 			value = json.toBool();
 			return true;
 		}
+
+		bool parseScenarioMetadata(const QJsonObject& object, ScenarioMetadata& metadata)
+		{
+			const auto scenario = object.value("scenario");
+			if (!scenario.isObject())
+			{
+				return false;
+			}
+			const auto scenarioObject = scenario.toObject();
+			return requireString(scenarioObject, "id", metadata.id) &&
+			       requireString(scenarioObject, "mode", metadata.mode) &&
+			       requireInt(scenarioObject, "version", metadata.version) &&
+			       requireString(scenarioObject, "source", metadata.source);
+		}
 	}
 
 	ParseResult<ArenaSnapshot> parseArenaSnapshotPayload(const QString& payloadJson)
@@ -95,6 +109,10 @@ namespace if_arena::battle_qt_client::game
 		if (requireBool(*root, "finished", finished))
 		{
 			snapshot.finished = finished;
+		}
+		if (!parseScenarioMetadata(*root, snapshot.scenario))
+		{
+			return fail<ArenaSnapshot>("snapshot scenario metadata is invalid");
 		}
 
 		const auto map = root->value("map");
@@ -226,7 +244,8 @@ namespace if_arena::battle_qt_client::game
 			return fail<MatchJoined>(error);
 		}
 		MatchJoined joined;
-		if (!requireString(*root, "matchId", joined.matchId) || !requireString(*root, "matchCode", joined.matchCode))
+		if (!requireString(*root, "matchId", joined.matchId) || !requireString(*root, "matchCode", joined.matchCode) ||
+		    !parseScenarioMetadata(*root, joined.scenario))
 		{
 			return fail<MatchJoined>("match_joined payload is invalid");
 		}

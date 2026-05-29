@@ -226,6 +226,12 @@ Backend must validate `initData` before trusting Telegram identity.
   "payload": {
     "matchId": "m_1",
     "matchCode": "ABCD",
+    "scenario": {
+      "id": "arena_small_objective_run",
+      "mode": "objective_run",
+      "version": 1,
+      "source": "server_config"
+    },
     "team": "blue",
     "localView": {
       "ownBaseAtBottom": true,
@@ -324,6 +330,12 @@ Snapshots use canonical world coordinates. Player clients transform these coordi
     "matchId": "m_1",
     "serverTick": 1200,
     "serverTimeMs": 60000,
+    "scenario": {
+      "id": "arena_small_objective_run",
+      "mode": "objective_run",
+      "version": 1,
+      "source": "server_config"
+    },
     "map": {
       "width": 21,
       "height": 13,

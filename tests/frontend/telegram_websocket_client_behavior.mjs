@@ -112,7 +112,11 @@ socket.message({ version: 1, type: "auth_result", payload: { accepted: true, ses
 assert.equal(states.at(-1), "authenticated");
 
 const sentBeforeJoin = socket.sent.length;
-socket.message({ version: 1, type: "match_joined", payload: { matchId: "1", matchCode: "M1", team: "red" } });
+const scenario = { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" };
+socket.message({ version: 1, type: "match_joined", payload: { matchId: "bad", matchCode: "M0", team: "red" } });
+assert.equal(messages.at(-1).type, "client_parse_error", "match_joined without scenario metadata is rejected");
+assert.equal(states.at(-1), "authenticated", "invalid match_joined metadata must not enter a match");
+socket.message({ version: 1, type: "match_joined", payload: { matchId: "1", matchCode: "M1", scenario, team: "red" } });
 assert.equal(states.at(-1), "in_match");
 assert.equal(socket.sent.length, sentBeforeJoin, "match_joined must not trigger automatic input/no-op commands");
 
@@ -129,6 +133,7 @@ socket.message({
     tick: 2,
     serverTick: 2,
     finished: false,
+    scenario,
     map: { width: 21, height: 13 },
     obstacles: [{ x: 7, y: 5 }],
     players: [

@@ -143,7 +143,8 @@ namespace if_arena::battle_qt_client::ui
 		const auto dash = player.has_value() ? QString::number(player->dashCooldown) : "?";
 		const auto team = player.has_value() ? teamName(player->team) : "unknown";
 		const auto age = _lastSnapshotAt.isValid() ? QString::number(_lastSnapshotAt.elapsed()) : "?";
-		return "tick " + QString::number(_snapshot->tick) + " | team " + team + " | HP " + hp +
+		return "scenario " + _snapshot->scenario.id + " | tick " + QString::number(_snapshot->tick) +
+		       " | team " + team + " | HP " + hp +
 		       " | attack " + attack + " | dash " + dash + " | score B/R " + blueScore + "/" + redScore +
 		       " | objective " + _snapshot->objective.state + " | snapshot age " + age + "ms";
 	}

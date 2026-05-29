@@ -151,6 +151,11 @@ namespace if_arena::battle_qt_client::network
 		return _matchCode;
 	}
 
+	QString NetworkClient::scenarioId() const
+	{
+		return _scenarioId;
+	}
+
 	QString NetworkClient::lastError() const
 	{
 		return _lastError;
@@ -173,6 +178,7 @@ namespace if_arena::battle_qt_client::network
 		_sessionId.clear();
 		_matchId.clear();
 		_matchCode.clear();
+		_scenarioId.clear();
 		_lastError.clear();
 		_buffer.clear();
 		_sessionSeq = 1;
@@ -416,10 +422,11 @@ namespace if_arena::battle_qt_client::network
 			}
 			_matchId = parsed.value->matchId;
 			_matchCode = parsed.value->matchCode;
+			_scenarioId = parsed.value->scenario.id;
 			_phase = ProtocolPhase::InMatch;
 			setState(ConnectionState::InMatch);
-			emit matchJoined(_matchId, _matchCode);
-			emit eventReceived("Joined match " + _matchId + " with code " + _matchCode + ".");
+			emit matchJoined(_matchId, _matchCode, _scenarioId);
+			emit eventReceived("Joined match " + _matchId + " with code " + _matchCode + " scenario " + _scenarioId + ".");
 			return;
 		}
 		case MessageType::Snapshot: {

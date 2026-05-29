@@ -51,6 +51,14 @@ namespace if_arena::battle_backend
 		[[nodiscard]] bool accepted() const;
 	};
 
+	struct ScenarioMetadata
+	{
+		std::string id{"arena_small_objective_run"};
+		std::string mode{"objective_run"};
+		std::uint32_t version{1};
+		std::string source{"server_config"};
+	};
+
 	struct MatchMetrics
 	{
 		std::uint64_t activeMatches{};
@@ -88,6 +96,7 @@ namespace if_arena::battle_backend
 		BackendResult disconnect(SessionId session, DisconnectReason reason);
 
 		[[nodiscard]] std::optional<MatchView> view(MatchId match) const;
+		[[nodiscard]] ScenarioMetadata scenarioMetadata() const;
 		[[nodiscard]] MatchMetrics metrics() const;
 
 	private:

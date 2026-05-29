@@ -288,6 +288,44 @@ def score(snapshot: dict[str, Any], team: str) -> int:
     raise AssertionError(f"score for {team} missing from snapshot")
 
 
+def load_game_config(scenario: dict[str, Any]) -> dict[str, Any]:
+    path = ROOT / str(scenario["gameScenario"])
+    game_config = json.loads(path.read_text(encoding="utf-8"))
+    require(isinstance(game_config, dict), "game scenario config must be an object")
+    return game_config
+
+
+def scenario_metadata(value: dict[str, Any]) -> dict[str, Any]:
+    metadata = value.get("scenario")
+    require(isinstance(metadata, dict), f"scenario metadata missing: {value}")
+    require(isinstance(metadata.get("id"), str) and metadata["id"], "scenario metadata id missing")
+    require(isinstance(metadata.get("mode"), str) and metadata["mode"], "scenario metadata mode missing")
+    require(isinstance(metadata.get("version"), int), "scenario metadata version missing")
+    require(isinstance(metadata.get("source"), str) and metadata["source"], "scenario metadata source missing")
+    return metadata
+
+
+def assert_same_scenario_metadata(*values: dict[str, Any]) -> dict[str, Any]:
+    first = scenario_metadata(values[0])
+    for value in values[1:]:
+        require(scenario_metadata(value) == first, f"scenario metadata mismatch: {first} vs {scenario_metadata(value)}")
+    return first
+
+
+def assert_authoritative_layout(snapshot: dict[str, Any], game_config: dict[str, Any]) -> None:
+    map_config = game_config["map"]
+    require(snapshot["map"]["width"] == map_config["width"], "snapshot map width differs from game config")
+    require(snapshot["map"]["height"] == map_config["height"], "snapshot map height differs from game config")
+    require(len(snapshot["obstacles"]) == len(map_config.get("obstacles", [])), "snapshot obstacle count differs from game config")
+    require(len(snapshot["hazards"]) == len(game_config.get("hazards", [])), "snapshot hazard count differs from game config")
+    expected_hazards = {hazard["id"]: hazard for hazard in game_config.get("hazards", [])}
+    for hazard in snapshot["hazards"]:
+        expected = expected_hazards.get(hazard["id"])
+        require(expected is not None, f"snapshot hazard id not found in config: {hazard['id']}")
+        for key in ["kind", "radius", "range", "damage", "effect", "trigger", "icon", "cooldownTicks"]:
+            require(hazard[key] == expected[key], f"hazard metadata differs for {hazard['id']} field {key}")
+
+
 def assert_smooth(snapshots: list[dict[str, Any]], player_id: str) -> None:
     positions = [(float(player(snapshot, player_id)["x"]), float(player(snapshot, player_id)["y"])) for snapshot in snapshots]
     moved = any(before != after for before, after in zip(positions, positions[1:]))
@@ -345,6 +383,7 @@ def event_matches(event: dict[str, Any], expected: dict[str, Any], actors: dict[
 def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
     require(transport in {"desktop", "mobile"}, "transport must be desktop or mobile")
     require(SERVER_EXE.exists(), f"missing server executable: {SERVER_EXE}")
+    game_config = load_game_config(scenario)
     port = free_port()
     with tempfile.TemporaryDirectory(prefix=f"if-arena-{transport}-scenario-") as temp:
         config = Path(temp) / "server.local.json"
@@ -377,7 +416,12 @@ def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
             match_id = str(joined["payload"]["matchId"])
             actors = {"blue": blue, "red": red}
             snapshot = expect_type(blue, "snapshot")["payload"]
-            expect_type(red, "snapshot")
+            red_snapshot = expect_type(red, "snapshot")["payload"]
+            metadata = assert_same_scenario_metadata(created["payload"], joined["payload"], snapshot, red_snapshot)
+            require(metadata["id"] == game_config["scenario"], "wire scenario id differs from game config")
+            require(metadata["mode"] == game_config["mode"], "wire scenario mode differs from game config")
+            assert_authoritative_layout(snapshot, game_config)
+            assert_authoritative_layout(red_snapshot, game_config)
             snapshots_for_assertions: list[dict[str, Any]] = [snapshot]
             for step in scenario["steps"]:
                 if "command" in step:

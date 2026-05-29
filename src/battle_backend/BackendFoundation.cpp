@@ -141,12 +141,22 @@ namespace if_arena::battle_backend
 			return "unknown";
 		}
 
-		std::string snapshotPayload(MatchId match, const battle_core::BattleSnapshot& snapshot)
+		std::string scenarioJson(const ScenarioMetadata& metadata)
+		{
+			std::ostringstream output;
+			output << "\"scenario\":{\"id\":\"" << metadata.id << "\",\"mode\":\"" << metadata.mode
+			       << "\",\"version\":" << metadata.version << ",\"source\":\"" << metadata.source << "\"}";
+			return output.str();
+		}
+
+		std::string snapshotPayload(MatchId match, const battle_core::BattleSnapshot& snapshot,
+		                            const ScenarioMetadata& metadata)
 		{
 			std::ostringstream output;
 			output << "{\"matchId\":\"" << match.value << "\",\"tick\":" << snapshot.tick
 			       << ",\"serverTick\":" << snapshot.tick << ",\"finished\":"
-			       << (snapshot.finished ? "true" : "false") << ",\"map\":{\"width\":" << snapshot.width
+			       << (snapshot.finished ? "true" : "false") << ',' << scenarioJson(metadata)
+			       << ",\"map\":{\"width\":" << snapshot.width
 			       << ",\"height\":" << snapshot.height << "},\"obstacles\":[";
 			for (std::size_t index = 0; index < snapshot.obstacles.size(); ++index)
 			{
@@ -675,7 +685,7 @@ namespace if_arena::battle_backend
 		}
 		if (broadcastSnapshot)
 		{
-			broadcast(*match, snapshotPayload(match->id, snapshot), true);
+			broadcast(*match, snapshotPayload(match->id, snapshot, scenarioMetadata()), true);
 		}
 		for (auto& participant : match->participants)
 		{
@@ -722,6 +732,14 @@ namespace if_arena::battle_backend
 			match->queuedCommands.size(),
 			match->engine.has_value() ? std::optional<battle_core::BattleSnapshot>{match->engine->snapshot()} : std::nullopt,
 		};
+	}
+
+	ScenarioMetadata MatchManager::scenarioMetadata() const
+	{
+		ScenarioMetadata metadata;
+		metadata.id = _scenario.id;
+		metadata.mode = _scenario.mode;
+		return metadata;
 	}
 
 	MatchMetrics MatchManager::metrics() const

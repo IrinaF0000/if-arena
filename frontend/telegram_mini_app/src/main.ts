@@ -110,10 +110,11 @@ function handleMessage(message: IncomingMessage): void {
       break;
     }
     case "match_joined":
-      matchLine.textContent = `Match ${message.payload.matchId} | Code ${message.payload.matchCode}`;
+      matchLine.textContent = `Match ${message.payload.matchId} | Code ${message.payload.matchCode} | ${message.payload.scenario.id}`;
       joinCodeInput.value = message.payload.matchCode;
       break;
     case "snapshot":
+      matchLine.textContent = `Match ${message.payload.matchId} | ${message.payload.scenario.id}`;
       arena.setSnapshot(message.payload, localPlayerId);
       break;
     case "input_ack":

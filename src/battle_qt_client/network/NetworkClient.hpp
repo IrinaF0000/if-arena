@@ -48,6 +48,7 @@ namespace if_arena::battle_qt_client::network
 		[[nodiscard]] QString sessionId() const;
 		[[nodiscard]] QString matchId() const;
 		[[nodiscard]] QString matchCode() const;
+		[[nodiscard]] QString scenarioId() const;
 		[[nodiscard]] QString lastError() const;
 		[[nodiscard]] bool canSendIntent() const;
 
@@ -62,7 +63,7 @@ namespace if_arena::battle_qt_client::network
 		void connectionStateChanged(if_arena::battle_qt_client::network::ConnectionState state, QString label);
 		void errorChanged(QString message);
 		void eventReceived(QString message);
-		void matchJoined(QString matchId, QString matchCode);
+		void matchJoined(QString matchId, QString matchCode, QString scenarioId);
 		void snapshotReceived(if_arena::battle_qt_client::game::ArenaSnapshot snapshot, QString localPlayerId);
 		void inputAckReceived(bool accepted, QString reason);
 		void latencyUpdated(int milliseconds);
@@ -94,6 +95,7 @@ namespace if_arena::battle_qt_client::network
 		QString _sessionId;
 		QString _matchId;
 		QString _matchCode;
+		QString _scenarioId;
 		QString _lastError;
 		std::uint64_t _sessionSeq{1};
 		qint64 _lastPingSentMs{};

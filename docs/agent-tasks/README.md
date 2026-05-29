@@ -72,5 +72,6 @@ Recommended order:
 55. `0060-score-capture-winner-clarity.md`
 56. `0061-objective-reset-staging.md`
 57. `0062-config-driven-arena-route-redesign.md`
+58. `0063-object-taxonomy-and-danger-semantics.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

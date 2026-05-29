@@ -294,14 +294,29 @@ namespace
 			}
 		}
 		require(sawObstacles, "snapshot payload broadcasts authoritative obstacle cells");
+		require(std::any_of(harness.blueOutbound.sent.begin(), harness.blueOutbound.sent.end(), [](const std::string& payload) {
+			        return payload.find("\"kind\":\"blocking_obstacle\"") != std::string::npos &&
+			               payload.find("\"visualId\":\"obstacle_block\"") != std::string::npos &&
+			               payload.find("\"blocksMovement\":true") != std::string::npos &&
+			               payload.find("\"damage\":0") != std::string::npos &&
+			               payload.find("\"causesDrop\":false") != std::string::npos &&
+			               payload.find("\"rangeRadius\":0") != std::string::npos &&
+			               payload.find("\"team\":\"neutral\"") != std::string::npos;
+		        }),
+		        "snapshot payload broadcasts obstacle semantic metadata");
 		require(sawCrow, "snapshot payload broadcasts neutral crow hazard");
 		require(std::any_of(harness.blueOutbound.sent.begin(), harness.blueOutbound.sent.end(), [](const std::string& payload) {
 			        return payload.find("\"id\":\"tower_left\"") != std::string::npos &&
+			               payload.find("\"visualId\":\"hazard_tower\"") != std::string::npos &&
 			               payload.find("\"radius\":0.8") != std::string::npos &&
 			               payload.find("\"range\":2.2") != std::string::npos &&
 			               payload.find("\"effect\":\"damage_drop_objective\"") != std::string::npos &&
 			               payload.find("\"trigger\":\"range\"") != std::string::npos &&
 			               payload.find("\"icon\":\"hazard_tower\"") != std::string::npos &&
+			               payload.find("\"blocksMovement\":false") != std::string::npos &&
+			               payload.find("\"causesDrop\":true") != std::string::npos &&
+			               payload.find("\"rangeRadius\":2.2") != std::string::npos &&
+			               payload.find("\"team\":\"neutral\"") != std::string::npos &&
 			               payload.find("\"cooldownTicks\":20") != std::string::npos;
 		        }),
 		        "snapshot payload broadcasts hazard metadata");
@@ -534,7 +549,7 @@ namespace
 		limits.maxPendingCommandsPerSession = 2;
 		limits.maxCommandsPerSessionPerTick = 2;
 		limits.maxPendingOutboundMessages = 2;
-		limits.maxPendingOutboundBytes = 4096;
+		limits.maxPendingOutboundBytes = 16384;
 
 		FakeOutboundSession blueOutbound;
 		FakeOutboundSession redOutbound;

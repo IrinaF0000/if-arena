@@ -93,8 +93,34 @@ arena.setSnapshot(
     scenario: { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" },
     map: { width: 21, height: 13 },
     obstacles: [
-      { x: 7, y: 5 },
-      { x: 13, y: 7 }
+      {
+        id: "obstacle_7_5",
+        kind: "blocking_obstacle",
+        visualId: "obstacle_block",
+        x: 7,
+        y: 5,
+        blocksMovement: true,
+        damage: 0,
+        causesDrop: false,
+        rangeRadius: 0,
+        cooldownTicks: 0,
+        cooldown: 0,
+        team: "neutral"
+      },
+      {
+        id: "obstacle_13_7",
+        kind: "blocking_obstacle",
+        visualId: "obstacle_block",
+        x: 13,
+        y: 7,
+        blocksMovement: true,
+        damage: 0,
+        causesDrop: false,
+        rangeRadius: 0,
+        cooldownTicks: 0,
+        cooldown: 0,
+        team: "neutral"
+      }
     ],
     players: [
       {
@@ -136,6 +162,7 @@ arena.setSnapshot(
       {
         id: "center_crow",
         kind: "crow",
+        visualId: "hazard_crow",
         x: 10,
         y: 5,
         radius: 0.65,
@@ -144,6 +171,10 @@ arena.setSnapshot(
         effect: "damage_drop_objective",
         trigger: "proximity",
         icon: "hazard_crow",
+        blocksMovement: false,
+        causesDrop: true,
+        rangeRadius: 0.65,
+        team: "neutral",
         cooldownTicks: 8,
         cooldown: 0,
         triggered: false
@@ -183,5 +214,6 @@ assert.ok(textLabels.some((label) => String(label).includes("captured")), "captu
 assert.ok(textLabels.some((label) => String(label).includes("Blue scores! 1")), "score feedback label renders from event batch");
 assert.ok(textLabels.includes("Match over"), "match-over overlay renders from finished snapshot");
 assert.ok(textLabels.some((label) => String(label).includes("Blue wins 1-0")), "winner score overlay renders");
+assert.ok(textLabels.includes("6"), "hazard damage marker renders from semantic metadata");
 
 console.log("[PASS] telegram_arena_canvas_assets");

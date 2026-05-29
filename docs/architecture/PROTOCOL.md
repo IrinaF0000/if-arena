@@ -360,6 +360,22 @@ Snapshots use canonical world coordinates. Player clients transform these coordi
       "center": { "x": 10, "y": 6 },
       "symmetry": "rotational_180"
     },
+    "obstacles": [
+      {
+        "id": "obstacle_7_5",
+        "kind": "blocking_obstacle",
+        "visualId": "obstacle_block",
+        "x": 7,
+        "y": 5,
+        "blocksMovement": true,
+        "damage": 0,
+        "causesDrop": false,
+        "rangeRadius": 0,
+        "cooldownTicks": 0,
+        "cooldown": 0,
+        "team": "neutral"
+      }
+    ],
     "players": [
       {
         "playerId": "p_1",
@@ -393,6 +409,7 @@ Snapshots use canonical world coordinates. Player clients transform these coordi
       {
         "id": "h_1",
         "kind": "mine",
+        "visualId": "hazard_mine",
         "team": "neutral",
         "x": 7.0,
         "y": 4.0,
@@ -402,6 +419,9 @@ Snapshots use canonical world coordinates. Player clients transform these coordi
         "effect": "damage_drop_objective",
         "trigger": "proximity",
         "icon": "hazard_mine",
+        "blocksMovement": false,
+        "causesDrop": true,
+        "rangeRadius": 0.7,
         "cooldownTicks": 30,
         "cooldown": 0,
         "triggered": false,
@@ -412,8 +432,24 @@ Snapshots use canonical world coordinates. Player clients transform these coordi
 }
 ```
 
-The playable snapshot also exposes authoritative hazard metadata in `payload.hazards`.
-This is currently a snapshot-only model: static fields (`id`, `kind`, `radius`, `range`, `damage`, `effect`, `trigger`, `icon`, `cooldownTicks`) are sent beside dynamic fields (`x`, `y`, `cooldown`, `triggered`) until a dedicated static arena metadata message is introduced.
+The playable snapshot also exposes authoritative object semantics in `payload.obstacles` and `payload.hazards`.
+This is currently a snapshot-only model: static fields (`id`, `kind`, `visualId`, movement blocking, damage, drop behavior, range/radius, ownership, effect/trigger, and configured cooldown) are sent beside dynamic fields (`x`, `y`, `cooldown`, `triggered`) until a dedicated static arena metadata message is introduced.
+
+Object taxonomy used by current snapshots:
+
+| Kind | Sent As | Blocks Movement | Damage | Causes Objective Drop | Range/Radius | Cooldown | Movement | Ownership |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| blocking obstacle | `payload.obstacles[]`, `kind: "blocking_obstacle"` | yes | 0 | no | 0 | 0 | static | neutral |
+| damage hazard | `payload.hazards[]`, `effect: "damage"` | no | `damage` | no | `rangeRadius` | `cooldownTicks`/`cooldown` | static | neutral |
+| damage + drop hazard | `payload.hazards[]`, `effect: "damage_drop_objective"` | no | `damage` | yes | `rangeRadius` | `cooldownTicks`/`cooldown` | static | neutral |
+| tower bot | `payload.hazards[]`, `kind: "tower"` | no | `damage` | from `causesDrop` | `rangeRadius` | `cooldownTicks`/`cooldown` | static ranged trigger | neutral |
+| mine bot | `payload.hazards[]`, `kind: "mine"` | no | `damage` | from `causesDrop` | `rangeRadius` | `cooldownTicks`/`cooldown` | static proximity trigger | neutral |
+| crow bot | `payload.hazards[]`, `kind: "crow"` | no | `damage` | from `causesDrop` | `rangeRadius` | `cooldownTicks`/`cooldown` | static proximity/range trigger | neutral |
+| base | map/scenario owned capture zone rendered by clients | no | 0 | no | scenario capture zone | none | static | blue/red |
+| objective | `payload.objective` | no | 0 | n/a | pickup/carry state | pickup/respawn ticks | static/carried/respawning | neutral |
+| player | `payload.players[]` | actor collision is server-owned | combat rules | can carry/drop objective by server events | attack/dash cooldowns | player cooldown fields | player input intentions only | blue/red |
+
+Clients must render from this metadata and may show compact labels, range circles, and legends. Clients must not derive authoritative damage, drop, blocking, cooldown, or ownership rules from visual colors or local hardcoded hazard kind behavior.
 
 ## 9. Event batches
 

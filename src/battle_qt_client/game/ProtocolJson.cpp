@@ -128,6 +128,42 @@ namespace if_arena::battle_qt_client::game
 			return fail<ArenaSnapshot>("snapshot map is invalid");
 		}
 
+		const auto obstacles = root->value("obstacles");
+		if (!obstacles.isArray())
+		{
+			return fail<ArenaSnapshot>("snapshot missing obstacles");
+		}
+		for (const auto& obstacleValue : obstacles.toArray())
+		{
+			if (!obstacleValue.isObject())
+			{
+				return fail<ArenaSnapshot>("snapshot obstacle is invalid");
+			}
+			const auto obstacleObject = obstacleValue.toObject();
+			ObstacleSnapshot obstacle;
+			if (!requireString(obstacleObject, "id", obstacle.id) ||
+			    !requireString(obstacleObject, "kind", obstacle.kind) ||
+			    !requireString(obstacleObject, "visualId", obstacle.visualId) ||
+			    !requireNumber(obstacleObject, "x", obstacle.x) || !requireNumber(obstacleObject, "y", obstacle.y) ||
+			    !requireBool(obstacleObject, "blocksMovement", obstacle.blocksMovement) ||
+			    !requireInt(obstacleObject, "damage", obstacle.damage) ||
+			    !requireBool(obstacleObject, "causesDrop", obstacle.causesDrop) ||
+			    !requireNumber(obstacleObject, "rangeRadius", obstacle.rangeRadius) ||
+			    !requireInt(obstacleObject, "cooldownTicks", obstacle.cooldownTicks) ||
+			    !requireInt(obstacleObject, "cooldown", obstacle.cooldown) ||
+			    !requireString(obstacleObject, "team", obstacle.team))
+			{
+				return fail<ArenaSnapshot>("snapshot obstacle fields are invalid");
+			}
+			if (obstacle.kind != "blocking_obstacle" || obstacle.visualId.isEmpty() || !obstacle.blocksMovement ||
+			    obstacle.damage != 0 || obstacle.causesDrop || obstacle.rangeRadius != 0.0 ||
+			    obstacle.cooldownTicks != 0 || obstacle.cooldown != 0 || obstacle.team != "neutral")
+			{
+				return fail<ArenaSnapshot>("snapshot obstacle metadata is invalid");
+			}
+			snapshot.obstacles.push_back(obstacle);
+		}
+
 		const auto players = root->value("players");
 		if (!players.isArray())
 		{
@@ -209,6 +245,7 @@ namespace if_arena::battle_qt_client::game
 				const auto hazardObject = hazardValue.toObject();
 				HazardSnapshot hazard;
 				if (!requireString(hazardObject, "id", hazard.id) || !requireString(hazardObject, "kind", hazard.kind) ||
+				    !requireString(hazardObject, "visualId", hazard.visualId) ||
 				    !requireNumber(hazardObject, "x", hazard.x) || !requireNumber(hazardObject, "y", hazard.y) ||
 				    !requireNumber(hazardObject, "radius", hazard.radius) ||
 				    !requireNumber(hazardObject, "range", hazard.range) ||
@@ -216,6 +253,10 @@ namespace if_arena::battle_qt_client::game
 				    !requireString(hazardObject, "effect", hazard.effect) ||
 				    !requireString(hazardObject, "trigger", hazard.trigger) ||
 				    !requireString(hazardObject, "icon", hazard.icon) ||
+				    !requireBool(hazardObject, "blocksMovement", hazard.blocksMovement) ||
+				    !requireBool(hazardObject, "causesDrop", hazard.causesDrop) ||
+				    !requireNumber(hazardObject, "rangeRadius", hazard.rangeRadius) ||
+				    !requireString(hazardObject, "team", hazard.team) ||
 				    !requireInt(hazardObject, "cooldownTicks", hazard.cooldownTicks) ||
 				    !requireInt(hazardObject, "cooldown", hazard.cooldown) ||
 				    !requireBool(hazardObject, "triggered", hazard.triggered))
@@ -224,7 +265,14 @@ namespace if_arena::battle_qt_client::game
 				}
 				if ((hazard.kind != "mine" && hazard.kind != "tower" && hazard.kind != "crow") ||
 				    (hazard.effect != "damage" && hazard.effect != "damage_drop_objective") ||
-				    (hazard.trigger != "proximity" && hazard.trigger != "range") || hazard.icon.isEmpty())
+				    (hazard.trigger != "proximity" && hazard.trigger != "range") || hazard.icon.isEmpty() ||
+				    hazard.visualId.isEmpty() || hazard.blocksMovement || hazard.team != "neutral")
+				{
+					return fail<ArenaSnapshot>("snapshot hazard metadata is invalid");
+				}
+				const auto expectedRangeRadius = hazard.trigger == "range" ? hazard.range : hazard.radius;
+				const auto expectedCausesDrop = hazard.effect == "damage_drop_objective";
+				if (hazard.rangeRadius != expectedRangeRadius || hazard.causesDrop != expectedCausesDrop)
 				{
 					return fail<ArenaSnapshot>("snapshot hazard metadata is invalid");
 				}

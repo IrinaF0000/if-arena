@@ -113,6 +113,20 @@ assert.equal(states.at(-1), "authenticated");
 
 const sentBeforeJoin = socket.sent.length;
 const scenario = { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" };
+const obstacle = {
+  id: "obstacle_7_5",
+  kind: "blocking_obstacle",
+  visualId: "obstacle_block",
+  x: 7,
+  y: 5,
+  blocksMovement: true,
+  damage: 0,
+  causesDrop: false,
+  rangeRadius: 0,
+  cooldownTicks: 0,
+  cooldown: 0,
+  team: "neutral"
+};
 socket.message({ version: 1, type: "match_joined", payload: { matchId: "bad", matchCode: "M0", team: "red" } });
 assert.equal(messages.at(-1).type, "client_parse_error", "match_joined without scenario metadata is rejected");
 assert.equal(states.at(-1), "authenticated", "invalid match_joined metadata must not enter a match");
@@ -135,7 +149,7 @@ socket.message({
     finished: false,
     scenario,
     map: { width: 21, height: 13 },
-    obstacles: [{ x: 7, y: 5 }],
+    obstacles: [obstacle],
     players: [
       {
         playerId: "2",

@@ -42,6 +42,7 @@ namespace if_arena::battle_qt_client::game
 	{
 		QString id;
 		QString kind;
+		QString visualId;
 		double x{};
 		double y{};
 		double radius{};
@@ -50,9 +51,29 @@ namespace if_arena::battle_qt_client::game
 		QString effect;
 		QString trigger;
 		QString icon;
+		bool blocksMovement{};
+		bool causesDrop{};
+		double rangeRadius{};
+		QString team;
 		int cooldownTicks{};
 		int cooldown{};
 		bool triggered{};
+	};
+
+	struct ObstacleSnapshot
+	{
+		QString id;
+		QString kind;
+		QString visualId;
+		double x{};
+		double y{};
+		bool blocksMovement{};
+		int damage{};
+		bool causesDrop{};
+		double rangeRadius{};
+		int cooldownTicks{};
+		int cooldown{};
+		QString team;
 	};
 
 	struct ScenarioMetadata
@@ -70,6 +91,7 @@ namespace if_arena::battle_qt_client::game
 		bool finished{};
 		ScenarioMetadata scenario;
 		MapSize map{21.0, 13.0};
+		QVector<ObstacleSnapshot> obstacles;
 		QVector<PlayerSnapshot> players;
 		ObjectiveSnapshot objective;
 		QVector<ScoreSnapshot> scores;

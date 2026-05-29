@@ -38,6 +38,7 @@ export type ScoreSnapshot = {
 export type HazardSnapshot = {
   id: string;
   kind: "mine" | "tower" | "crow";
+  visualId: string;
   x: number;
   y: number;
   radius: number;
@@ -46,6 +47,10 @@ export type HazardSnapshot = {
   effect: "damage" | "damage_drop_objective";
   trigger: "proximity" | "range";
   icon: string;
+  blocksMovement: boolean;
+  causesDrop: boolean;
+  rangeRadius: number;
+  team: "neutral";
   cooldownTicks: number;
   cooldown: number;
   triggered: boolean;
@@ -59,8 +64,18 @@ export type ScenarioMetadata = {
 };
 
 export type ObstacleSnapshot = {
+  id: string;
+  kind: "blocking_obstacle";
+  visualId: string;
   x: number;
   y: number;
+  blocksMovement: boolean;
+  damage: number;
+  causesDrop: boolean;
+  rangeRadius: number;
+  cooldownTicks: number;
+  cooldown: number;
+  team: "neutral";
 };
 
 export type SnapshotPayload = {
@@ -416,6 +431,8 @@ function isHazardSnapshot(value: unknown): value is HazardSnapshot {
     isRecord(value) &&
     typeof value.id === "string" &&
     (value.kind === "mine" || value.kind === "tower" || value.kind === "crow") &&
+    typeof value.visualId === "string" &&
+    value.visualId.length > 0 &&
     isNumber(value.x) &&
     isNumber(value.y) &&
     isNumber(value.radius) &&
@@ -424,6 +441,13 @@ function isHazardSnapshot(value: unknown): value is HazardSnapshot {
     (value.effect === "damage" || value.effect === "damage_drop_objective") &&
     (value.trigger === "proximity" || value.trigger === "range") &&
     typeof value.icon === "string" &&
+    typeof value.blocksMovement === "boolean" &&
+    typeof value.causesDrop === "boolean" &&
+    isNumber(value.rangeRadius) &&
+    value.blocksMovement === false &&
+    value.causesDrop === (value.effect === "damage_drop_objective") &&
+    value.rangeRadius === (value.trigger === "range" ? value.range : value.radius) &&
+    value.team === "neutral" &&
     isNumber(value.cooldownTicks) &&
     isNumber(value.cooldown) &&
     typeof value.triggered === "boolean"
@@ -441,7 +465,24 @@ function isScenarioMetadata(value: unknown): value is ScenarioMetadata {
 }
 
 function isObstacleSnapshot(value: unknown): value is ObstacleSnapshot {
-  return isRecord(value) && isNumber(value.x) && isNumber(value.y);
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    value.kind === "blocking_obstacle" &&
+    typeof value.visualId === "string" &&
+    value.visualId.length > 0 &&
+    isNumber(value.x) &&
+    isNumber(value.y) &&
+    value.blocksMovement === true &&
+    isNumber(value.damage) &&
+    value.damage === 0 &&
+    value.causesDrop === false &&
+    isNumber(value.rangeRadius) &&
+    value.rangeRadius === 0 &&
+    isNumber(value.cooldownTicks) &&
+    isNumber(value.cooldown) &&
+    value.team === "neutral"
+  );
 }
 
 function isTeam(value: unknown): value is Team {

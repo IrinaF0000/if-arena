@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import socket
 import struct
@@ -320,8 +321,23 @@ def obstacle_cells(game_config: dict[str, Any]) -> set[tuple[int, int]]:
     return {(int(item["x"]), int(item["y"])) for item in game_config["map"].get("obstacles", [])}
 
 
-def hazard_cells(game_config: dict[str, Any]) -> set[tuple[int, int]]:
-    return {(int(item["x"]), int(item["y"])) for item in game_config.get("hazards", [])}
+def hazard_cells(game_config: dict[str, Any], avoid_drop_radius: bool) -> set[tuple[int, int]]:
+    width = int(game_config["map"]["width"])
+    height = int(game_config["map"]["height"])
+    blocked: set[tuple[int, int]] = set()
+    for item in game_config.get("hazards", []):
+        x = float(item["x"])
+        y = float(item["y"])
+        origin = (int(x), int(y))
+        blocked.add(origin)
+        if not avoid_drop_radius or item.get("effect") != "damage_drop_objective":
+            continue
+        influence = float(item["range"] if item.get("trigger") == "range" else item["radius"]) + 0.75
+        for candidate_x in range(width):
+            for candidate_y in range(height):
+                if math.hypot(candidate_x - x, candidate_y - y) <= influence:
+                    blocked.add((candidate_x, candidate_y))
+    return blocked
 
 
 def neighbors(cell: tuple[int, int]) -> list[tuple[int, int]]:
@@ -329,10 +345,15 @@ def neighbors(cell: tuple[int, int]) -> list[tuple[int, int]]:
     return [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
 
 
-def shortest_path(game_config: dict[str, Any], start: tuple[int, int], goal: tuple[int, int]) -> list[tuple[int, int]]:
+def shortest_path(
+    game_config: dict[str, Any],
+    start: tuple[int, int],
+    goal: tuple[int, int],
+    avoid_drop_radius: bool,
+) -> list[tuple[int, int]]:
     width = int(game_config["map"]["width"])
     height = int(game_config["map"]["height"])
-    blocked = obstacle_cells(game_config) | (hazard_cells(game_config) - {start, goal})
+    blocked = obstacle_cells(game_config) | (hazard_cells(game_config, avoid_drop_radius) - {start, goal})
     frontier: deque[tuple[int, int]] = deque([start])
     previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
     while frontier:
@@ -400,10 +421,10 @@ def navigate_to(
             send_command(actor, match_id, {"command": "stop"})
             snapshots = latest_snapshots_until(actors["blue"], int(snapshot["tick"]) + 1)
             return snapshots[-1]
-        path = shortest_path(game_config, player_cell(snapshot, actor.session_id), goal)
-        require(len(path) > 1, f"navigation path already at {role} but position is {current}")
         carrying = str(snapshot["objective"].get("carrierPlayerId", "")) == actor.session_id
-        move_ticks = 5 if carrying else 4
+        path = shortest_path(game_config, player_cell(snapshot, actor.session_id), goal, carrying)
+        require(len(path) > 1, f"navigation path already at {role} but position is {current}")
+        move_ticks = 3 if carrying else 4
         drain_other_clients(actors, actor)
         send_command(actor, match_id, {"command": "move", "direction": local_direction(actor_name, direction_to_next(path[0], path[1]))})
         drain_other_clients(actors, actor)
@@ -476,12 +497,30 @@ def assert_authoritative_layout(snapshot: dict[str, Any], game_config: dict[str,
     require(snapshot["map"]["height"] == map_config["height"], "snapshot map height differs from game config")
     require(len(snapshot["obstacles"]) == len(map_config.get("obstacles", [])), "snapshot obstacle count differs from game config")
     require(len(snapshot["hazards"]) == len(game_config.get("hazards", [])), "snapshot hazard count differs from game config")
+    for obstacle in snapshot["obstacles"]:
+        require(obstacle["kind"] == "blocking_obstacle", "snapshot obstacle kind is not authoritative")
+        require(obstacle["visualId"] == "obstacle_block", "snapshot obstacle visual id is not authoritative")
+        require(obstacle["blocksMovement"] is True, "snapshot obstacle does not declare movement blocking")
+        require(obstacle["damage"] == 0, "snapshot obstacle unexpectedly declares damage")
+        require(obstacle["causesDrop"] is False, "snapshot obstacle unexpectedly declares objective drop")
+        require(obstacle["rangeRadius"] == 0, "snapshot obstacle unexpectedly declares range")
+        require(obstacle["cooldownTicks"] == 0 and obstacle["cooldown"] == 0, "snapshot obstacle unexpectedly declares cooldown")
+        require(obstacle["team"] == "neutral", "snapshot obstacle ownership is not neutral")
     expected_hazards = {hazard["id"]: hazard for hazard in game_config.get("hazards", [])}
     for hazard in snapshot["hazards"]:
         expected = expected_hazards.get(hazard["id"])
         require(expected is not None, f"snapshot hazard id not found in config: {hazard['id']}")
         for key in ["kind", "radius", "range", "damage", "effect", "trigger", "icon", "cooldownTicks"]:
             require(hazard[key] == expected[key], f"hazard metadata differs for {hazard['id']} field {key}")
+        require(hazard["visualId"] == expected["icon"], f"hazard visual id differs for {hazard['id']}")
+        require(hazard["blocksMovement"] is False, f"hazard unexpectedly blocks movement for {hazard['id']}")
+        require(
+            hazard["causesDrop"] == (expected["effect"] == "damage_drop_objective"),
+            f"hazard drop metadata differs for {hazard['id']}",
+        )
+        expected_range_radius = expected["range"] if expected["trigger"] == "range" else expected["radius"]
+        require(hazard["rangeRadius"] == expected_range_radius, f"hazard range radius differs for {hazard['id']}")
+        require(hazard["team"] == "neutral", f"hazard ownership differs for {hazard['id']}")
 
 
 def assert_smooth(snapshots: list[dict[str, Any]], player_id: str) -> None:

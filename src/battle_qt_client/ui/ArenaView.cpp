@@ -48,11 +48,12 @@ namespace if_arena::battle_qt_client::ui
 
 		QString hazardIconKind(const game::HazardSnapshot& hazard)
 		{
-			if (hazard.icon.contains("tower"))
+			const auto visualId = hazard.visualId.isEmpty() ? hazard.icon : hazard.visualId;
+			if (visualId.contains("tower"))
 			{
 				return QStringLiteral("tower");
 			}
-			if (hazard.icon.contains("crow") || hazard.icon.contains("drone"))
+			if (visualId.contains("crow") || visualId.contains("drone"))
 			{
 				return QStringLiteral("crow");
 			}
@@ -164,6 +165,7 @@ namespace if_arena::battle_qt_client::ui
 
 		drawBoard(painter);
 		drawBases(painter);
+		drawObstacles(painter);
 		drawHazards(painter);
 		drawObjective(painter);
 		drawLocalActionPreview(painter);
@@ -322,6 +324,26 @@ namespace if_arena::battle_qt_client::ui
 		}
 	}
 
+	void ArenaView::drawObstacles(QPainter& painter)
+	{
+		const auto board = boardRect();
+		const auto cell = std::min(board.width() / _snapshot->map.width, board.height() / _snapshot->map.height);
+		for (const auto& obstacle : _snapshot->obstacles)
+		{
+			const auto center = toScreen(obstacle.x, obstacle.y);
+			const auto size = cell * 0.82;
+			const QRectF block{center.x() - size / 2.0, center.y() - size / 2.0, size, size};
+			painter.setBrush(obstacle.blocksMovement ? QColor{48, 54, 51} : QColor{44, 52, 53});
+			painter.setPen(QPen{QColor{211, 179, 109}, 1.5});
+			painter.drawRect(block);
+			painter.setPen(QPen{QColor{247, 243, 232, 96}, 1});
+			painter.drawLine(QPointF{center.x() - size * 0.24, center.y() + size * 0.24},
+			                 QPointF{center.x() + size * 0.24, center.y() - size * 0.24});
+			painter.drawLine(QPointF{center.x() - size * 0.24, center.y() - size * 0.24},
+			                 QPointF{center.x() + size * 0.24, center.y() + size * 0.24});
+		}
+	}
+
 	void ArenaView::drawHazards(QPainter& painter)
 	{
 		const auto board = boardRect();
@@ -330,9 +352,8 @@ namespace if_arena::battle_qt_client::ui
 		{
 			const auto center = toScreen(hazard.x, hazard.y);
 			const auto icon = hazardIconKind(hazard);
-			const auto reach = (hazard.trigger == "range" ? hazard.range : hazard.radius) * cell;
-			const auto rangeColor =
-			    hazard.effect == "damage_drop_objective" ? QColor{255, 207, 92, 44} : QColor{255, 141, 122, 44};
+			const auto reach = hazard.rangeRadius * cell;
+			const auto rangeColor = hazard.causesDrop ? QColor{255, 207, 92, 44} : QColor{255, 141, 122, 44};
 			painter.setBrush(rangeColor);
 			painter.setPen(QPen{rangeColor.darker(115), 1});
 			painter.drawEllipse(center, std::max(reach, cell * 0.28), std::max(reach, cell * 0.28));
@@ -368,6 +389,33 @@ namespace if_arena::battle_qt_client::ui
 				painter.drawText(QRectF{center.x() - 18, center.y() + 12, 36, 14}, Qt::AlignCenter,
 				                 QString::number(hazard.cooldown));
 			}
+			drawDangerMarkers(painter, hazard, center, cell);
+		}
+	}
+
+	void ArenaView::drawDangerMarkers(QPainter& painter, const game::HazardSnapshot& hazard, QPointF center, double cell)
+	{
+		if (hazard.damage > 0)
+		{
+			const auto radius = std::max(7.0, cell * 0.18);
+			const auto damageCenter = QPointF{center.x() + cell * 0.34, center.y() - cell * 0.34};
+			painter.setBrush(QColor{14, 17, 18, 198});
+			painter.setPen(QPen{QColor{255, 210, 199}, 1});
+			painter.drawEllipse(damageCenter, radius, radius);
+			painter.setPen(QColor{255, 242, 222});
+			painter.drawText(QRectF{damageCenter.x() - radius, damageCenter.y() - radius, radius * 2.0, radius * 2.0},
+			                 Qt::AlignCenter, QString::number(hazard.damage));
+		}
+		if (hazard.causesDrop)
+		{
+			const auto x = center.x() - cell * 0.34;
+			const auto y = center.y() - cell * 0.34;
+			QPolygonF diamond;
+			diamond << QPointF{x, y - cell * 0.12} << QPointF{x + cell * 0.12, y}
+			        << QPointF{x, y + cell * 0.12} << QPointF{x - cell * 0.12, y};
+			painter.setBrush(QColor{255, 207, 92});
+			painter.setPen(QPen{QColor{255, 246, 199}, 1});
+			painter.drawPolygon(diamond);
 		}
 	}
 
@@ -377,16 +425,15 @@ namespace if_arena::battle_qt_client::ui
 		QStringList seen;
 		for (const auto& hazard : _snapshot->hazards)
 		{
-			if (seen.contains(hazard.icon))
+			if (seen.contains(hazard.visualId))
 			{
 				continue;
 			}
-			seen.push_back(hazard.icon);
+			seen.push_back(hazard.visualId);
 			const auto label = hazardIconKind(hazard);
-			const auto effect = hazard.effect == "damage_drop_objective" ? QStringLiteral("damage + drop")
-			                                                              : QStringLiteral("damage");
-			const auto reach = hazard.trigger == "range" ? hazard.range : hazard.radius;
-			lines.push_back(label + ": " + effect + ", r" + QString::number(reach));
+			const auto effect = hazard.causesDrop ? QStringLiteral("-%1 + drop").arg(hazard.damage)
+			                                      : QStringLiteral("-%1").arg(hazard.damage);
+			lines.push_back(label + ": " + effect + ", r" + QString::number(hazard.rangeRadius));
 		}
 		if (lines.empty())
 		{

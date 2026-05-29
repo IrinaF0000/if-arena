@@ -40,6 +40,60 @@ assert.equal(next.type, "start_next_match");
 assert.deepEqual(next.payload, { matchId: "1" });
 
 const scenario = { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" };
+const obstacle = {
+  id: "obstacle_7_5",
+  kind: "blocking_obstacle",
+  visualId: "obstacle_block",
+  x: 7,
+  y: 5,
+  blocksMovement: true,
+  damage: 0,
+  causesDrop: false,
+  rangeRadius: 0,
+  cooldownTicks: 0,
+  cooldown: 0,
+  team: "neutral"
+};
+const mineHazard = {
+  id: "mine_left",
+  kind: "mine",
+  visualId: "hazard_mine",
+  x: 7,
+  y: 4,
+  radius: 0.7,
+  range: 1,
+  damage: 12,
+  effect: "damage_drop_objective",
+  trigger: "proximity",
+  icon: "hazard_mine",
+  blocksMovement: false,
+  causesDrop: true,
+  rangeRadius: 0.7,
+  team: "neutral",
+  cooldownTicks: 30,
+  cooldown: 0,
+  triggered: false
+};
+const crowHazard = {
+  id: "center_crow",
+  kind: "crow",
+  visualId: "hazard_crow",
+  x: 10,
+  y: 5,
+  radius: 0.65,
+  range: 1.5,
+  damage: 6,
+  effect: "damage_drop_objective",
+  trigger: "proximity",
+  icon: "hazard_crow",
+  blocksMovement: false,
+  causesDrop: true,
+  rangeRadius: 0.65,
+  team: "neutral",
+  cooldownTicks: 8,
+  cooldown: 0,
+  triggered: false
+};
 
 const validSnapshot = protocol.parseIncomingMessage(
   JSON.stringify({
@@ -52,7 +106,7 @@ const validSnapshot = protocol.parseIncomingMessage(
       finished: false,
       scenario,
       map: { width: 21, height: 13 },
-      obstacles: [{ x: 7, y: 5 }],
+      obstacles: [obstacle],
       players: [
         {
           playerId: "1",
@@ -75,43 +129,16 @@ const validSnapshot = protocol.parseIncomingMessage(
         respawnTicks: 0
       },
       scores: [{ team: "blue", score: 0 }],
-      hazards: [
-        {
-          id: "mine_left",
-          kind: "mine",
-          x: 7,
-          y: 4,
-          radius: 0.7,
-          range: 1,
-          damage: 12,
-          effect: "damage_drop_objective",
-          trigger: "proximity",
-          icon: "hazard_mine",
-          cooldownTicks: 30,
-          cooldown: 0,
-          triggered: false
-        },
-        {
-          id: "center_crow",
-          kind: "crow",
-          x: 10,
-          y: 5,
-          radius: 0.65,
-          range: 1.5,
-          damage: 6,
-          effect: "damage_drop_objective",
-          trigger: "proximity",
-          icon: "hazard_crow",
-          cooldownTicks: 8,
-          cooldown: 0,
-          triggered: false
-        }
-      ]
+      hazards: [mineHazard, crowHazard]
     }
   })
 );
 assert.equal(validSnapshot.type, "snapshot");
-assert.deepEqual(validSnapshot.payload.obstacles, [{ x: 7, y: 5 }]);
+assert.deepEqual(validSnapshot.payload.obstacles, [obstacle]);
+assert.equal(validSnapshot.payload.obstacles[0].blocksMovement, true);
+assert.equal(validSnapshot.payload.hazards[0].visualId, "hazard_mine");
+assert.equal(validSnapshot.payload.hazards[0].causesDrop, true);
+assert.equal(validSnapshot.payload.hazards[0].rangeRadius, 0.7);
 assert.equal(validSnapshot.payload.hazards.at(-1).kind, "crow");
 
 const authorityClaim = protocol.createInputCommand("1", 1, "move", { x: 1, y: 0 });
@@ -177,7 +204,7 @@ const invalidObstacleSnapshot = protocol.parseIncomingMessage(
       finished: false,
       scenario,
       map: { width: 21, height: 13 },
-      obstacles: [{ x: "7", y: 5 }],
+      obstacles: [{ ...obstacle, x: "7" }],
       players: [],
       objective: {
         state: "at_spawn",
@@ -194,5 +221,34 @@ const invalidObstacleSnapshot = protocol.parseIncomingMessage(
 );
 assert.equal(invalidObstacleSnapshot.type, "client_parse_error");
 assert.equal(invalidObstacleSnapshot.payload.reason, "invalid_envelope");
+
+const invalidHazardSemanticSnapshot = protocol.parseIncomingMessage(
+  JSON.stringify({
+    version: 1,
+    type: "snapshot",
+    payload: {
+      matchId: "1",
+      tick: 3,
+      serverTick: 3,
+      finished: false,
+      scenario,
+      map: { width: 21, height: 13 },
+      obstacles: [obstacle],
+      players: [],
+      objective: {
+        state: "at_spawn",
+        x: 10,
+        y: 6,
+        carrierPlayerId: "0",
+        pickupLockTicks: 0,
+        respawnTicks: 0
+      },
+      scores: [],
+      hazards: [{ ...mineHazard, causesDrop: false }]
+    }
+  })
+);
+assert.equal(invalidHazardSemanticSnapshot.type, "client_parse_error");
+assert.equal(invalidHazardSemanticSnapshot.payload.reason, "invalid_envelope");
 
 console.log("[PASS] telegram_protocol_validation");

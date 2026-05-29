@@ -157,7 +157,7 @@ The tick loop:
 6. emits events;
 7. publishes snapshots.
 
-Hazard behavior is also scenario/config driven. Snapshots expose authoritative hazard metadata such as id, kind, radius, range, damage, effect, trigger, icon, configured cooldown, current cooldown, and triggered state. Clients render that metadata and may explain it in the UI, but they do not infer damage, range, drops, or cooldowns from hardcoded hazard kinds.
+Object and hazard behavior is also scenario/config driven. Snapshots expose authoritative object semantics such as id, kind, visual id, movement blocking, damage, drop behavior, range/radius, ownership, configured cooldown, current cooldown, and triggered state. Clients render that metadata and may explain it in the UI, but they do not infer damage, range, drops, blocking, ownership, or cooldowns from hardcoded colors or hazard kinds.
 
 ## Backend resource limits
 

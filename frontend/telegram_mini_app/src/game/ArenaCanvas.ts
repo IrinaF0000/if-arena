@@ -169,11 +169,19 @@ export class ArenaCanvas {
   private drawObstacle(obstacle: ObstacleSnapshot, snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
     const point = this.worldToCanvas(obstacle.x, obstacle.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
     const size = cell * 0.82;
-    this.context.fillStyle = "#303633";
-    this.context.strokeStyle = "#b49a62";
+    this.context.fillStyle = obstacle.blocksMovement ? "#303633" : "#2c3435";
+    this.context.strokeStyle = "#d3b36d";
     this.context.lineWidth = 1.5;
     this.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
     this.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
+    this.context.strokeStyle = "rgba(247, 243, 232, 0.38)";
+    this.context.lineWidth = 1;
+    this.context.beginPath();
+    this.context.moveTo(point.x - size * 0.24, point.y + size * 0.24);
+    this.context.lineTo(point.x + size * 0.24, point.y - size * 0.24);
+    this.context.moveTo(point.x - size * 0.24, point.y - size * 0.24);
+    this.context.lineTo(point.x + size * 0.24, point.y + size * 0.24);
+    this.context.stroke();
   }
 
   private drawHazard(hazard: HazardSnapshot, originX: number, originY: number, cell: number): void {
@@ -183,8 +191,8 @@ export class ArenaCanvas {
     }
     const point = this.worldToCanvas(hazard.x, hazard.y, originX, originY, cell, snapshot.map.width, snapshot.map.height);
     const icon = this.hazardIconKind(hazard);
-    const effectColor = hazard.effect === "damage_drop_objective" ? "#ffcf5c" : "#ff8d7a";
-    const rangeCells = hazard.trigger === "range" ? hazard.range : hazard.radius;
+    const effectColor = hazard.causesDrop ? "#ffcf5c" : "#ff8d7a";
+    const rangeCells = hazard.rangeRadius;
     this.context.save();
     this.context.globalAlpha = hazard.triggered ? 0.22 : 0.16;
     this.context.fillStyle = effectColor;
@@ -232,16 +240,51 @@ export class ArenaCanvas {
       this.context.fillText(String(hazard.cooldown), point.x, point.y + cell * 0.55);
       this.context.textAlign = "start";
     }
+    this.drawDangerMarkers(hazard, point, cell);
   }
 
   private hazardIconKind(hazard: HazardSnapshot): "mine" | "tower" | "crow" {
-    if (hazard.icon.includes("tower")) {
+    const visualId = hazard.visualId || hazard.icon;
+    if (visualId.includes("tower")) {
       return "tower";
     }
-    if (hazard.icon.includes("crow") || hazard.icon.includes("drone")) {
+    if (visualId.includes("crow") || visualId.includes("drone")) {
       return "crow";
     }
     return "mine";
+  }
+
+  private drawDangerMarkers(hazard: HazardSnapshot, point: { x: number; y: number }, cell: number): void {
+    if (hazard.damage > 0) {
+      const radius = Math.max(7, cell * 0.18);
+      this.context.fillStyle = "rgba(14, 17, 18, 0.78)";
+      this.context.strokeStyle = "#ffd2c7";
+      this.context.lineWidth = 1;
+      this.context.beginPath();
+      this.context.arc(point.x + cell * 0.34, point.y - cell * 0.34, radius, 0, Math.PI * 2);
+      this.context.fill();
+      this.context.stroke();
+      this.context.fillStyle = "#fff2de";
+      this.context.font = "10px system-ui, sans-serif";
+      this.context.textAlign = "center";
+      this.context.fillText(String(hazard.damage), point.x + cell * 0.34, point.y - cell * 0.28);
+      this.context.textAlign = "start";
+    }
+    if (hazard.causesDrop) {
+      const x = point.x - cell * 0.34;
+      const y = point.y - cell * 0.34;
+      this.context.fillStyle = "#ffcf5c";
+      this.context.strokeStyle = "#fff6c7";
+      this.context.lineWidth = 1;
+      this.context.beginPath();
+      this.context.moveTo(x, y - cell * 0.12);
+      this.context.lineTo(x + cell * 0.12, y);
+      this.context.lineTo(x, y + cell * 0.12);
+      this.context.lineTo(x - cell * 0.12, y);
+      this.context.closePath();
+      this.context.fill();
+      this.context.stroke();
+    }
   }
 
   private drawLocalActionPreview(snapshot: SnapshotPayload, originX: number, originY: number, cell: number): void {
@@ -417,8 +460,8 @@ export class ArenaCanvas {
   private drawHazardLegend(snapshot: SnapshotPayload): void {
     const unique = new Map<string, HazardSnapshot>();
     for (const hazard of snapshot.hazards) {
-      if (!unique.has(hazard.icon)) {
-        unique.set(hazard.icon, hazard);
+      if (!unique.has(hazard.visualId)) {
+        unique.set(hazard.visualId, hazard);
       }
     }
     if (unique.size === 0) {
@@ -426,9 +469,8 @@ export class ArenaCanvas {
     }
     const lines = [...unique.values()].map((hazard) => {
       const label = this.hazardIconKind(hazard);
-      const effect = hazard.effect === "damage_drop_objective" ? "damage + drop" : "damage";
-      const reach = hazard.trigger === "range" ? hazard.range : hazard.radius;
-      return `${label}: ${effect}, r${reach}`;
+      const effect = hazard.causesDrop ? `-${hazard.damage} + drop` : `-${hazard.damage}`;
+      return `${label}: ${effect}, r${hazard.rangeRadius}`;
     });
     const width = 220;
     const lineHeight = 16;

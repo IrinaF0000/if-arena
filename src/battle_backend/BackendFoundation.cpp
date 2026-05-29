@@ -165,7 +165,11 @@ namespace if_arena::battle_backend
 					output << ',';
 				}
 				const auto& obstacle = snapshot.obstacles[index];
-				output << "{\"x\":" << obstacle.x << ",\"y\":" << obstacle.y << "}";
+				output << "{\"id\":\"obstacle_" << obstacle.x << '_' << obstacle.y
+				       << "\",\"kind\":\"blocking_obstacle\",\"visualId\":\"obstacle_block\",\"x\":" << obstacle.x
+				       << ",\"y\":" << obstacle.y
+				       << ",\"blocksMovement\":true,\"damage\":0,\"causesDrop\":false,\"rangeRadius\":0"
+				       << ",\"cooldownTicks\":0,\"cooldown\":0,\"team\":\"neutral\"}";
 			}
 			output << "],\"players\":[";
 			for (std::size_t index = 0; index < snapshot.players.size(); ++index)
@@ -204,12 +208,16 @@ namespace if_arena::battle_backend
 				{
 					output << ',';
 				}
+				const auto causesDrop = hazard.effect == battle_core::HazardEffect::DamageAndDropObjective;
+				const auto rangeRadius = hazard.trigger == battle_core::HazardTrigger::Range ? hazard.range : hazard.radius;
 				output << "{\"id\":\"" << hazard.id << "\",\"kind\":\"" << hazardKindName(hazard.kind)
-				       << "\",\"x\":" << hazard.position.x << ",\"y\":" << hazard.position.y
+				       << "\",\"visualId\":\"" << hazard.icon << "\",\"x\":" << hazard.position.x
+				       << ",\"y\":" << hazard.position.y
 				       << ",\"radius\":" << hazard.radius << ",\"range\":" << hazard.range
 				       << ",\"damage\":" << hazard.damage << ",\"effect\":\"" << hazardEffectName(hazard.effect)
 				       << "\",\"trigger\":\"" << hazardTriggerName(hazard.trigger) << "\",\"icon\":\"" << hazard.icon
-				       << "\",\"cooldownTicks\":" << hazard.cooldownTicks
+				       << "\",\"blocksMovement\":false,\"causesDrop\":" << (causesDrop ? "true" : "false")
+				       << ",\"rangeRadius\":" << rangeRadius << ",\"team\":\"neutral\",\"cooldownTicks\":" << hazard.cooldownTicks
 				       << ",\"cooldown\":" << hazard.cooldownTicksRemaining
 				       << ",\"triggered\":" << (hazard.triggered ? "true" : "false") << "}";
 			}

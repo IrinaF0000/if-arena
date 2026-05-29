@@ -39,8 +39,11 @@ namespace if_arena::battle_qt_client::ui
 		[[nodiscard]] if_arena::battle_qt_client::game::Direction directionFromPoint(QPointF point) const;
 		void drawBoard(QPainter& painter);
 		void drawBases(QPainter& painter);
+		void drawObstacles(QPainter& painter);
 		void drawObjective(QPainter& painter);
 		void drawHazards(QPainter& painter);
+		void drawDangerMarkers(QPainter& painter, const if_arena::battle_qt_client::game::HazardSnapshot& hazard,
+		                       QPointF center, double cell);
 		void drawHazardLegend(QPainter& painter);
 		void drawLocalActionPreview(QPainter& painter);
 		void drawPlayers(QPainter& painter);

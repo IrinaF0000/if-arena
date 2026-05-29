@@ -72,7 +72,11 @@ namespace if_arena::battle_qt_client::ui
 
 	ArenaView::ArenaView(QWidget* parent)
 		: QWidget(parent),
-		  _playerSprite(QStringLiteral(":/if_arena/assets/players/swordsman.svg"))
+		  _playerSprite(QStringLiteral(":/if_arena/assets/players/swordsman.svg")),
+		  _obstacleSprite(QStringLiteral(":/if_arena/assets/svg/obstacle_block.svg")),
+		  _mineSprite(QStringLiteral(":/if_arena/assets/svg/hazard_mine.svg")),
+		  _towerSprite(QStringLiteral(":/if_arena/assets/svg/hazard_tower.svg")),
+		  _crowSprite(QStringLiteral(":/if_arena/assets/svg/hazard_crow.svg"))
 	{
 		setMinimumSize(820, 520);
 		setMouseTracking(true);
@@ -341,6 +345,11 @@ namespace if_arena::battle_qt_client::ui
 			                 QPointF{center.x() + size * 0.24, center.y() - size * 0.24});
 			painter.drawLine(QPointF{center.x() - size * 0.24, center.y() - size * 0.24},
 			                 QPointF{center.x() + size * 0.24, center.y() + size * 0.24});
+			if (_obstacleSprite.isValid())
+			{
+				_obstacleSprite.render(&painter, QRectF{center.x() - cell * 0.51, center.y() - cell * 0.51,
+				                                        cell * 1.02, cell * 1.02});
+			}
 		}
 	}
 
@@ -357,7 +366,14 @@ namespace if_arena::battle_qt_client::ui
 			painter.setBrush(rangeColor);
 			painter.setPen(QPen{rangeColor.darker(115), 1});
 			painter.drawEllipse(center, std::max(reach, cell * 0.28), std::max(reach, cell * 0.28));
-			if (icon == "tower")
+			auto* renderer = hazardRenderer(hazard);
+			if (renderer != nullptr && renderer->isValid())
+			{
+				const auto spriteSize = icon == "tower" ? cell * 0.92 : icon == "crow" ? cell * 1.0 : cell * 0.9;
+				renderer->render(&painter, QRectF{center.x() - spriteSize / 2.0, center.y() - spriteSize / 2.0,
+				                                  spriteSize, spriteSize});
+			}
+			else if (icon == "tower")
 			{
 				painter.setBrush(hazard.triggered ? QColor{156, 87, 255} : QColor{120, 96, 180});
 				painter.setPen(QPen{QColor{230, 220, 255}, 1});
@@ -391,6 +407,20 @@ namespace if_arena::battle_qt_client::ui
 			}
 			drawDangerMarkers(painter, hazard, center, cell);
 		}
+	}
+
+	QSvgRenderer* ArenaView::hazardRenderer(const game::HazardSnapshot& hazard)
+	{
+		const auto icon = hazardIconKind(hazard);
+		if (icon == "tower")
+		{
+			return &_towerSprite;
+		}
+		if (icon == "crow")
+		{
+			return &_crowSprite;
+		}
+		return &_mineSprite;
 	}
 
 	void ArenaView::drawDangerMarkers(QPainter& painter, const game::HazardSnapshot& hazard, QPointF center, double cell)

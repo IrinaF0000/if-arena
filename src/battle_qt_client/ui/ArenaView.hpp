@@ -42,6 +42,7 @@ namespace if_arena::battle_qt_client::ui
 		void drawObstacles(QPainter& painter);
 		void drawObjective(QPainter& painter);
 		void drawHazards(QPainter& painter);
+		[[nodiscard]] QSvgRenderer* hazardRenderer(const if_arena::battle_qt_client::game::HazardSnapshot& hazard);
 		void drawDangerMarkers(QPainter& painter, const if_arena::battle_qt_client::game::HazardSnapshot& hazard,
 		                       QPointF center, double cell);
 		void drawHazardLegend(QPainter& painter);
@@ -57,6 +58,10 @@ namespace if_arena::battle_qt_client::ui
 		std::optional<if_arena::battle_qt_client::game::ArenaSnapshot> _snapshot;
 		QString _localPlayerId;
 		QSvgRenderer _playerSprite;
+		QSvgRenderer _obstacleSprite;
+		QSvgRenderer _mineSprite;
+		QSvgRenderer _towerSprite;
+		QSvgRenderer _crowSprite;
 		QElapsedTimer _lastSnapshotAt;
 		QElapsedTimer _lastAttackFeedbackAt;
 		QElapsedTimer _lastDashFeedbackAt;

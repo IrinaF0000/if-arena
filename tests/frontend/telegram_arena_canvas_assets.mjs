@@ -74,9 +74,11 @@ class FakeCanvas {
 
 globalThis.Image = FakeImage;
 
-const { ArenaCanvas, playerSpritePath } = await import(pathToFileURL(outPath).href);
+const { ArenaCanvas, arenaObjectSpritePaths, playerSpritePath } = await import(pathToFileURL(outPath).href);
 
 assert.equal(playerSpritePath, "/players/swordsman.svg");
+assert.equal(arenaObjectSpritePaths.hazard_crow, "/svg/hazard_crow.svg");
+assert.equal(arenaObjectSpritePaths.obstacle_block, "/svg/obstacle_block.svg");
 
 const canvas = new FakeCanvas();
 const arena = new ArenaCanvas(canvas);
@@ -190,8 +192,10 @@ arena.showEventFeedback([
 ]);
 
 const drawImages = canvas.context.calls.filter((call) => call.name === "drawImage");
-assert.ok(drawImages.length >= 2, "both players should render through the SVG image");
-assert.equal(drawImages[0].args[0].src, "/players/swordsman.svg");
+assert.ok(drawImages.length >= 5, "players, obstacles, and hazards should render through SVG images");
+assert.ok(drawImages.some((call) => call.args[0].src === "/players/swordsman.svg"), "players use the SVG sprite");
+assert.ok(drawImages.some((call) => call.args[0].src === "/svg/obstacle_block.svg"), "obstacles use the blocker SVG");
+assert.ok(drawImages.some((call) => call.args[0].src === "/svg/hazard_crow.svg"), "hazards use the visualId SVG");
 
 const rotations = canvas.context.calls.filter((call) => call.name === "rotate").map((call) => call.args[0]);
 assert.ok(rotations.some((angle) => Math.abs(angle - Math.PI / 2) < 0.0001), "local sprite rotates by aim direction");
@@ -201,9 +205,6 @@ assert.ok(carrierArcs.length > 0, "carrier overlay remains visible");
 
 const fillRects = canvas.context.calls.filter((call) => call.name === "fillRect");
 assert.ok(fillRects.length >= 4, "authoritative obstacle cells render as filled blockers");
-
-const crowArcs = canvas.context.calls.filter((call) => call.name === "arc" && call.args[2] > 8 && call.args[2] < 14);
-assert.ok(crowArcs.length > 0, "crow hazard renders as a visible neutral marker");
 
 const rangeArcs = canvas.context.calls.filter((call) => call.name === "arc" && call.args[2] > 70);
 assert.ok(rangeArcs.length > 0, "attack range indicator renders around the local player");

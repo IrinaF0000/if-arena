@@ -1,6 +1,12 @@
 import type { Direction, HazardSnapshot, ObstacleSnapshot, PlayerSnapshot, SnapshotPayload, Team } from "../protocol/ProtocolTypes";
 
 export const playerSpritePath = "/players/swordsman.svg";
+export const arenaObjectSpritePaths: Record<string, string> = {
+  hazard_crow: "/svg/hazard_crow.svg",
+  hazard_mine: "/svg/hazard_mine.svg",
+  hazard_tower: "/svg/hazard_tower.svg",
+  obstacle_block: "/svg/obstacle_block.svg"
+};
 
 type ActionFeedbackKind = "attack" | "dash";
 type VisualEventKind =
@@ -22,6 +28,7 @@ type VisualEventFeedback = {
 export class ArenaCanvas {
   private readonly context: CanvasRenderingContext2D;
   private readonly playerSprite: HTMLImageElement;
+  private readonly objectSprites: Map<string, HTMLImageElement>;
   private snapshot: SnapshotPayload | null = null;
   private localPlayerId: string | null = null;
   private status = "offline";
@@ -36,6 +43,7 @@ export class ArenaCanvas {
     }
     this.context = context;
     this.playerSprite = this.createPlayerSprite();
+    this.objectSprites = this.createObjectSprites();
   }
 
   public setStatus(status: string): void {
@@ -182,6 +190,7 @@ export class ArenaCanvas {
     this.context.moveTo(point.x - size * 0.24, point.y - size * 0.24);
     this.context.lineTo(point.x + size * 0.24, point.y + size * 0.24);
     this.context.stroke();
+    this.drawObjectSprite(obstacle.visualId, point.x, point.y, cell * 1.02);
   }
 
   private drawHazard(hazard: HazardSnapshot, originX: number, originY: number, cell: number): void {
@@ -206,30 +215,33 @@ export class ArenaCanvas {
 
     this.context.fillStyle = icon === "tower" ? "#b38cff" : icon === "crow" ? "#dce8ef" : "#ff9f43";
     this.context.globalAlpha = hazard.triggered ? 0.35 : 0.9;
-    this.context.beginPath();
-    if (icon === "crow") {
-      this.context.arc(point.x, point.y, cell * 0.3, 0, Math.PI * 2);
-      this.context.fill();
-      this.context.fillStyle = "#1e2a31";
+    const spriteSize = icon === "tower" ? cell * 0.92 : icon === "crow" ? cell * 1.0 : cell * 0.9;
+    if (!this.drawObjectSprite(hazard.visualId, point.x, point.y, spriteSize)) {
       this.context.beginPath();
-      this.context.moveTo(point.x - cell * 0.32, point.y);
-      this.context.lineTo(point.x, point.y - cell * 0.16);
-      this.context.lineTo(point.x + cell * 0.32, point.y);
-      this.context.lineTo(point.x, point.y + cell * 0.1);
-      this.context.closePath();
-      this.context.fill();
-    } else if (icon === "tower") {
-      const size = cell * 0.46;
-      this.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
-      this.context.strokeStyle = "#f0e9ff";
-      this.context.lineWidth = 1.5;
-      this.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
-    } else {
-      this.context.moveTo(point.x, point.y - cell * 0.28);
-      this.context.lineTo(point.x + cell * 0.28, point.y + cell * 0.22);
-      this.context.lineTo(point.x - cell * 0.28, point.y + cell * 0.22);
-      this.context.closePath();
-      this.context.fill();
+      if (icon === "crow") {
+        this.context.arc(point.x, point.y, cell * 0.3, 0, Math.PI * 2);
+        this.context.fill();
+        this.context.fillStyle = "#1e2a31";
+        this.context.beginPath();
+        this.context.moveTo(point.x - cell * 0.32, point.y);
+        this.context.lineTo(point.x, point.y - cell * 0.16);
+        this.context.lineTo(point.x + cell * 0.32, point.y);
+        this.context.lineTo(point.x, point.y + cell * 0.1);
+        this.context.closePath();
+        this.context.fill();
+      } else if (icon === "tower") {
+        const size = cell * 0.46;
+        this.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
+        this.context.strokeStyle = "#f0e9ff";
+        this.context.lineWidth = 1.5;
+        this.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
+      } else {
+        this.context.moveTo(point.x, point.y - cell * 0.28);
+        this.context.lineTo(point.x + cell * 0.28, point.y + cell * 0.22);
+        this.context.lineTo(point.x - cell * 0.28, point.y + cell * 0.22);
+        this.context.closePath();
+        this.context.fill();
+      }
     }
     this.context.globalAlpha = 1;
 
@@ -418,6 +430,27 @@ export class ArenaCanvas {
     image.src = playerSpritePath;
     image.addEventListener("load", () => this.render());
     return image;
+  }
+
+  private createObjectSprites(): Map<string, HTMLImageElement> {
+    const sprites = new Map<string, HTMLImageElement>();
+    for (const [visualId, path] of Object.entries(arenaObjectSpritePaths)) {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = path;
+      image.addEventListener("load", () => this.render());
+      sprites.set(visualId, image);
+    }
+    return sprites;
+  }
+
+  private drawObjectSprite(visualId: string, x: number, y: number, size: number): boolean {
+    const image = this.objectSprites.get(visualId);
+    if (!image || !image.complete || image.naturalWidth <= 0) {
+      return false;
+    }
+    this.context.drawImage(image, x - size / 2, y - size / 2, size, size);
+    return true;
   }
 
   private drawPlayerSprite(x: number, y: number, size: number, isLocal: boolean): void {

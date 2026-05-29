@@ -364,7 +364,12 @@ def assert_smooth(snapshots: list[dict[str, Any]], player_id: str) -> None:
         require(dx <= 1.0 and dy <= 1.0, f"unexpected movement jump {before} -> {after}")
 
 
-def assert_step(step: dict[str, Any], snapshot: dict[str, Any], actors: dict[str, ScenarioClient]) -> None:
+def assert_step(
+    step: dict[str, Any],
+    snapshot: dict[str, Any],
+    actors: dict[str, ScenarioClient],
+    game_config: dict[str, Any],
+) -> None:
     if step["assert"] == "objective_picked":
         carrier = actors[step["by"]].session_id
         objective = snapshot["objective"]
@@ -381,6 +386,22 @@ def assert_step(step: dict[str, Any], snapshot: dict[str, Any], actors: dict[str
         require(
             snapshot["objective"]["state"] == step["state"],
             f"unexpected objective state: {snapshot['objective']} players={snapshot['players']}",
+        )
+        return
+    if step["assert"] == "objective_not_at_spawn":
+        spawn = game_config["map"]["objectiveSpawn"]
+        objective = snapshot["objective"]
+        require(
+            float(objective["x"]) != float(spawn["x"]) or float(objective["y"]) != float(spawn["y"]),
+            f"objective reset too early: {objective}",
+        )
+        return
+    if step["assert"] == "objective_at_spawn":
+        spawn = game_config["map"]["objectiveSpawn"]
+        objective = snapshot["objective"]
+        require(
+            float(objective["x"]) == float(spawn["x"]) and float(objective["y"]) == float(spawn["y"]),
+            f"objective did not return to spawn: {objective}",
         )
         return
     if step["assert"] == "finished":
@@ -491,7 +512,7 @@ def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
                         assert_smooth(snapshots, actor.session_id)
                     continue
                 if "assert" in step:
-                    assert_step(step, snapshot, actors)
+                    assert_step(step, snapshot, actors, game_config)
             for client in clients:
                 client.close()
             stdout, stderr = server.communicate(timeout=10)

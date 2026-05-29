@@ -386,6 +386,8 @@ namespace
 		require(snapshot.finished, "match finishes when score limit is reached");
 		require(snapshot.scores.front().score == 1, "capture increments score");
 		require(snapshot.objective.state == ObjectiveState::Captured, "objective records captured terminal state");
+		require(snapshot.objective.position == snapshot.players.front().worldPosition,
+		        "finished capture keeps objective at capture point");
 		require(!engine.dropObjective(PlayerId{1}).accepted(), "finished match rejects server-side objective drop");
 	}
 
@@ -447,12 +449,16 @@ namespace
 		require(engine.submit(PlayerCommand::move(PlayerId{1}, Direction{0, 1})).accepted(), "carrier movement accepted");
 		engine.tick();
 		engine.tick();
-		require(engine.snapshot().objective.state == ObjectiveState::Respawning, "objective waits to respawn after capture");
+		auto respawning = engine.snapshot();
+		require(respawning.objective.state == ObjectiveState::Respawning, "objective waits to respawn after capture");
+		require(respawning.objective.position == respawning.players.front().worldPosition,
+		        "objective remains at capture point during respawn staging");
 
 		const auto events = engine.tick();
 		const auto snapshot = engine.snapshot();
 		require(hasEvent(events, BattleEventType::ObjectiveRespawned), "objective respawn event emitted");
 		require(snapshot.objective.state == ObjectiveState::AtSpawn, "objective respawns at center after delay");
+		require(snapshot.objective.position == Vec2d{10.0, 6.0}, "objective returns to configured spawn after delay");
 		require(!snapshot.finished, "match continues before score limit");
 	}
 

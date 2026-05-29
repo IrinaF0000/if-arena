@@ -607,8 +607,7 @@ namespace if_arena::battle_core
 		                             player.team, score->score});
 
 		_objective.carrier = PlayerId{};
-		_objective.position =
-			Vec2d{static_cast<double>(_objectiveConfig->spawn.x), static_cast<double>(_objectiveConfig->spawn.y)};
+		_objective.position = player.worldPosition;
 		if (score->score >= _objectiveConfig->scoreLimit)
 		{
 			_objective.state = ObjectiveState::Captured;

@@ -2,9 +2,10 @@
 
 ## Status
 
-State: commit-ready
+State: committed
 Branch: `agent/0047-playable-stabilization`
 Task packet: `docs/agent-tasks/0065-desktop-side-panel-layout.md`
+Implementation commit: `f5db8df`
 
 ## Scope
 
@@ -17,7 +18,7 @@ Task packet: `docs/agent-tasks/0065-desktop-side-panel-layout.md`
 - Implementation-Agent: completed.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Assumptions
 

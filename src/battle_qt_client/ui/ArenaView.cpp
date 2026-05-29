@@ -281,21 +281,27 @@ namespace if_arena::battle_qt_client::ui
 	void ArenaView::drawBases(QPainter& painter)
 	{
 		const auto board = boardRect();
-		const auto band = board.height() * 0.18;
+		const auto cellW = board.width() / _snapshot->map.width;
+		const auto cellH = board.height() / _snapshot->map.height;
+		const auto baseWidth = cellW * 5.0;
+		const auto baseHeight = cellH * 2.0;
 		const auto viewer = viewerTeam();
-		const auto enemy = viewer == Team::Red ? Team::Blue : Team::Red;
 		auto translucent = [](QColor color) {
 			color.setAlpha(48);
 			return color;
 		};
-		painter.setPen(Qt::NoPen);
-		painter.setBrush(translucent(teamColor(viewer)));
-		painter.drawRect(QRectF{board.left(), board.bottom() - band, board.width(), band});
-		painter.setBrush(translucent(teamColor(enemy)));
-		painter.drawRect(QRectF{board.left(), board.top(), board.width(), band});
-		painter.setPen(QColor{247, 243, 232, 205});
-		painter.drawText(QRectF{board.left(), board.bottom() - band, board.width(), band}, Qt::AlignCenter, "OWN BASE");
-		painter.drawText(QRectF{board.left(), board.top(), board.width(), band}, Qt::AlignCenter, "ENEMY BASE");
+		for (const auto team : {Team::Blue, Team::Red})
+		{
+			const auto centerX = std::floor(_snapshot->map.width / 2.0);
+			const auto centerY = team == Team::Blue ? _snapshot->map.height - 2.0 : 1.0;
+			const auto center = toScreen(centerX, centerY);
+			const QRectF base{center.x() - baseWidth / 2.0, center.y() - baseHeight / 2.0, baseWidth, baseHeight};
+			painter.setPen(QPen{teamColor(team), 2});
+			painter.setBrush(translucent(teamColor(team)));
+			painter.drawRoundedRect(base, 6, 6);
+			painter.setPen(QColor{247, 243, 232, 205});
+			painter.drawText(base, Qt::AlignCenter, team == viewer ? "OWN BASE" : "ENEMY BASE");
+		}
 	}
 
 	void ArenaView::drawObjective(QPainter& painter)

@@ -3,8 +3,9 @@
 #include "game/CoordinateTransform.hpp"
 
 #include <QDateTime>
-#include <QFormLayout>
 #include <QEvent>
+#include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QVBoxLayout>
@@ -38,12 +39,25 @@ namespace if_arena::battle_qt_client::ui
 		: QMainWindow(parent)
 	{
 		setWindowTitle("IF Arena Qt Client");
-		setMinimumSize(1100, 780);
+		setMinimumSize(1180, 720);
 
 		auto* root = new QWidget(this);
-		auto* layout = new QVBoxLayout(root);
+		auto* layout = new QHBoxLayout(root);
+		layout->setContentsMargins(10, 10, 10, 10);
+		layout->setSpacing(10);
 
-		auto* connectionRow = new QHBoxLayout();
+		_arena = new ArenaView(root);
+		layout->addWidget(_arena, 1);
+
+		auto* sidePanel = new QWidget(root);
+		sidePanel->setMinimumWidth(320);
+		sidePanel->setMaximumWidth(380);
+		auto* sideLayout = new QVBoxLayout(sidePanel);
+		sideLayout->setContentsMargins(0, 0, 0, 0);
+		sideLayout->setSpacing(8);
+
+		auto* connectionBox = new QGroupBox("Connection", sidePanel);
+		auto* connectionForm = new QFormLayout(connectionBox);
 		_host = new QLineEdit("127.0.0.1", root);
 		_port = new QSpinBox(root);
 		_port->setRange(1, 65535);
@@ -51,51 +65,61 @@ namespace if_arena::battle_qt_client::ui
 		_displayName = new QLineEdit("qt-player", root);
 		_connect = new QPushButton("Connect", root);
 		_disconnect = new QPushButton("Disconnect", root);
-		connectionRow->addWidget(new QLabel("Host", root));
-		connectionRow->addWidget(_host, 2);
-		connectionRow->addWidget(new QLabel("Port", root));
-		connectionRow->addWidget(_port);
-		connectionRow->addWidget(new QLabel("Name", root));
-		connectionRow->addWidget(_displayName, 2);
-		connectionRow->addWidget(_connect);
-		connectionRow->addWidget(_disconnect);
+		auto* connectionButtons = new QHBoxLayout();
+		connectionButtons->addWidget(_connect);
+		connectionButtons->addWidget(_disconnect);
+		connectionForm->addRow("Host", _host);
+		connectionForm->addRow("Port", _port);
+		connectionForm->addRow("Name", _displayName);
+		connectionForm->addRow(connectionButtons);
 
-		auto* lobbyRow = new QHBoxLayout();
+		auto* lobbyBox = new QGroupBox("Match", sidePanel);
+		auto* lobbyLayout = new QVBoxLayout(lobbyBox);
 		_create = new QPushButton("Create", root);
 		_joinCode = new QLineEdit(root);
 		_joinCode->setPlaceholderText("Match code");
 		_join = new QPushButton("Join", root);
 		_nextMatch = new QPushButton("Next match", root);
-		lobbyRow->addWidget(_create);
-		lobbyRow->addWidget(_joinCode, 1);
-		lobbyRow->addWidget(_join);
-		lobbyRow->addWidget(_nextMatch);
+		auto* joinRow = new QHBoxLayout();
+		joinRow->addWidget(_joinCode, 1);
+		joinRow->addWidget(_join);
+		lobbyLayout->addWidget(_create);
+		lobbyLayout->addLayout(joinRow);
+		lobbyLayout->addWidget(_nextMatch);
 
-		auto* statusRow = new QHBoxLayout();
+		auto* statusBox = new QGroupBox("Status", sidePanel);
+		auto* statusLayout = new QVBoxLayout(statusBox);
 		_connection = new QLabel("disconnected", root);
 		_identity = new QLabel("session -, match -", root);
 		_hud = new QLabel("Waiting for authoritative snapshot", root);
 		_controlsHint = new QLabel("WASD/arrows move | mouse aims | left click/Space attack | right click/Shift dash", root);
 		_error = new QLabel(root);
+		_connection->setWordWrap(true);
+		_identity->setWordWrap(true);
+		_hud->setWordWrap(true);
+		_controlsHint->setWordWrap(true);
+		_error->setWordWrap(true);
 		_controlsHint->setStyleSheet("color: #aeb8c4;");
 		_error->setStyleSheet("color: #ff8a80;");
-		statusRow->addWidget(_connection);
-		statusRow->addWidget(_identity);
-		statusRow->addWidget(_hud, 1);
+		statusLayout->addWidget(_connection);
+		statusLayout->addWidget(_identity);
+		statusLayout->addWidget(_hud);
+		statusLayout->addWidget(_controlsHint);
+		statusLayout->addWidget(_error);
 
-		_arena = new ArenaView(root);
+		auto* logBox = new QGroupBox("Event log", sidePanel);
+		auto* logLayout = new QVBoxLayout(logBox);
 		_events = new QPlainTextEdit(root);
 		_events->setReadOnly(true);
 		_events->setMaximumBlockCount(120);
-		_events->setMaximumHeight(96);
+		_events->setMinimumHeight(160);
+		logLayout->addWidget(_events);
 
-		layout->addLayout(connectionRow);
-		layout->addLayout(lobbyRow);
-		layout->addLayout(statusRow);
-		layout->addWidget(_controlsHint);
-		layout->addWidget(_error);
-		layout->addWidget(_arena, 1);
-		layout->addWidget(_events);
+		sideLayout->addWidget(connectionBox);
+		sideLayout->addWidget(lobbyBox);
+		sideLayout->addWidget(statusBox);
+		sideLayout->addWidget(logBox, 1);
+		layout->addWidget(sidePanel);
 		setCentralWidget(root);
 		setFocusPolicy(Qt::StrongFocus);
 		for (auto* button : {_connect, _disconnect, _create, _join, _nextMatch})

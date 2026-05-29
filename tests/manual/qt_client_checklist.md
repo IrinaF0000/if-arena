@@ -21,9 +21,12 @@
 
 ## Rendering And HUD
 
+- [ ] Connection controls, create/join controls, status, HUD, controls hint, errors, next-match action, and logs are in the right side panel.
+- [ ] Arena occupies the main area and the event log does not compress it vertically.
 - [ ] Arena floor/grid is subtle, scaled without clipping, and no longer reads like a debug grid.
 - [ ] Arena view keeps the full map visible while emphasizing bottom-to-top objective play.
 - [ ] Own base appears at the bottom and enemy base at the top for both clients.
+- [ ] Base visuals are compact scoring zones, not full-width bands.
 - [ ] Own hero is cyan/blue with an outline and `YOU` label.
 - [ ] Enemy hero is red with a non-color label.
 - [ ] Player tokens are large enough to read in a screenshot without changing authoritative collision.

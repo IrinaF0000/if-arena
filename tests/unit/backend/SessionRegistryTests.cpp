@@ -80,8 +80,8 @@ namespace
 		require(loaded.ok(), "playable scenario config parses");
 		const auto& scenario = *loaded.scenario;
 		require(scenario.id == "arena_small_objective_run", "scenario id preserved");
-		require(scenario.arena.obstacles.size() == 16, "scenario obstacles are loaded from config");
-		require(scenario.arena.hazards.size() == 5, "scenario hazards are loaded from config");
+		require(scenario.arena.obstacles.size() == 14, "scenario obstacles are loaded from config");
+		require(scenario.arena.hazards.size() == 7, "scenario hazards are loaded from config");
 		require(scenario.arena.hazards.front().id == "tower_left", "hazard id is loaded from config");
 		require(scenario.arena.hazards.front().effect == if_arena::battle_core::HazardEffect::DamageAndDropObjective,
 		        "hazard effect is loaded from config");

@@ -13,10 +13,10 @@
     "maxPendingCommandsPerSession": 128
   },
   "steps": [
-    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 15 },
+    { "actor": "blue", "navigateTo": "objectiveSpawn", "maxCommands": 80 },
     { "actor": "blue", "command": "stop", "ticks": 2 },
     { "assert": "objective_picked", "by": "blue" },
-    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": 1 }, "ticks": 17 },
+    { "actor": "blue", "navigateTo": "blueBase", "maxCommands": 100 },
     { "actor": "blue", "command": "stop", "ticks": 2 },
     { "assert": "score", "team": "blue", "equals": 1 },
     { "assert": "finished", "equals": true },
@@ -25,7 +25,7 @@
     { "assert": "score", "team": "red", "equals": 0 },
     { "assert": "finished", "equals": false },
     { "assert": "objective_state", "state": "at_spawn" },
-    { "actor": "blue", "command": "move", "direction": { "x": 0, "y": -1 }, "ticks": 4 }
+    { "actor": "blue", "navigateTo": "objectiveSpawn", "maxCommands": 20 }
   ],
   "movementAssertions": {
     "smooth": true,

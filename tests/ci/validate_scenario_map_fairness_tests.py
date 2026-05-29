@@ -35,6 +35,8 @@ def base_scenario() -> dict:
             "obstacles": [
                 {"x": 6, "y": 4},
                 {"x": 14, "y": 8},
+                {"x": 10, "y": 4},
+                {"x": 10, "y": 8},
             ],
         },
         "players": {
@@ -90,12 +92,23 @@ def one_cell_choke_is_rejected() -> None:
     require(any("required one-cell choke" in error for error in errors), "one-cell choke is rejected")
 
 
+def direct_route_is_rejected() -> None:
+    scenario = base_scenario()
+    scenario["map"]["obstacles"] = [
+        {"x": 6, "y": 4},
+        {"x": 14, "y": 8},
+    ]
+    errors = validate_temp(scenario)
+    require(any("route is too direct" in error for error in errors), "direct route is rejected")
+
+
 def main() -> int:
     tests = [
         valid_repo_scenario_passes,
         asymmetric_obstacle_is_rejected,
         unmatched_hazard_is_rejected,
         one_cell_choke_is_rejected,
+        direct_route_is_rejected,
     ]
     for test in tests:
         test()

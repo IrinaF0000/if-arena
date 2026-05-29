@@ -71,5 +71,6 @@ Recommended order:
 54. `0059-rematch-from-current-screen.md`
 55. `0060-score-capture-winner-clarity.md`
 56. `0061-objective-reset-staging.md`
+57. `0062-config-driven-arena-route-redesign.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

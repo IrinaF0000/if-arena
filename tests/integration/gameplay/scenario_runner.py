@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -230,6 +231,29 @@ def expect_type(client: ScenarioClient, expected_type: str, attempts: int = 64) 
     raise AssertionError(f"missing message type {expected_type}")
 
 
+def drain_client(client: ScenarioClient, attempts: int = 8) -> None:
+    sock = getattr(client, "sock", None)
+    if sock is None:
+        return
+    previous_timeout = sock.gettimeout()
+    sock.settimeout(0.001)
+    try:
+        for _ in range(attempts):
+            try:
+                message = client.recv_json()
+            except (TimeoutError, socket.timeout, BlockingIOError):
+                return
+            handle_control(client, message)
+    finally:
+        sock.settimeout(previous_timeout)
+
+
+def drain_other_clients(actors: dict[str, ScenarioClient], active: ScenarioClient) -> None:
+    for candidate in actors.values():
+        if candidate is not active:
+            drain_client(candidate)
+
+
 def auth(client: ScenarioClient, name: str) -> None:
     client.send_json({"version": 1, "type": "auth_request", "payload": {"mode": "demo", "displayName": name}})
     result = expect_type(client, "auth_result")
@@ -290,6 +314,112 @@ def score(snapshot: dict[str, Any], team: str) -> int:
         if candidate["team"] == team:
             return int(candidate["score"])
     raise AssertionError(f"score for {team} missing from snapshot")
+
+
+def obstacle_cells(game_config: dict[str, Any]) -> set[tuple[int, int]]:
+    return {(int(item["x"]), int(item["y"])) for item in game_config["map"].get("obstacles", [])}
+
+
+def hazard_cells(game_config: dict[str, Any]) -> set[tuple[int, int]]:
+    return {(int(item["x"]), int(item["y"])) for item in game_config.get("hazards", [])}
+
+
+def neighbors(cell: tuple[int, int]) -> list[tuple[int, int]]:
+    x, y = cell
+    return [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+
+
+def shortest_path(game_config: dict[str, Any], start: tuple[int, int], goal: tuple[int, int]) -> list[tuple[int, int]]:
+    width = int(game_config["map"]["width"])
+    height = int(game_config["map"]["height"])
+    blocked = obstacle_cells(game_config) | (hazard_cells(game_config) - {start, goal})
+    frontier: deque[tuple[int, int]] = deque([start])
+    previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+    while frontier:
+        current = frontier.popleft()
+        if current == goal:
+            path: list[tuple[int, int]] = []
+            cursor: tuple[int, int] | None = goal
+            while cursor is not None:
+                path.append(cursor)
+                cursor = previous[cursor]
+            path.reverse()
+            return path
+        for candidate in neighbors(current):
+            x, y = candidate
+            if candidate not in previous and 0 <= x < width and 0 <= y < height and candidate not in blocked:
+                previous[candidate] = current
+                frontier.append(candidate)
+    raise AssertionError(f"missing scenario route from {start} to {goal}")
+
+
+def target_cell(game_config: dict[str, Any], role: str) -> tuple[int, int]:
+    if role == "objectiveSpawn":
+        point = game_config["map"]["objectiveSpawn"]
+    elif role == "blueBase":
+        point = game_config["map"]["blueBase"]
+    elif role == "redBase":
+        point = game_config["map"]["redBase"]
+    else:
+        raise AssertionError(f"unsupported navigation role {role}")
+    return int(point["x"]), int(point["y"])
+
+
+def player_cell(snapshot: dict[str, Any], player_id: str) -> tuple[int, int]:
+    current = player(snapshot, player_id)
+    return int(round(float(current["x"]))), int(round(float(current["y"])))
+
+
+def direction_to_next(current: tuple[int, int], next_cell: tuple[int, int]) -> dict[str, int]:
+    return {
+        "x": max(-1, min(1, next_cell[0] - current[0])),
+        "y": max(-1, min(1, next_cell[1] - current[1])),
+    }
+
+
+def local_direction(actor_name: str, world_direction: dict[str, int]) -> dict[str, int]:
+    if actor_name == "red":
+        return {"x": -world_direction["x"], "y": -world_direction["y"]}
+    return world_direction
+
+
+def navigate_to(
+    actor_name: str,
+    actors: dict[str, ScenarioClient],
+    match_id: str,
+    snapshot: dict[str, Any],
+    game_config: dict[str, Any],
+    role: str,
+    max_commands: int,
+) -> dict[str, Any]:
+    actor = actors[actor_name]
+    goal = target_cell(game_config, role)
+    for _ in range(max_commands):
+        current = player(snapshot, actor.session_id)
+        if abs(float(current["x"]) - goal[0]) <= 0.55 and abs(float(current["y"]) - goal[1]) <= 0.55:
+            send_command(actor, match_id, {"command": "stop"})
+            snapshots = latest_snapshots_until(actors["blue"], int(snapshot["tick"]) + 1)
+            return snapshots[-1]
+        path = shortest_path(game_config, player_cell(snapshot, actor.session_id), goal)
+        require(len(path) > 1, f"navigation path already at {role} but position is {current}")
+        carrying = str(snapshot["objective"].get("carrierPlayerId", "")) == actor.session_id
+        move_ticks = 5 if carrying else 4
+        drain_other_clients(actors, actor)
+        send_command(actor, match_id, {"command": "move", "direction": local_direction(actor_name, direction_to_next(path[0], path[1]))})
+        drain_other_clients(actors, actor)
+        try:
+            snapshots = latest_snapshots_until(actors["blue"], int(snapshot["tick"]) + move_ticks)
+        except TimeoutError as exc:
+            raise AssertionError(
+                f"navigation to {role} timed out at tick {snapshot['tick']} current={current} path={path[:4]}"
+            ) from exc
+        snapshot = snapshots[-1]
+        if snapshot.get("finished") is True:
+            return snapshot
+    final_player = player(snapshot, actor.session_id)
+    raise AssertionError(
+        f"navigation to {role} exceeded {max_commands} commands; final={final_player} objective={snapshot['objective']}"
+    )
 
 
 def load_game_config(scenario: dict[str, Any]) -> dict[str, Any]:
@@ -377,7 +507,10 @@ def assert_step(
         require(str(objective["carrierPlayerId"]) == carrier, f"unexpected carrier: {objective}")
         return
     if step["assert"] == "capture":
-        require(score(snapshot, step["by"]) >= 1, f"capture score missing: {snapshot['scores']}")
+        require(
+            score(snapshot, step["by"]) >= 1,
+            f"capture score missing: {snapshot['scores']} objective={snapshot['objective']} players={snapshot['players']}",
+        )
         return
     if step["assert"] == "score":
         require(score(snapshot, step["team"]) == int(step["equals"]), f"unexpected score: {snapshot['scores']}")
@@ -477,6 +610,18 @@ def run_loaded_scenario(scenario: dict[str, Any], transport: str) -> None:
             assert_authoritative_layout(red_snapshot, game_config)
             snapshots_for_assertions: list[dict[str, Any]] = [snapshot]
             for step in scenario["steps"]:
+                if "navigateTo" in step:
+                    snapshot = navigate_to(
+                        step["actor"],
+                        actors,
+                        match_id,
+                        snapshot,
+                        game_config,
+                        step["navigateTo"],
+                        int(step.get("maxCommands", 80)),
+                    )
+                    snapshots_for_assertions.append(snapshot)
+                    continue
                 if "command" in step:
                     actor = actors[step["actor"]]
                     if step["command"] == "start_next_match":

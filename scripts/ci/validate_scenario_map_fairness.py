@@ -16,6 +16,13 @@ SCENARIO_DIR = ROOT / "config" / "scenarios"
 
 Cell = tuple[int, int]
 
+MIN_ROUTE_LENGTHS = {
+    "blue spawn to objective": 6,
+    "red spawn to objective": 6,
+    "objective to blue base": 7,
+    "objective to red base": 7,
+}
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -141,6 +148,7 @@ def validate_scenario(path: Path) -> ValidationResult:
             errors.append(f"obstacle missing rotational pair: {obstacle}")
 
     hazard_by_cell = {(int(hazard["x"]), int(hazard["y"])): hazard for hazard in hazards}
+    hazard_cells = set(hazard_by_cell)
     if len(hazard_by_cell) != len(hazards):
         errors.append("hazard cells must be unique")
     for hazard in hazards:
@@ -160,15 +168,18 @@ def validate_scenario(path: Path) -> ValidationResult:
     }
     route_lengths: dict[str, int] = {}
     for label, (start, goal) in route_pairs.items():
-        path_cells = shortest_path(width, height, obstacles, start, goal)
+        route_blocked = obstacles | (hazard_cells - {start, goal})
+        path_cells = shortest_path(width, height, route_blocked, start, goal)
         if path_cells is None:
             errors.append(f"missing legal path: {label}")
             continue
-        if any(cell in obstacles or not in_bounds(cell, width, height) for cell in path_cells):
+        if any(cell in route_blocked or not in_bounds(cell, width, height) for cell in path_cells):
             errors.append(f"path crosses illegal cell: {label}")
-        if has_required_choke(width, height, obstacles, start, goal):
+        if has_required_choke(width, height, route_blocked, start, goal):
             errors.append(f"route has a required one-cell choke: {label}")
         route_lengths[label] = len(path_cells) - 1
+        if route_lengths[label] < MIN_ROUTE_LENGTHS[label]:
+            errors.append(f"route is too direct: {label}={route_lengths[label]}, minimum={MIN_ROUTE_LENGTHS[label]}")
 
     comparable_pairs = (
         ("blue spawn to objective", "red spawn to objective"),

@@ -10,7 +10,7 @@ Owns:
 - Canvas rendering;
 - touch/desktop controls;
 - local player-oriented coordinate transforms;
-- HUD and connection state.
+- compact HUD, match panel, and connection state.
 
 Must not contain:
 
@@ -23,7 +23,9 @@ The Mini App sends raw Telegram `initData` to the backend for validation after t
 
 Inbound WebSocket data is treated as `unknown` until `src/protocol/ProtocolTypes.ts` validates the protocol envelope.
 
-Canvas rendering loads the production player sprite from `/players/swordsman.svg`, which Vite serves from the repository `assets/` directory. The SVG is used only as rendering data; gameplay objects still come from server snapshots.
+Canvas rendering loads the production player sprite from `/players/swordsman.svg` and hazard/obstacle SVGs from `/svg/`, which Vite serves from the repository `assets/` directory. SVGs are used only as rendering data; gameplay objects, damage/drop semantics, ranges, cooldowns, scores, objective state, winner state, and scenario identity still come from server snapshots.
+
+The first screen keeps score/objective/scenario status in the top bar. Connect, create, join, and next-match actions live in the collapsible Match panel; touch controls stay below the arena.
 
 Reconnect/resume is not supported yet. If the WebSocket closes during a match, the client clears local match state, shows an unsupported-resume diagnostic, and requires a fresh authenticated join flow before sending more commands.
 
@@ -54,6 +56,8 @@ Controls:
 - Space sends attack in the current movement direction or the last non-zero direction.
 - Shift sends dash in the current movement direction or the last non-zero direction.
 - On-screen buttons provide touch fallback.
+
+When a snapshot reports `finished: true`, the Next button sends `start_next_match` for the current match. The server decides whether the rematch is allowed and returns a fresh `match_joined` payload when accepted.
 
 ## Dependency policy
 

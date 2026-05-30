@@ -35,7 +35,8 @@ The MVP mode is **Objective Run**:
 - the carrier moves slower;
 - the carrier drops the objective when hit;
 - after a drop, a short pickup lock prevents instant re-pickup;
-- neutral server-controlled hazards such as mines, towers, and drones/crows create tactical pressure.
+- neutral server-controlled hazards such as mines, towers, and drones/crows create tactical pressure;
+- after a finished match, players can start the next match from the current screen.
 
 The clients do not own game state. They send player intentions such as move, aim, attack, and dash. Objective pickup and capture are server-side automatic rules. The server validates every command and applies accepted commands to the authoritative simulation.
 
@@ -46,6 +47,8 @@ Current hazard behavior is also server-owned and driven by scenario metadata:
 - **Crow**: deterministic neutral center-pressure hazard; applies light configured damage/drop pressure near the objective.
 
 Clients render hazard icons, ranges, cooldown/trigger state, and short labels from protocol/config metadata. They must not infer damage, range, drop behavior, or cooldowns from hardcoded hazard names.
+
+Blocking obstacles and hazards are also visualized from server snapshot metadata. The same `visualId`, damage/drop markers, range radius, cooldown state, and neutral/team ownership semantics drive both desktop and Mini App rendering.
 
 ## MVP arena requirements
 
@@ -89,6 +92,8 @@ Player view may use local colors: own hero blue/cyan, enemy hero red. Replay/deb
 The Qt client demonstrates C++ desktop UI, Qt networking integration, and low-latency keyboard/mouse gameplay over raw TCP.
 
 The Telegram Mini App demonstrates a lightweight mobile/web UX with invite-based play. Browser-based Mini Apps cannot use raw TCP directly, so they connect through WebSocket. The backend game logic and protocol DTOs remain shared.
+
+The desktop client keeps the arena clear and moves service UI into a right side panel. The Mini App keeps score/objective/scenario status compact, keeps create/join/next controls in a collapsible match panel, and keeps touch gameplay controls reachable below the arena.
 
 ## Repository layout
 
@@ -153,7 +158,7 @@ docs/
 
 ## Status
 
-This repository has the foundation modules, an in-process backend match loop, local raw TCP and WebSocket vertical slices, a Telegram Mini App slice, and a Qt Widgets playable client target. Local CLI/TCP, Qt, and Telegram/WebSocket clients can create/join a demo Objective Run match, send intention-only commands, and receive authoritative snapshots/events from the server.
+This repository has the foundation modules, an in-process backend match loop, local raw TCP and WebSocket vertical slices, a Telegram Mini App slice, and a Qt Widgets playable client target. Local CLI/TCP, Qt, and Telegram/WebSocket clients can create/join a demo Objective Run match, start the next match from the current screen after match over, send intention-only commands, and receive authoritative snapshots/events from the server.
 
 The tree is a local playable alpha/MVP candidate for review, testing, and portfolio demonstration. Public deployment is still intentionally out of scope: local Qt/TCP and browser/WebSocket flows are supported, while production WSS/HTTPS deployment, public operations, and account/session hardening remain follow-up work.
 
@@ -183,7 +188,7 @@ build/battle_cli_client --join M1 --display-name cli-two --script tests/integrat
 Run the Qt desktop client on Windows with the Qt MinGW kit:
 
 ```powershell
-$env:Path = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;$env:Path"
+$env:Path = "C:\Qt\6.11.1\mingw_64\bin;C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;$env:Path"
 cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
 cmake --build build-qt-mingw --parallel
 ctest --test-dir build-qt-mingw --output-on-failure
@@ -219,13 +224,20 @@ python tests/integration/desktop/objective_run_full_capture_desktop.py
 python tests/integration/mobile/objective_run_full_capture_mobile.py
 python tests/integration/desktop/objective_event_sequence_desktop.py
 python tests/integration/mobile/objective_event_sequence_mobile.py
+python tests/integration/desktop/rematch_same_screen_desktop.py
+python tests/integration/mobile/rematch_same_screen_mobile.py
 python scripts/ci/validate_no_hardcoded_scenarios.py
 python scripts/ci/validate_gameplay_scenario_pairs.py
+python scripts/ci/validate_scenario_map_fairness.py
 ```
 
 Telegram Mini App frontend checks:
 
 ```bash
+node tests/frontend/telegram_protocol_validation.mjs
+node tests/frontend/telegram_websocket_client_behavior.mjs
+node tests/frontend/telegram_arena_canvas_assets.mjs
+node tests/frontend/telegram_main_layout_contract.mjs
 cd frontend/telegram_mini_app
 npm run typecheck
 npm run lint
@@ -251,7 +263,7 @@ The playable default arena is config-owned:
 config/scenarios/arena_small_objective_run.json
 ```
 
-This file defines the Objective Run map, bases, spawns, objective rules, combat values, hazards, tick rate, and snapshot rate. `battle_server_app` loads scenario files and backend code converts them into value config for `battle_core`; `battle_core` remains deterministic and does not read files or parse JSON.
+This file defines the Objective Run map, bases, spawns, objective rules, combat values, hazards, obstacle metadata, tick rate, and snapshot rate. `battle_server_app` loads scenario files and backend code converts them into value config for `battle_core`; `battle_core` remains deterministic and does not read files or parse JSON.
 
 Gameplay test scripts are generic runners. Scenario-specific routes, command sequences, and expected objective events live in:
 
@@ -259,7 +271,7 @@ Gameplay test scripts are generic runners. Scenario-specific routes, command seq
 tests/scenarios/*.json
 ```
 
-Every gameplay scenario must keep paired desktop and mobile coverage. `validate_no_hardcoded_scenarios.py` guards against duplicating map/routes/events in tests, and `validate_gameplay_scenario_pairs.py` checks the desktop/mobile pairing.
+Every gameplay scenario must keep paired desktop and mobile coverage. `validate_no_hardcoded_scenarios.py` guards against duplicating map/routes/events in tests, `validate_gameplay_scenario_pairs.py` checks the desktop/mobile pairing, and `validate_scenario_map_fairness.py` checks map symmetry/fairness constraints.
 
 ## Known limitations
 

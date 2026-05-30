@@ -2,9 +2,10 @@
 
 ## Status
 
-State: commit-ready
+State: committed
 Branch: `agent/0047-playable-stabilization`
 Task packet: `docs/agent-tasks/0066-mobile-layout-alignment.md`
+Implementation commit: `728bdd4`
 
 ## Scope
 
@@ -17,7 +18,7 @@ Task packet: `docs/agent-tasks/0066-mobile-layout-alignment.md`
 - Implementation-Agent: completed.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Assumptions
 

@@ -23,16 +23,19 @@ root.innerHTML = `
     <section class="play-surface">
       <canvas id="arena" width="960" height="540"></canvas>
     </section>
-    <section class="toolbar">
-      <button id="connect">Connect</button>
-      <button id="create-match">Create</button>
-      <label class="join-field">
-        <span>Code</span>
-        <input id="join-code" autocomplete="off" maxlength="32" placeholder="M1" />
-      </label>
-      <button id="join-match">Join</button>
-      <button id="start-next-match">Next</button>
-    </section>
+    <details class="match-panel" open>
+      <summary>Match</summary>
+      <section class="toolbar">
+        <button id="connect">Connect</button>
+        <button id="create-match">Create</button>
+        <label class="join-field">
+          <span>Code</span>
+          <input id="join-code" autocomplete="off" maxlength="32" placeholder="M1" />
+        </label>
+        <button id="join-match">Join</button>
+        <button id="start-next-match">Next</button>
+      </section>
+    </details>
     <section class="controls" aria-label="Player controls">
       <button id="move-up">↑</button>
       <button id="move-left">←</button>
@@ -118,13 +121,16 @@ function handleMessage(message: IncomingMessage): void {
       break;
     }
     case "match_joined":
-      matchLine.textContent = `Match ${message.payload.matchId} | Code ${message.payload.matchCode} | ${message.payload.scenario.id}`;
+      matchLine.textContent = `Code ${message.payload.matchCode} | ${message.payload.scenario.id}`;
       joinCodeInput.value = message.payload.matchCode;
       setStartNextMatchEnabled(false);
       break;
     case "snapshot":
-      matchLine.textContent = `Match ${message.payload.matchId} | ${message.payload.scenario.id}`;
       lastScores = scoresFromSnapshot(message.payload.scores);
+      matchLine.textContent = `${scoreLine()} | ${message.payload.objective.state} | ${message.payload.scenario.id}`;
+      if (message.payload.finished) {
+        matchLine.textContent = `${winnerLine()} | ${scoreLine()} | ${message.payload.scenario.id}`;
+      }
       arena.setSnapshot(message.payload, localPlayerId);
       setStartNextMatchEnabled(message.payload.finished);
       break;
@@ -228,6 +234,13 @@ function scoresFromSnapshot(scores: Array<{ team: string; score: number }>): { b
 
 function scoreLine(): string {
   return `Blue ${lastScores.blue} - ${lastScores.red} Red`;
+}
+
+function winnerLine(): string {
+  if (lastScores.blue === lastScores.red) {
+    return "Draw";
+  }
+  return lastScores.blue > lastScores.red ? "Blue wins" : "Red wins";
 }
 
 function teamLabel(team: "blue" | "red"): string {

@@ -75,5 +75,6 @@ Recommended order:
 58. `0063-object-taxonomy-and-danger-semantics.md`
 59. `0064-svg-hazard-visual-refresh.md`
 60. `0065-desktop-side-panel-layout.md`
+61. `0066-mobile-layout-alignment.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

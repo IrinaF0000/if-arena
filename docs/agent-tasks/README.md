@@ -76,5 +76,6 @@ Recommended order:
 59. `0064-svg-hazard-visual-refresh.md`
 60. `0065-desktop-side-panel-layout.md`
 61. `0066-mobile-layout-alignment.md`
+62. `0067-playable-regression-validation-coverage.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

@@ -92,11 +92,13 @@ namespace if_arena::battle_qt_client::ui
 		_connection = new QLabel("disconnected", root);
 		_identity = new QLabel("session -, match -", root);
 		_hud = new QLabel("Waiting for authoritative snapshot", root);
+		_hazards = new QLabel("Hazards: waiting for snapshot", root);
 		_controlsHint = new QLabel("WASD/arrows move | mouse aims | left click/Space attack | right click/Shift dash", root);
 		_error = new QLabel(root);
 		_connection->setWordWrap(true);
 		_identity->setWordWrap(true);
 		_hud->setWordWrap(true);
+		_hazards->setWordWrap(true);
 		_controlsHint->setWordWrap(true);
 		_error->setWordWrap(true);
 		_controlsHint->setStyleSheet("color: #aeb8c4;");
@@ -104,6 +106,7 @@ namespace if_arena::battle_qt_client::ui
 		statusLayout->addWidget(_connection);
 		statusLayout->addWidget(_identity);
 		statusLayout->addWidget(_hud);
+		statusLayout->addWidget(_hazards);
 		statusLayout->addWidget(_controlsHint);
 		statusLayout->addWidget(_error);
 
@@ -286,6 +289,7 @@ namespace if_arena::battle_qt_client::ui
 		        [this](const game::ArenaSnapshot& snapshot, const QString& localPlayerId) {
 			        _arena->setSnapshot(snapshot, localPlayerId);
 			        _hud->setText(_arena->hudText());
+			        _hazards->setText(_arena->hazardLegendText());
 			        _matchFinished = snapshot.finished;
 			        refreshControls();
 		        });

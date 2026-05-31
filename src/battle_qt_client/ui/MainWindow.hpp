@@ -55,6 +55,7 @@ namespace if_arena::battle_qt_client::ui
 		QLabel* _connection{};
 		QLabel* _identity{};
 		QLabel* _hud{};
+		QLabel* _hazards{};
 		QLabel* _controlsHint{};
 		QLabel* _error{};
 		QPlainTextEdit* _events{};

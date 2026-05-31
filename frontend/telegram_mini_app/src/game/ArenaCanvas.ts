@@ -111,8 +111,6 @@ export class ArenaCanvas {
         this.drawPlayer(player, snapshot, originX, originY, cell);
       }
       this.drawEventFeedback(snapshot, originX, originY, cell);
-      this.drawHud(snapshot);
-      this.drawHazardLegend(snapshot);
       if (snapshot.finished) {
         this.drawMatchOverOverlay(snapshot);
       }
@@ -477,44 +475,6 @@ export class ArenaCanvas {
       return 0;
     }
     return Math.atan2(dx, -dy);
-  }
-
-  private drawHud(snapshot: SnapshotPayload): void {
-    const blue = snapshot.scores.find((score) => score.team === "blue")?.score ?? 0;
-    const red = snapshot.scores.find((score) => score.team === "red")?.score ?? 0;
-    this.context.fillStyle = "rgba(0,0,0,0.5)";
-    this.context.fillRect(14, 12, 270, 58);
-    this.context.fillStyle = "#f8fbff";
-    this.context.font = "16px system-ui, sans-serif";
-    this.context.fillText(`Blue ${blue} - ${red} Red`, 28, 36);
-    this.context.fillText(`Tick ${snapshot.serverTick} | ${snapshot.objective.state} | ${this.status}`, 28, 58);
-  }
-
-  private drawHazardLegend(snapshot: SnapshotPayload): void {
-    const unique = new Map<string, HazardSnapshot>();
-    for (const hazard of snapshot.hazards) {
-      if (!unique.has(hazard.visualId)) {
-        unique.set(hazard.visualId, hazard);
-      }
-    }
-    if (unique.size === 0) {
-      return;
-    }
-    const lines = [...unique.values()].map((hazard) => {
-      const label = this.hazardIconKind(hazard);
-      const effect = hazard.causesDrop ? `-${hazard.damage} + drop` : `-${hazard.damage}`;
-      return `${label}: ${effect}, r${hazard.rangeRadius}`;
-    });
-    const width = 220;
-    const lineHeight = 16;
-    const height = 18 + lineHeight * lines.length;
-    this.context.fillStyle = "rgba(0,0,0,0.42)";
-    this.context.fillRect(this.canvas.width - width - 14, 12, width, height);
-    this.context.fillStyle = "#f7f3e8";
-    this.context.font = "12px system-ui, sans-serif";
-    lines.forEach((line, index) => {
-      this.context.fillText(line, this.canvas.width - width, 32 + index * lineHeight);
-    });
   }
 
   private drawOfflineHud(): void {

@@ -3,6 +3,7 @@
 #include "game/ClientTypes.hpp"
 
 #include <QElapsedTimer>
+#include <QStringList>
 #include <QSvgRenderer>
 #include <QWidget>
 
@@ -22,6 +23,7 @@ namespace if_arena::battle_qt_client::ui
 		void showDashFeedback(if_arena::battle_qt_client::game::Direction direction);
 		[[nodiscard]] std::optional<if_arena::battle_qt_client::game::PlayerSnapshot> localPlayer() const;
 		[[nodiscard]] QString hudText() const;
+		[[nodiscard]] QString hazardLegendText() const;
 
 	signals:
 		void intentRequested(if_arena::battle_qt_client::game::ClientIntent intent);
@@ -45,7 +47,6 @@ namespace if_arena::battle_qt_client::ui
 		[[nodiscard]] QSvgRenderer* hazardRenderer(const if_arena::battle_qt_client::game::HazardSnapshot& hazard);
 		void drawDangerMarkers(QPainter& painter, const if_arena::battle_qt_client::game::HazardSnapshot& hazard,
 		                       QPointF center, double cell);
-		void drawHazardLegend(QPainter& painter);
 		void drawLocalActionPreview(QPainter& painter);
 		void drawPlayers(QPainter& painter);
 		void drawMatchOverOverlay(QPainter& painter);

@@ -216,5 +216,8 @@ assert.ok(textLabels.some((label) => String(label).includes("Blue scores! 1")), 
 assert.ok(textLabels.includes("Match over"), "match-over overlay renders from finished snapshot");
 assert.ok(textLabels.some((label) => String(label).includes("Blue wins 1-0")), "winner score overlay renders");
 assert.ok(textLabels.includes("6"), "hazard damage marker renders from semantic metadata");
+assert.ok(!textLabels.includes("Blue 1 - 0 Red"), "score HUD is not drawn over the active arena");
+assert.ok(!textLabels.some((label) => String(label).includes("Tick 4")), "snapshot status HUD is not drawn over the active arena");
+assert.ok(!textLabels.some((label) => String(label).startsWith("crow:")), "hazard legend is not drawn over the active arena");
 
 console.log("[PASS] telegram_arena_canvas_assets");

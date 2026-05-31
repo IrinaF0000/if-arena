@@ -154,6 +154,34 @@ namespace if_arena::battle_qt_client::ui
 		       " | objective " + _snapshot->objective.state + " | snapshot age " + age + "ms";
 	}
 
+	QString ArenaView::hazardLegendText() const
+	{
+		if (!_snapshot.has_value())
+		{
+			return "Hazards: waiting for snapshot";
+		}
+
+		QStringList lines;
+		QStringList seen;
+		for (const auto& hazard : _snapshot->hazards)
+		{
+			if (seen.contains(hazard.visualId))
+			{
+				continue;
+			}
+			seen.push_back(hazard.visualId);
+			const auto label = hazardIconKind(hazard);
+			const auto effect = hazard.causesDrop ? QStringLiteral("-%1 + drop").arg(hazard.damage)
+			                                      : QStringLiteral("-%1").arg(hazard.damage);
+			lines.push_back(label + ": " + effect + ", r" + QString::number(hazard.rangeRadius));
+		}
+		if (lines.empty())
+		{
+			return "Hazards: none";
+		}
+		return "Hazards: " + lines.join(" | ");
+	}
+
 	void ArenaView::paintEvent(QPaintEvent*)
 	{
 		QPainter painter(this);
@@ -178,7 +206,6 @@ namespace if_arena::battle_qt_client::ui
 		{
 			drawMatchOverOverlay(painter);
 		}
-		drawHazardLegend(painter);
 	}
 
 	void ArenaView::mouseMoveEvent(QMouseEvent* event)
@@ -452,38 +479,6 @@ namespace if_arena::battle_qt_client::ui
 			painter.setBrush(QColor{255, 207, 92});
 			painter.setPen(QPen{QColor{255, 246, 199}, 1});
 			painter.drawPolygon(diamond);
-		}
-	}
-
-	void ArenaView::drawHazardLegend(QPainter& painter)
-	{
-		QStringList lines;
-		QStringList seen;
-		for (const auto& hazard : _snapshot->hazards)
-		{
-			if (seen.contains(hazard.visualId))
-			{
-				continue;
-			}
-			seen.push_back(hazard.visualId);
-			const auto label = hazardIconKind(hazard);
-			const auto effect = hazard.causesDrop ? QStringLiteral("-%1 + drop").arg(hazard.damage)
-			                                      : QStringLiteral("-%1").arg(hazard.damage);
-			lines.push_back(label + ": " + effect + ", r" + QString::number(hazard.rangeRadius));
-		}
-		if (lines.empty())
-		{
-			return;
-		}
-		const QRectF panel{static_cast<double>(width() - 240), 14.0, 220.0, 20.0 + 17.0 * lines.size()};
-		painter.setBrush(QColor{0, 0, 0, 115});
-		painter.setPen(Qt::NoPen);
-		painter.drawRect(panel);
-		painter.setPen(QColor{248, 251, 255});
-		for (int index = 0; index < lines.size(); ++index)
-		{
-			painter.drawText(QRectF{panel.x() + 10, panel.y() + 8 + 17 * index, panel.width() - 20, 16},
-			                 Qt::AlignLeft | Qt::AlignVCenter, lines[index]);
 		}
 	}
 

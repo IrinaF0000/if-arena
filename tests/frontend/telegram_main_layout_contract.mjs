@@ -18,6 +18,8 @@ function assertMatches(source, pattern, description) {
 assertContains(mainSource, '<p id="match-line">No match</p>', "topbar keeps a compact match/status line");
 assertContains(mainSource, '<details class="match-panel" open>', "service controls live in the collapsible match panel");
 assertContains(mainSource, "<summary>Match</summary>", "match panel uses a concise Match summary label");
+assertContains(mainSource, '<details class="info-panel">', "arena info lives in a drawer outside the canvas");
+assertContains(mainSource, '<p id="hazard-line">Hazards: waiting for snapshot</p>', "hazard legend has a non-canvas text target");
 assertMatches(
   mainSource,
   /<details class="match-panel" open>[\s\S]*<section class="toolbar">[\s\S]*id="connect"[\s\S]*id="create-match"[\s\S]*id="join-code"[\s\S]*id="join-match"[\s\S]*id="start-next-match"[\s\S]*<\/details>/,
@@ -37,14 +39,16 @@ assertContains(mainSource, 'return `Blue ${lastScores.blue} - ${lastScores.red} 
 assertContains(mainSource, 'return lastScores.blue > lastScores.red ? "Blue wins" : "Red wins";', "winner line remains derived from snapshot scores");
 assertContains(mainSource, "startNextMatchButton.addEventListener", "same-screen next-match action remains wired");
 assertContains(mainSource, "client.startNextMatch()", "next-match button sends the rematch request through the client");
+assertContains(mainSource, "hazardLine.textContent = hazardSummary(message.payload.hazards);", "snapshots update the out-of-arena hazard legend");
 
-assertContains(styleSource, ".match-panel {", "match panel has dedicated styling");
-assertContains(styleSource, ".match-panel summary {", "match panel summary remains styled as a reachable control");
+assertContains(styleSource, ".match-panel,\n.info-panel {", "match and info panels have dedicated styling");
+assertContains(styleSource, ".match-panel summary,\n.info-panel summary {", "panel summaries remain styled as reachable controls");
 assertContains(styleSource, ".match-panel .toolbar {", "toolbar spacing remains scoped inside the match panel");
+assertContains(styleSource, ".info-panel p {", "info drawer text remains outside the canvas");
 assertContains(styleSource, "@media (max-width: 720px)", "mobile layout breakpoint remains present");
 assertMatches(
   styleSource,
-  /@media \(max-width: 720px\) \{[\s\S]*\.app-shell \{[\s\S]*grid-template-rows: auto minmax\(300px, 1fr\) auto auto;/,
+  /@media \(max-width: 720px\) \{[\s\S]*\.app-shell \{[\s\S]*grid-template-rows: auto minmax\(300px, 1fr\) auto auto auto;/,
   "mobile shell keeps the arena as the flexible central row"
 );
 assertMatches(

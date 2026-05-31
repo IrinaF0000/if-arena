@@ -170,6 +170,22 @@ if(BATTLE_BUILD_TESTS)
         set_tests_properties(battle_qt_client_asset_tests PROPERTIES
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${Qt${QT_VERSION_MAJOR}_DIR}/../../../bin"
         )
+
+        add_executable(battle_qt_client_arena_view_tests
+            src/battle_qt_client/assets.qrc
+            src/battle_qt_client/game/ClientTypes.cpp
+            src/battle_qt_client/game/CoordinateTransform.cpp
+            src/battle_qt_client/tests/ArenaViewOverlayTests.cpp
+            src/battle_qt_client/ui/ArenaView.cpp
+            src/battle_qt_client/ui/ArenaView.hpp
+        )
+        set_target_properties(battle_qt_client_arena_view_tests PROPERTIES AUTOMOC ON AUTORCC ON)
+        target_include_directories(battle_qt_client_arena_view_tests PRIVATE src/battle_qt_client)
+        target_link_libraries(battle_qt_client_arena_view_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Svg)
+        add_test(NAME battle_qt_client_arena_view_tests COMMAND battle_qt_client_arena_view_tests)
+        set_tests_properties(battle_qt_client_arena_view_tests PROPERTIES
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${Qt${QT_VERSION_MAJOR}_DIR}/../../../bin"
+        )
     endif()
 endif()
 

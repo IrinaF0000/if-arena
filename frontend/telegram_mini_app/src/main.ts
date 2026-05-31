@@ -36,6 +36,10 @@ root.innerHTML = `
         <button id="start-next-match">Next</button>
       </section>
     </details>
+    <details class="info-panel">
+      <summary>Arena info</summary>
+      <p id="hazard-line">Hazards: waiting for snapshot</p>
+    </details>
     <section class="controls" aria-label="Player controls">
       <button id="move-up">↑</button>
       <button id="move-left">←</button>
@@ -54,6 +58,7 @@ bridge.ready();
 const canvas = requireElement<HTMLCanvasElement>("#arena");
 const stateLabel = requireElement<HTMLParagraphElement>("#connection-state");
 const matchLine = requireElement<HTMLParagraphElement>("#match-line");
+const hazardLine = requireElement<HTMLParagraphElement>("#hazard-line");
 const connectButton = requireElement<HTMLButtonElement>("#connect");
 const createMatchButton = requireElement<HTMLButtonElement>("#create-match");
 const joinCodeInput = requireElement<HTMLInputElement>("#join-code");
@@ -146,6 +151,7 @@ function handleMessage(message: IncomingMessage): void {
         matchLine.textContent = `${winnerLine()} | ${scoreLine()} | ${message.payload.scenario.id}`;
       }
       arena.setSnapshot(message.payload, localPlayerId);
+      hazardLine.textContent = hazardSummary(message.payload.hazards);
       setStartNextMatchEnabled(message.payload.finished);
       break;
     case "input_ack":
@@ -269,6 +275,24 @@ function winnerLine(): string {
     return "Draw";
   }
   return lastScores.blue > lastScores.red ? "Blue wins" : "Red wins";
+}
+
+function hazardSummary(hazards: Array<{ visualId: string; damage: number; causesDrop: boolean; rangeRadius: number }>): string {
+  const unique = new Map<string, { damage: number; causesDrop: boolean; rangeRadius: number }>();
+  for (const hazard of hazards) {
+    if (!unique.has(hazard.visualId)) {
+      unique.set(hazard.visualId, hazard);
+    }
+  }
+  if (unique.size === 0) {
+    return "Hazards: none";
+  }
+  const lines = [...unique.entries()].map(([visualId, hazard]) => {
+    const label = visualId.includes("tower") ? "tower" : visualId.includes("crow") ? "crow" : "mine";
+    const effect = hazard.causesDrop ? `-${hazard.damage} + drop` : `-${hazard.damage}`;
+    return `${label}: ${effect}, r${hazard.rangeRadius}`;
+  });
+  return `Hazards: ${lines.join(" | ")}`;
 }
 
 function teamLabel(team: "blue" | "red"): string {

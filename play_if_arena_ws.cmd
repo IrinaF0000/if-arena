@@ -14,9 +14,16 @@ set "PROJECT_ROOT=%CD%"
 set "QT_DIR=C:\Qt\6.11.1\mingw_64"
 set "MINGW_BIN=C:\Qt\Tools\mingw1310_64\bin"
 set "NINJA_DIR=C:\Qt\Tools\Ninja"
+set "STOP_SCRIPT=%PROJECT_ROOT%\scripts\run\stop_if_arena.cmd"
+set "RUN_LOG_DIR=%PROJECT_ROOT%\build\run-logs"
+set "RUN_STATE_DIR=%PROJECT_ROOT%\build\run-state"
 
 rem Make Qt/MinGW DLLs visible for MinGW-built executables.
 set "PATH=%QT_DIR%\bin;%MINGW_BIN%;%NINJA_DIR%;%PATH%"
+
+if exist "%STOP_SCRIPT%" (
+    call "%STOP_SCRIPT%"
+)
 
 set "SERVER_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe"
 if not exist "%SERVER_EXE%" (
@@ -46,6 +53,12 @@ if not exist "%LOCAL_CONFIG%" (
 
 if not exist "%RUNTIME_CONFIG_DIR%" (
     mkdir "%RUNTIME_CONFIG_DIR%"
+)
+if not exist "%RUN_LOG_DIR%" (
+    mkdir "%RUN_LOG_DIR%"
+)
+if not exist "%RUN_STATE_DIR%" (
+    mkdir "%RUN_STATE_DIR%"
 )
 
 rem Create/update a WebSocket-only local runtime config under build/.
@@ -85,13 +98,20 @@ if errorlevel 1 (
 
 echo Starting IF Arena WebSocket server...
 echo   %SERVER_EXE% --config "%WS_CONFIG%" --local
-start "IF Arena WS Server" cmd /k ""%SERVER_EXE%" --config "%WS_CONFIG%" --local"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$p = Start-Process -FilePath '%SERVER_EXE%' -ArgumentList @('--config','%WS_CONFIG%','--local') -WorkingDirectory '%PROJECT_ROOT%' -RedirectStandardOutput '%RUN_LOG_DIR%\ws-server.out.log' -RedirectStandardError '%RUN_LOG_DIR%\ws-server.err.log' -PassThru; " ^
+  "$p.Id | Set-Content '%RUN_STATE_DIR%\ws-server.pid'; " ^
+  "Write-Host ('Started WebSocket server pid=' + $p.Id)"
 
 echo.
 echo Starting Telegram Mini App frontend...
 echo   VITE_WS_URL=ws://127.0.0.1:8081/ws
 echo   URL=http://127.0.0.1:5173/
-start "IF Arena Telegram Mini App" cmd /k "cd /d "%FRONTEND_DIR%" && set VITE_WS_URL=ws://127.0.0.1:8081/ws&& npm.cmd run dev -- --host 127.0.0.1 --port 5173"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$env:VITE_WS_URL = 'ws://127.0.0.1:8081/ws'; " ^
+  "$p = Start-Process -FilePath 'npm.cmd' -ArgumentList @('run','dev','--','--host','127.0.0.1','--port','5173') -WorkingDirectory '%FRONTEND_DIR%' -RedirectStandardOutput '%RUN_LOG_DIR%\vite.out.log' -RedirectStandardError '%RUN_LOG_DIR%\vite.err.log' -PassThru; " ^
+  "$p.Id | Set-Content '%RUN_STATE_DIR%\vite.pid'; " ^
+  "Write-Host ('Started Vite pid=' + $p.Id)"
 
 echo.
 echo Waiting a few seconds before opening browser tabs...
@@ -114,6 +134,9 @@ echo Runtime config generated at:
 echo   %WS_CONFIG%
 echo.
 echo To stop:
-echo   close browser tabs, then press Ctrl+C in the server and frontend windows.
+echo   close browser tabs, then run scripts\run\stop_if_arena.cmd
+echo   use scripts\run\stop_if_arena.cmd --keep-vite to keep Vite on 5173 running.
+echo Logs:
+echo   %RUN_LOG_DIR%
 echo.
 pause

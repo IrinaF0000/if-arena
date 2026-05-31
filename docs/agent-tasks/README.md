@@ -81,5 +81,6 @@ Recommended order:
 64. `0069-final-pre-push-validation-gate.md`
 65. `0070-tcp-vertical-smoke-idle-timeout-fix.md`
 66. `0071-final-pre-push-validation-rerun.md`
+67. `0072-corrective-run-stop-hygiene.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

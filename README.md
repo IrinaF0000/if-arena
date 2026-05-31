@@ -178,6 +178,14 @@ Run the local server:
 build/battle_server_app --config config/examples/server.local.json --max-clients 2
 ```
 
+Before manual desktop or Mini App testing on Windows, clear old local processes:
+
+```cmd
+scripts\run\stop_if_arena.cmd
+```
+
+Use `scripts\run\stop_if_arena.cmd --keep-vite` only when intentionally keeping the Vite dev server on `127.0.0.1:5173`. The launchers call the stop script by default and write logs/PID files under `build/run-logs/` and `build/run-state/`.
+
 Run a local raw TCP smoke with two CLI clients:
 
 ```bash

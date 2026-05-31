@@ -13,9 +13,16 @@ set "PROJECT_ROOT=%CD%"
 set "QT_DIR=C:\Qt\6.11.1\mingw_64"
 set "MINGW_BIN=C:\Qt\Tools\mingw1310_64\bin"
 set "NINJA_DIR=C:\Qt\Tools\Ninja"
+set "STOP_SCRIPT=%PROJECT_ROOT%\scripts\run\stop_if_arena.cmd"
+set "RUN_LOG_DIR=%PROJECT_ROOT%\build\run-logs"
+set "RUN_STATE_DIR=%PROJECT_ROOT%\build\run-state"
 
 rem Make Qt/MinGW DLLs visible for MinGW-built executables.
 set "PATH=%QT_DIR%\bin;%MINGW_BIN%;%NINJA_DIR%;%PATH%"
+
+if exist "%STOP_SCRIPT%" (
+    call "%STOP_SCRIPT%"
+)
 
 set "SERVER_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe"
 if not exist "%SERVER_EXE%" (
@@ -59,6 +66,12 @@ if not exist "%LOCAL_CONFIG%" (
 if not exist "%RUNTIME_CONFIG_DIR%" (
     mkdir "%RUNTIME_CONFIG_DIR%"
 )
+if not exist "%RUN_LOG_DIR%" (
+    mkdir "%RUN_LOG_DIR%"
+)
+if not exist "%RUN_STATE_DIR%" (
+    mkdir "%RUN_STATE_DIR%"
+)
 
 rem Create/update a TCP-only local runtime config under build/.
 rem This avoids writing generated local config files into config/examples/.
@@ -79,12 +92,19 @@ if errorlevel 1 (
 
 echo Starting IF Arena TCP server...
 echo   %SERVER_EXE% --config "%TCP_CONFIG%" --local
-start "IF Arena TCP Server" cmd /k ""%SERVER_EXE%" --config "%TCP_CONFIG%" --local"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$p = Start-Process -FilePath '%SERVER_EXE%' -ArgumentList @('--config','%TCP_CONFIG%','--local') -WorkingDirectory '%PROJECT_ROOT%' -RedirectStandardOutput '%RUN_LOG_DIR%\tcp-server.out.log' -RedirectStandardError '%RUN_LOG_DIR%\tcp-server.err.log' -PassThru; " ^
+  "$p.Id | Set-Content '%RUN_STATE_DIR%\tcp-server.pid'; " ^
+  "Write-Host ('Started TCP server pid=' + $p.Id)"
 
 echo.
 echo Starting two Qt clients...
-start "IF Arena Qt Client 1" cmd /k "cd /d "%PROJECT_ROOT%" && "%QT_CLIENT_EXE%""
-start "IF Arena Qt Client 2" cmd /k "cd /d "%PROJECT_ROOT%" && "%QT_CLIENT_EXE%""
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$p1 = Start-Process -FilePath '%QT_CLIENT_EXE%' -WorkingDirectory '%PROJECT_ROOT%' -PassThru; " ^
+  "$p2 = Start-Process -FilePath '%QT_CLIENT_EXE%' -WorkingDirectory '%PROJECT_ROOT%' -PassThru; " ^
+  "$p1.Id | Set-Content '%RUN_STATE_DIR%\qt-client-1.pid'; " ^
+  "$p2.Id | Set-Content '%RUN_STATE_DIR%\qt-client-2.pid'; " ^
+  "Write-Host ('Started Qt clients pid=' + $p1.Id + ', ' + $p2.Id)"
 
 echo.
 echo IF Arena Qt/TCP local test is starting.
@@ -103,6 +123,8 @@ echo Runtime config generated at:
 echo   %TCP_CONFIG%
 echo.
 echo To stop:
-echo   close Qt clients, then press Ctrl+C in the server window.
+echo   scripts\run\stop_if_arena.cmd
+echo Logs:
+echo   %RUN_LOG_DIR%
 echo.
 pause

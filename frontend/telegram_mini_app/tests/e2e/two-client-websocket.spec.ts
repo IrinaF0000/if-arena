@@ -22,9 +22,15 @@ type SocketCapture = {
   closes: number;
 };
 
+type CanvasPixelStats = {
+  nonBackgroundPixels: number;
+  distinctColors: number;
+};
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const wsPort = Number(process.env.IF_ARENA_E2E_WS_PORT ?? "8081");
 const serverExecutable = path.join(repoRoot, "build", process.platform === "win32" ? "battle_server_app.exe" : "battle_server_app");
+const screenshotDir = path.join(repoRoot, "build", "agent-artifacts", "0078");
 
 let server: ChildProcessWithoutNullStreams | undefined;
 let serverStdout = "";
@@ -49,8 +55,12 @@ test.afterAll(async () => {
   }
 });
 
-test("two browser clients play through websocket without passive disconnect", async ({ browser }) => {
-  const context = await browser.newContext();
+test("two mobile browser clients play through websocket with visible arena", async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 }
+  });
   const pageA = await context.newPage();
   const pageB = await context.newPage();
   const captureA = captureWebSocket(pageA);
@@ -85,6 +95,10 @@ test("two browser clients play through websocket without passive disconnect", as
 
   await expect.poll(() => countSnapshots(captureA.received)).toBeGreaterThan(0);
   await expect.poll(() => countSnapshots(captureB.received)).toBeGreaterThan(0);
+  await expect(pageA.locator("#hazard-line")).toContainText("crow");
+  await expect(pageA.locator("#hazard-line")).toContainText("r");
+  await expectCanvasHasArenaPixels(pageA);
+  await captureAcceptanceScreenshot(pageA, "mobile-after-snapshot.png");
 
   await pageA.locator("#move-up").click();
   await pageA.waitForTimeout(2_600);
@@ -100,6 +114,45 @@ test("two browser clients play through websocket without passive disconnect", as
 
   await context.close();
 });
+
+async function captureAcceptanceScreenshot(page: Page, name: string): Promise<void> {
+  await mkdir(screenshotDir, { recursive: true });
+  await page.screenshot({ path: path.join(screenshotDir, name), fullPage: true });
+}
+
+async function expectCanvasHasArenaPixels(page: Page): Promise<void> {
+  await expect.poll(async () => (await canvasPixelStats(page)).nonBackgroundPixels).toBeGreaterThan(2_000);
+  await expect.poll(async () => (await canvasPixelStats(page)).distinctColors).toBeGreaterThan(12);
+}
+
+async function canvasPixelStats(page: Page): Promise<CanvasPixelStats> {
+  return await page.locator("#arena").evaluate((canvas) => {
+    const element = canvas as HTMLCanvasElement;
+    const context = element.getContext("2d");
+    if (!context) {
+      return { nonBackgroundPixels: 0, distinctColors: 0 };
+    }
+    const image = context.getImageData(0, 0, element.width, element.height);
+    const background = "17,20,22";
+    const colors = new Set<string>();
+    let nonBackgroundPixels = 0;
+    for (let index = 0; index < image.data.length; index += 16) {
+      const r = image.data[index];
+      const g = image.data[index + 1];
+      const b = image.data[index + 2];
+      const a = image.data[index + 3];
+      if (a === 0) {
+        continue;
+      }
+      const key = `${r},${g},${b}`;
+      colors.add(key);
+      if (key !== background) {
+        nonBackgroundPixels += 1;
+      }
+    }
+    return { nonBackgroundPixels, distinctColors: colors.size };
+  });
+}
 
 function captureWebSocket(page: Page): SocketCapture {
   const capture: SocketCapture = { received: [], sent: [], urls: [], closes: 0 };

@@ -87,5 +87,6 @@ Recommended order:
 70. `0075-corrective-svg-asset-verification.md`
 71. `0076-corrective-crow-patrol-radius.md`
 72. `0077-corrective-arena-overlay-cleanup.md`
+73. `0078-corrective-mobile-visual-e2e-gate.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

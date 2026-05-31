@@ -2,10 +2,10 @@
 
 ## Status
 
-State: commit-ready
+State: committed
 Branch: `agent/0047-playable-stabilization`
 Task packet: `docs/agent-tasks/0071-final-pre-push-validation-rerun.md`
-Implementation commit: pending
+Implementation commit: `d66d9d5`
 
 ## Scope
 
@@ -23,7 +23,7 @@ Implementation commit: pending
 - Implementation-Agent: not applicable; validation-record task only.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Test Impact Matrix
 

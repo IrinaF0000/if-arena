@@ -62,6 +62,7 @@ test("two browser clients play through websocket without passive disconnect", as
   await pageA.goto("/");
   await pageB.goto("/");
 
+  await expectMandatoryAssets(pageA);
   await expect(pageA.locator("#create-match")).toBeDisabled();
   await expect(pageA.locator("#join-match")).toBeDisabled();
   await expect(pageA.locator("#move-up")).toBeDisabled();
@@ -80,7 +81,7 @@ test("two browser clients play through websocket without passive disconnect", as
   await expect(pageB.locator("#join-match")).toBeEnabled();
   await pageB.locator("#join-code").fill(matchCode);
   await pageB.locator("#join-match").click();
-  await expect(pageB.locator("#match-line")).toContainText(`Code ${matchCode}`);
+  await expect.poll(() => captureB.received.some((message) => message.type === "match_joined")).toBe(true);
 
   await expect.poll(() => countSnapshots(captureA.received)).toBeGreaterThan(0);
   await expect.poll(() => countSnapshots(captureB.received)).toBeGreaterThan(0);
@@ -144,6 +145,28 @@ async function expectAuthenticated(page: Page, capture: SocketCapture, errors: s
         serverStderr
       })}; ${error instanceof Error ? error.message : String(error)}`
     );
+  }
+}
+
+async function expectMandatoryAssets(page: Page): Promise<void> {
+  const assets = await page.evaluate(async () => {
+    const urls = [
+      "/players/swordsman.svg",
+      "/svg/hazard_crow.svg",
+      "/svg/hazard_mine.svg",
+      "/svg/hazard_tower.svg",
+      "/svg/obstacle_block.svg"
+    ];
+    const results = [];
+    for (const url of urls) {
+      const response = await fetch(url);
+      results.push({ url, status: response.status, type: response.headers.get("content-type") ?? "" });
+    }
+    return results;
+  });
+  for (const asset of assets) {
+    expect(asset.status, `${asset.url} status`).toBe(200);
+    expect(asset.type, `${asset.url} content-type`).toContain("image/svg+xml");
   }
 }
 

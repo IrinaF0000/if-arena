@@ -158,6 +158,19 @@ if(BATTLE_BUILD_TESTS)
     )
     target_include_directories(battle_qt_client_movement_input_tests PRIVATE src/battle_qt_client)
     add_test(NAME battle_qt_client_movement_input_tests COMMAND battle_qt_client_movement_input_tests)
+
+    if(BATTLE_BUILD_QT_CLIENT)
+        add_executable(battle_qt_client_asset_tests
+            src/battle_qt_client/assets.qrc
+            src/battle_qt_client/tests/AssetResourceTests.cpp
+        )
+        set_target_properties(battle_qt_client_asset_tests PROPERTIES AUTOMOC ON AUTORCC ON)
+        target_link_libraries(battle_qt_client_asset_tests PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Svg)
+        add_test(NAME battle_qt_client_asset_tests COMMAND battle_qt_client_asset_tests)
+        set_tests_properties(battle_qt_client_asset_tests PROPERTIES
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${Qt${QT_VERSION_MAJOR}_DIR}/../../../bin"
+        )
+    endif()
 endif()
 
 if(BATTLE_ENABLE_COVERAGE)

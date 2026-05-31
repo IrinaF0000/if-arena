@@ -54,11 +54,25 @@ bridge.ready();
 const canvas = requireElement<HTMLCanvasElement>("#arena");
 const stateLabel = requireElement<HTMLParagraphElement>("#connection-state");
 const matchLine = requireElement<HTMLParagraphElement>("#match-line");
+const connectButton = requireElement<HTMLButtonElement>("#connect");
+const createMatchButton = requireElement<HTMLButtonElement>("#create-match");
 const joinCodeInput = requireElement<HTMLInputElement>("#join-code");
+const joinMatchButton = requireElement<HTMLButtonElement>("#join-match");
 const startNextMatchButton = requireElement<HTMLButtonElement>("#start-next-match");
+const gameplayButtons = [
+  requireElement<HTMLButtonElement>("#move-up"),
+  requireElement<HTMLButtonElement>("#move-left"),
+  requireElement<HTMLButtonElement>("#move-down"),
+  requireElement<HTMLButtonElement>("#move-right"),
+  requireElement<HTMLButtonElement>("#attack"),
+  requireElement<HTMLButtonElement>("#dash"),
+  requireElement<HTMLButtonElement>("#stop")
+];
 const arena = new ArenaCanvas(canvas);
 let localPlayerId: string | null = null;
 let lastScores = { blue: 0, red: 0 };
+let connectionState: ConnectionState = "disconnected";
+let canStartNextMatch = false;
 
 const wsUrl = configuredWsUrl();
 const client = new WebSocketClient({
@@ -90,16 +104,16 @@ controls.bindButton(document.querySelector<HTMLButtonElement>("#attack"), "attac
 controls.bindButton(document.querySelector<HTMLButtonElement>("#dash"), "dash");
 controls.bindButton(document.querySelector<HTMLButtonElement>("#stop"), "stop");
 
-document.querySelector<HTMLButtonElement>("#connect")?.addEventListener("click", () => {
+connectButton.addEventListener("click", () => {
   client.connect();
   client.sendAuthRequest(bridge.getRawInitData());
 });
 
-document.querySelector<HTMLButtonElement>("#create-match")?.addEventListener("click", () => {
+createMatchButton.addEventListener("click", () => {
   client.createMatch();
 });
 
-document.querySelector<HTMLButtonElement>("#join-match")?.addEventListener("click", () => {
+joinMatchButton.addEventListener("click", () => {
   client.joinMatch(joinCodeInput.value);
 });
 
@@ -158,15 +172,29 @@ function handleMessage(message: IncomingMessage): void {
 }
 
 function updateConnectionState(state: ConnectionState): void {
+  connectionState = state;
   stateLabel.textContent = state;
   arena.setStatus(state);
   if (state !== "in_match") {
     setStartNextMatchEnabled(false);
   }
+  updateInteractionState();
 }
 
 function setStartNextMatchEnabled(enabled: boolean): void {
-  startNextMatchButton.disabled = !enabled;
+  canStartNextMatch = enabled;
+  updateInteractionState();
+}
+
+function updateInteractionState(): void {
+  connectButton.disabled = !["disconnected", "closed", "error"].includes(connectionState);
+  createMatchButton.disabled = connectionState !== "authenticated";
+  joinMatchButton.disabled = connectionState !== "authenticated";
+  joinCodeInput.disabled = connectionState !== "authenticated";
+  for (const button of gameplayButtons) {
+    button.disabled = connectionState !== "in_match";
+  }
+  startNextMatchButton.disabled = connectionState !== "in_match" || !canStartNextMatch;
 }
 
 function updateEventStatus(events: unknown[] | undefined): void {

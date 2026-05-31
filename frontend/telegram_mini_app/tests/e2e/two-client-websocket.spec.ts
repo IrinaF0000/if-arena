@@ -62,15 +62,22 @@ test("two browser clients play through websocket without passive disconnect", as
   await pageA.goto("/");
   await pageB.goto("/");
 
+  await expect(pageA.locator("#create-match")).toBeDisabled();
+  await expect(pageA.locator("#join-match")).toBeDisabled();
+  await expect(pageA.locator("#move-up")).toBeDisabled();
   await pageA.locator("#connect").click();
   await expectAuthenticated(pageA, captureA, errors, "A");
+  await expect(pageA.locator("#create-match")).toBeEnabled();
   await pageA.locator("#create-match").click();
   await expect(pageA.locator("#match-line")).toContainText("Code");
+  await expect(pageA.locator("#move-up")).toBeEnabled();
   const matchCode = await pageA.locator("#join-code").inputValue();
   expect(matchCode.length).toBeGreaterThan(0);
 
+  await expect(pageB.locator("#join-match")).toBeDisabled();
   await pageB.locator("#connect").click();
   await expectAuthenticated(pageB, captureB, errors, "B");
+  await expect(pageB.locator("#join-match")).toBeEnabled();
   await pageB.locator("#join-code").fill(matchCode);
   await pageB.locator("#join-match").click();
   await expect(pageB.locator("#match-line")).toContainText(`Code ${matchCode}`);

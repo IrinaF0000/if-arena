@@ -82,5 +82,6 @@ Recommended order:
 65. `0070-tcp-vertical-smoke-idle-timeout-fix.md`
 66. `0071-final-pre-push-validation-rerun.md`
 67. `0072-corrective-run-stop-hygiene.md`
+68. `0073-corrective-mobile-protocol-state.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.

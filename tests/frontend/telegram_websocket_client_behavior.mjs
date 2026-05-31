@@ -97,6 +97,7 @@ const client = new WebSocketClient({
 
 client.connect();
 client.sendAuthRequest("");
+client.createMatch();
 const socket = FakeWebSocket.instances[0];
 socket.open();
 
@@ -105,11 +106,16 @@ assert.equal(socket.sent[0].version, 1);
 assert.equal(socket.sent[0].type, "auth_request");
 
 client.createMatch();
-assert.equal(socket.sent[1].version, 1);
-assert.equal(socket.sent[1].type, "create_match");
+assert.equal(socket.sent.length, 1, "create_match must not be sent before authentication");
+
+client.createMatch();
+assert.equal(socket.sent.length, 1, "duplicate pre-auth create_match must stay local");
 
 socket.message({ version: 1, type: "auth_result", payload: { accepted: true, sessionId: "2" } });
 assert.equal(states.at(-1), "authenticated");
+client.createMatch();
+assert.equal(socket.sent[1].version, 1);
+assert.equal(socket.sent[1].type, "create_match");
 
 const sentBeforeJoin = socket.sent.length;
 const scenario = { id: "arena_small_objective_run", mode: "objective_run", version: 1, source: "server_config" };

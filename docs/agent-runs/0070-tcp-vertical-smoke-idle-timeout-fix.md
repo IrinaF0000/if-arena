@@ -2,10 +2,10 @@
 
 ## Status
 
-State: commit-ready
+State: committed
 Branch: `agent/0047-playable-stabilization`
 Task packet: `docs/agent-tasks/0070-tcp-vertical-smoke-idle-timeout-fix.md`
-Implementation commit: pending
+Implementation commit: `8609756`
 
 ## Scope
 
@@ -18,7 +18,7 @@ Implementation commit: pending
 - Implementation-Agent: completed.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Assumptions
 

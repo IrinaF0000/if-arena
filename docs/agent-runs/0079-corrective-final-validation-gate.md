@@ -5,7 +5,7 @@
 State: blocked
 Branch: `codex/corrective-pre-push`
 Task packet: `docs/agent-tasks/0079-corrective-final-validation-gate.md`
-Validation commit: pending
+Validation commit: `716359a`
 
 ## Scope
 
@@ -17,7 +17,7 @@ Validation commit: pending
 - Coordinator preflight: completed.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Test Impact Matrix
 

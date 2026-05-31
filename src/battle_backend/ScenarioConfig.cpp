@@ -417,6 +417,7 @@ namespace if_arena::battle_backend
 			const auto icon = stringField(object, "icon");
 			const auto cooldownMs = numberField(object, "cooldownMs");
 			const auto cooldownTicks = intField(object, "cooldownTicks");
+			const auto patrolRadius = numberField(object, "patrolRadius");
 			if (!id.has_value() || !kindText.has_value() || !position.has_value() || !radius.has_value() ||
 			    !range.has_value() || !damage.has_value() || !effectText.has_value() || !triggerText.has_value() ||
 			    !icon.has_value() || (!cooldownMs.has_value() && !cooldownTicks.has_value()))
@@ -477,6 +478,14 @@ namespace if_arena::battle_backend
 				addError(errors, "hazard seed must be a uint32");
 				return std::nullopt;
 			}
+			if (patrolRadius.has_value() &&
+			    (!std::isfinite(*patrolRadius) ||
+			     (*kind == battle_core::HazardKind::Crow && *patrolRadius < 1.0) ||
+			     (*kind != battle_core::HazardKind::Crow && *patrolRadius <= 0.0)))
+			{
+				addError(errors, "hazard patrolRadius must be positive and allow crow movement");
+				return std::nullopt;
+			}
 			return battle_core::HazardConfig{*kind,
 			                                 *position,
 			                                 *radius,
@@ -487,7 +496,8 @@ namespace if_arena::battle_backend
 			                                 *id,
 			                                 *effect,
 			                                 *trigger,
-			                                 *icon};
+			                                 *icon,
+			                                 patrolRadius.value_or(battle_core::HazardConfig{}.patrolRadius)};
 		}
 	}
 

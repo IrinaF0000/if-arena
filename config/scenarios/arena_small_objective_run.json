@@ -61,7 +61,7 @@
     { "id": "lane_mine_blue", "kind": "mine", "x": 10, "y": 8, "radius": 0.75, "range": 1.0, "damage": 10, "effect": "damage", "trigger": "proximity", "icon": "hazard_mine", "cooldownTicks": 30 },
     { "id": "mine_left", "kind": "mine", "x": 8, "y": 5, "radius": 0.7, "range": 1.0, "damage": 12, "effect": "damage_drop_objective", "trigger": "proximity", "icon": "hazard_mine", "cooldownTicks": 30 },
     { "id": "mine_right", "kind": "mine", "x": 12, "y": 7, "radius": 0.7, "range": 1.0, "damage": 12, "effect": "damage_drop_objective", "trigger": "proximity", "icon": "hazard_mine", "cooldownTicks": 30 },
-    { "id": "center_crow", "kind": "crow", "x": 10, "y": 6, "radius": 0.5, "range": 0.9, "damage": 3, "effect": "damage", "trigger": "proximity", "icon": "hazard_crow", "cooldownTicks": 8, "seed": 3 }
+    { "id": "center_crow", "kind": "crow", "x": 10, "y": 6, "radius": 0.5, "range": 0.9, "patrolRadius": 1.5, "damage": 3, "effect": "damage", "trigger": "proximity", "icon": "hazard_crow", "cooldownTicks": 8, "seed": 3 }
   ],
   "rules": {
     "timeLimitSeconds": 180,

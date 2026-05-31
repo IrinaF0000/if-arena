@@ -198,6 +198,11 @@ namespace if_arena::battle_core
 			{
 				throw std::invalid_argument("hazard range must be positive");
 			}
+			if (hazard.kind == HazardKind::Crow &&
+			    (!std::isfinite(hazard.patrolRadius) || hazard.patrolRadius < 1.0))
+			{
+				throw std::invalid_argument("crow patrol radius must allow movement");
+			}
 			if (hazard.damage <= 0)
 			{
 				throw std::invalid_argument("hazard damage must be positive");
@@ -821,7 +826,8 @@ namespace if_arena::battle_core
 			const Vec2i candidate{config.position.x + offset.x, config.position.y + offset.y};
 			const double dx = static_cast<double>(candidate.x - config.position.x);
 			const double dy = static_cast<double>(candidate.y - config.position.y);
-			if (!inBounds(candidate) || obstacleAt(candidate) || dx * dx + dy * dy > config.range * config.range)
+			if (!inBounds(candidate) || obstacleAt(candidate) ||
+			    dx * dx + dy * dy > config.patrolRadius * config.patrolRadius)
 			{
 				continue;
 			}

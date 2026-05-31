@@ -114,7 +114,7 @@ namespace if_arena::battle_core
 			HazardConfig{HazardKind::Mine, Vec2i{12, 6}, 0.7, 1.0, 12, 30, 0, "mine_right",
 			             HazardEffect::DamageAndDropObjective, HazardTrigger::Proximity, "hazard_mine"},
 			HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.65, 1.5, 6, 8, 3, "center_crow",
-			             HazardEffect::DamageAndDropObjective, HazardTrigger::Proximity, "hazard_crow"},
+			             HazardEffect::DamageAndDropObjective, HazardTrigger::Proximity, "hazard_crow", 1.5},
 		};
 		return config;
 	}
@@ -260,6 +260,11 @@ namespace if_arena::battle_core
 			{
 				addError("hazard icon is required");
 			}
+			if (hazard.kind == HazardKind::Crow &&
+			    (!std::isfinite(hazard.patrolRadius) || hazard.patrolRadius < 1.0))
+			{
+				addError("crow patrolRadius must allow movement");
+			}
 			if (std::find_if(config.hazards.begin() + static_cast<std::ptrdiff_t>(index) + 1, config.hazards.end(),
 			                 [&](const HazardConfig& other) { return other.id == hazard.id; }) != config.hazards.end())
 			{
@@ -294,7 +299,8 @@ namespace if_arena::battle_core
 				return other.kind == hazard.kind && other.position == mirrored && other.damage == hazard.damage &&
 				       other.cooldownTicks == hazard.cooldownTicks && other.radius == hazard.radius &&
 				       other.range == hazard.range && other.seed == hazard.seed && other.effect == hazard.effect &&
-				       other.trigger == hazard.trigger && other.icon == hazard.icon;
+				       other.trigger == hazard.trigger && other.icon == hazard.icon &&
+				       other.patrolRadius == hazard.patrolRadius;
 			});
 			if (!hasMirror)
 			{

@@ -597,6 +597,43 @@ namespace
 		require(firstSnapshot.players.front().hp == secondSnapshot.players.front().hp, "crow damage is deterministic");
 	}
 
+	void crowPatrolRadiusIsIndependentFromEffectRange()
+	{
+		MatchConfig config;
+		config.width = 21;
+		config.height = 13;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{0, 0}, 100});
+		config.hazards.push_back(HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.5, 0.9, 3, 8, 3,
+		                                      "short_range_crow", HazardEffect::Damage, HazardTrigger::Proximity,
+		                                      "hazard_crow", 1.5});
+		BattleEngine engine(config);
+
+		const auto initial = engine.snapshot().hazards.front();
+		engine.tick();
+		const auto afterTick = engine.snapshot().hazards.front();
+		const auto dx = afterTick.position.x - config.hazards.front().position.x;
+		const auto dy = afterTick.position.y - config.hazards.front().position.y;
+
+		require(initial.position != afterTick.position, "crow moves even when effect range is shorter than one cell");
+		require(static_cast<double>(dx * dx + dy * dy) <= config.hazards.front().patrolRadius * config.hazards.front().patrolRadius,
+		        "crow stays within patrol radius");
+		require(afterTick.range == 0.9, "crow snapshot keeps configured effect range");
+		require(afterTick.radius == 0.5, "crow snapshot keeps configured proximity radius");
+	}
+
+	void rejectsCrowPatrolRadiusThatCannotMove()
+	{
+		MatchConfig config;
+		config.width = 21;
+		config.height = 13;
+		config.players.push_back(PlayerConfig{PlayerId{1}, ArenaTeam::Blue, Vec2i{0, 0}, 100});
+		config.hazards.push_back(HazardConfig{HazardKind::Crow, Vec2i{10, 6}, 0.5, 0.9, 3, 8, 3,
+		                                      "stuck_crow", HazardEffect::Damage, HazardTrigger::Proximity,
+		                                      "hazard_crow", 0.9});
+
+		requireThrows([&config]() { BattleEngine engine(config); }, "crow patrol radius shorter than one cell is rejected");
+	}
+
 	void hitOnCarrierDropsObjective()
 	{
 		MatchConfig config;
@@ -750,6 +787,22 @@ namespace
 		require(!validation.valid(), "overlapping hazard cells and base hazards are rejected");
 	}
 
+	void rejectsCrowArenaConfigWithImpossiblePatrol()
+	{
+		auto arena = makeSmallObjectiveRunArenaConfig();
+		for (auto& hazard : arena.hazards)
+		{
+			if (hazard.kind == HazardKind::Crow)
+			{
+				hazard.patrolRadius = 0.9;
+			}
+		}
+
+		const auto validation = validateArenaConfig(arena);
+
+		require(!validation.valid(), "arena validation rejects a crow that cannot patrol");
+	}
+
 	void rejectsInvalidArenaDimensions()
 	{
 		auto arena = makeSmallObjectiveRunArenaConfig();
@@ -819,6 +872,8 @@ int main()
 		{"hazardDamageOnlyDoesNotDropObjective", hazardDamageOnlyDoesNotDropObjective},
 		{"hazardTriggerUsesConfiguredRange", hazardTriggerUsesConfiguredRange},
 		{"crowHazardPatrolsAndPecksDeterministically", crowHazardPatrolsAndPecksDeterministically},
+		{"crowPatrolRadiusIsIndependentFromEffectRange", crowPatrolRadiusIsIndependentFromEffectRange},
+		{"rejectsCrowPatrolRadiusThatCannotMove", rejectsCrowPatrolRadiusThatCannotMove},
 		{"hitOnCarrierDropsObjective", hitOnCarrierDropsObjective},
 		{"defeatedPlayersCannotAct", defeatedPlayersCannotAct},
 		{"rejectsUnboundedCombatConfig", rejectsUnboundedCombatConfig},
@@ -829,6 +884,7 @@ int main()
 		{"rejectsAsymmetricObstacleLayout", rejectsAsymmetricObstacleLayout},
 		{"rejectsAsymmetricHazardLayout", rejectsAsymmetricHazardLayout},
 		{"rejectsOverlappingArenaHazards", rejectsOverlappingArenaHazards},
+		{"rejectsCrowArenaConfigWithImpossiblePatrol", rejectsCrowArenaConfigWithImpossiblePatrol},
 		{"rejectsInvalidArenaDimensions", rejectsInvalidArenaDimensions},
 		{"rejectsOutOfBoundsArenaObjects", rejectsOutOfBoundsArenaObjects},
 		{"rejectsMissingBases", rejectsMissingBases},

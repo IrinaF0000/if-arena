@@ -88,6 +88,13 @@ namespace
 		require(scenario.arena.hazards.front().trigger == if_arena::battle_core::HazardTrigger::Range,
 		        "hazard trigger is loaded from config");
 		require(scenario.arena.hazards.front().icon == "hazard_tower", "hazard icon is loaded from config");
+		const auto crow = std::find_if(scenario.arena.hazards.begin(), scenario.arena.hazards.end(),
+		                               [](const if_arena::battle_core::HazardConfig& hazard) {
+			                               return hazard.kind == if_arena::battle_core::HazardKind::Crow;
+		                               });
+		require(crow != scenario.arena.hazards.end(), "scenario crow hazard is loaded from config");
+		require(crow->range == 0.9, "crow effect range is loaded from config");
+		require(crow->patrolRadius == 1.5, "crow patrol radius is loaded separately from effect range");
 		require(scenario.maxTicks == 3600, "scenario time limit converts to ticks");
 	}
 
@@ -115,6 +122,22 @@ namespace
 			        return error.find("unsupported hazard effect") != std::string::npos;
 		        }),
 		        "invalid hazard metadata reports effect failure");
+	}
+
+	void scenarioConfigRejectsInvalidCrowPatrolRadius()
+	{
+		auto text = readRepoFile("config/scenarios/arena_small_objective_run.json");
+		const auto position = text.find("\"patrolRadius\": 1.5");
+		require(position != std::string::npos, "fixture contains crow patrol radius");
+		text.replace(position, std::string{"\"patrolRadius\": 1.5"}.size(), "\"patrolRadius\": 0.9");
+
+		const auto loaded = parseScenarioConfig(text);
+
+		require(!loaded.ok(), "invalid crow patrol radius is rejected");
+		require(std::any_of(loaded.errors.begin(), loaded.errors.end(), [](const std::string& error) {
+			        return error.find("patrolRadius") != std::string::npos;
+		        }),
+		        "invalid crow patrol radius reports patrolRadius failure");
 	}
 
 	void sessionCanBeCreatedAndClosed()
@@ -595,6 +618,7 @@ int main()
 		{"scenarioConfigLoadsPlayableArena", scenarioConfigLoadsPlayableArena},
 		{"scenarioConfigRejectsInvalidArena", scenarioConfigRejectsInvalidArena},
 		{"scenarioConfigRejectsInvalidHazardMetadata", scenarioConfigRejectsInvalidHazardMetadata},
+		{"scenarioConfigRejectsInvalidCrowPatrolRadius", scenarioConfigRejectsInvalidCrowPatrolRadius},
 		{"flushSendsQueuedMessages", flushSendsQueuedMessages},
 		{"matchStartsThroughJoinCode", matchStartsThroughJoinCode},
 		{"commandsAreOwnedSequencedAndBroadcast", commandsAreOwnedSequencedAndBroadcast},

@@ -118,6 +118,7 @@ namespace if_arena::battle_core
 		HazardEffect effect{HazardEffect::DamageAndDropObjective};
 		HazardTrigger trigger{HazardTrigger::Proximity};
 		std::string icon{"hazard_mine"};
+		double patrolRadius{1.5};
 	};
 
 	struct PlayerConfig

@@ -2,10 +2,10 @@
 
 ## Status
 
-State: commit-ready
+State: committed
 Branch: `codex/corrective-pre-push`
 Task packet: `docs/agent-tasks/0080-corrective-desktop-launcher-current-build.md`
-Implementation commit: pending
+Implementation commit: `e6239e6`
 
 ## Scope
 
@@ -18,7 +18,7 @@ Implementation commit: pending
 - Implementation-Agent: completed.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Test Impact Matrix
 

@@ -17,7 +17,7 @@ expected_tasks = [
     '0025-tcp-vertical-slice-integration.md',
     '0026-websocket-and-telegram-playable-slice.md',
     '0027-qt-playable-client.md',
-    '0028-load-security-hardening-and-portfolio.md',
+    '0028-load-security-hardening-and-docs.md',
 ]
 
 required_files = [

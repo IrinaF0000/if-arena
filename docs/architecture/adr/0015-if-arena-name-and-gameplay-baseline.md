@@ -6,13 +6,13 @@ Accepted
 
 ## Context
 
-The project needs a name that is safe for a public portfolio and does not resemble a commercial game platform. The project also needs a stable MVP gameplay target so agents do not drift into unrelated game designs.
+The project needs a name that is safe for public use and does not resemble a commercial game platform. The project also needs a stable MVP gameplay target so agents do not drift into unrelated game designs.
 
 ## Decision
 
 The project is named **IF Arena**.
 
-`IF` represents the author's initials and also creates a small programming pun. The name should be written as `IF Arena`, not `If Arena`, so it reads as initials/brand rather than the incomplete English phrase "if arena".
+The name is written as `IF Arena`, not `If Arena`, so it remains a proper project name rather than the incomplete English phrase "if arena".
 
 The MVP gameplay baseline is Objective Run:
 

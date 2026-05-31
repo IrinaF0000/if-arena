@@ -117,7 +117,7 @@ Backlog items are intentionally small and agent-friendly. Every item touching ne
 - [ ] Add load-test result template.
 - [ ] Add profiling notes.
 
-## Epic H. Public demo and portfolio polish
+## Epic H. Public demo and demo polish
 
 - [ ] Add Dockerfile for server.
 - [ ] Add local run scripts.

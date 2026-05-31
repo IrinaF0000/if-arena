@@ -47,4 +47,4 @@ The server owns:
 
 ## Notes
 
-The MVP does not implement client-side prediction. It uses direct server snapshots. This is acceptable for a portfolio demo and keeps the project simpler.
+The MVP does not implement client-side prediction. It uses direct server snapshots. This is acceptable for a local demo and keeps the project simpler.

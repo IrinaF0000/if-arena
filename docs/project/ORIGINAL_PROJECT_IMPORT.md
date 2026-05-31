@@ -34,7 +34,7 @@ The server needs direct access to simulation state, ticks, snapshots, events, va
 - no DLL export/import complexity;
 - easier cross-platform development;
 - direct linking from server and tests;
-- no ABI boundary concerns for a portfolio project.
+- no ABI boundary concerns for a public project.
 
 A DLL/shared library can be considered later only if there is a clear reason.
 

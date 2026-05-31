@@ -17,7 +17,7 @@ Neutral hazards such as towers, mines, and drones/crows will be server-controlle
 Positive:
 
 - reuses existing simulation concepts;
-- demonstrates tick-based server logic;
+- implements tick-based server logic;
 - adds interesting gameplay without complex AI opponents;
 - improves replay/debug value.
 

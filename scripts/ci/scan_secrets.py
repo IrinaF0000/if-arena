@@ -3,7 +3,7 @@
 
 This is not a replacement for a dedicated secret-scanning service. It is a
 portable guardrail intended to catch obvious accidental commits in this
-portfolio repository before review.
+public repository before review.
 """
 from __future__ import annotations
 

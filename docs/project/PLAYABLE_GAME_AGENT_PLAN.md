@@ -38,13 +38,13 @@ The Qt client can connect over TCP, render the playable arena, send intentions, 
 
 Task: `0028`.
 
-Finish with load/security hardening, reproducible demo instructions, honest limitations, and portfolio-ready documentation. Any scenario that remains incomplete must be explicitly marked as later stretch scope in README and supporting docs.
+Finish with load/security hardening, reproducible demo instructions, honest limitations, and release-ready documentation. Any scenario that remains incomplete must be explicitly marked as later stretch scope in README and supporting docs.
 
 Current hardening closeout scope:
 
 - local TCP and dry-run load scenarios are reproducible;
 - security notes cover TCP, WebSocket, Telegram auth, demo auth, and remaining risks;
-- README records quickstarts, known limitations, and a portfolio summary;
+- README records quickstarts, known limitations, and a technical summary;
 - large production soaks, public deployment, WSS/TLS operations, and replay protection remain outside the playable-local slice.
 
 ## Task Order
@@ -61,4 +61,4 @@ Current hardening closeout scope:
 10. `0025` add TCP vertical slice integration.
 11. `0026` add WebSocket and Telegram playable slice.
 12. `0027` complete Qt playable client.
-13. `0028` complete load, security hardening, and portfolio docs.
+13. `0028` complete load, security hardening, and project docs.

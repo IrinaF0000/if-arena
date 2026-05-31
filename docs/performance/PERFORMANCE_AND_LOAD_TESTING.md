@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The project should demonstrate high-load-oriented backend practices without claiming unrealistic production scale.
+The project should implement high-load-oriented backend practices without claiming unrealistic production scale.
 
 Good wording:
 

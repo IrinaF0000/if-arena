@@ -10,7 +10,7 @@ A C++20 real-time 2-player objective arena game with an authoritative high-load-
 
 ## Why this project exists
 
-This project is a portfolio project for demonstrating:
+This project is a public project to implement:
 
 - modern C++ backend architecture;
 - raw TCP socket programming and protocol framing;

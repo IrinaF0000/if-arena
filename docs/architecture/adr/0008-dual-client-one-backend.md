@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-The project should demonstrate both C++/Qt desktop UI and a Telegram Mini App UX. The game logic and match authority must not be duplicated.
+The project should implement both C++/Qt desktop UI and a Telegram Mini App UX. The game logic and match authority must not be duplicated.
 
 ## Decision
 
@@ -24,7 +24,7 @@ Positive:
 - one source of truth for game rules;
 - shared load/security/metrics infrastructure;
 - easier to compare TCP and WebSocket behavior;
-- better portfolio story.
+- better project scope.
 
 Negative:
 

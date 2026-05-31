@@ -357,7 +357,7 @@ Acceptance:
 - Secrets are not committed.
 - Public endpoint uses WSS for Telegram client.
 
-## Phase 12. Portfolio polish
+## Phase 12. Project polish
 
 Goal: make project reviewable and CV-ready.
 
@@ -366,7 +366,7 @@ Tasks:
 1. Add screenshots/GIFs.
 2. Add architecture diagram.
 3. Add demo instructions.
-4. Add "What this demonstrates" section.
+4. Add "What this implements" section.
 5. Add load test results.
 6. Add security notes.
 7. Add known limitations.

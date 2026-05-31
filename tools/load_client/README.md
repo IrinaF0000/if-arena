@@ -4,9 +4,9 @@ Synthetic load generator for the TCP backend.
 
 ## Purpose
 
-This tool simulates many clients to demonstrate backend behavior under load.
+This tool simulates many clients to implement backend behavior under load.
 
-It is part of the portfolio story. It should produce reproducible reports, not just ad-hoc traffic.
+It is part of the project scope. It should produce reproducible reports, not just ad-hoc traffic.
 
 ## Example usage
 

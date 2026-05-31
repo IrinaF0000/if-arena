@@ -5,11 +5,11 @@ Stable project context. Current work is tracked in `docs/agent-runs/`.
 ## Identity
 
 Project: IF Arena
-Purpose: C++20 networking/backend/Qt/Telegram Mini App portfolio project
+Purpose: C++20 networking/backend/Qt/Telegram Mini App public project
 Primary language: C++20
 Secondary languages/tools: Qt, TypeScript, CMake, GitHub Actions
 Target platforms: desktop Qt client, Telegram Mini App, Linux backend
-Public portfolio goal: show secure, scalable, high-quality engineering with agentic workflows
+Public project goal: show secure, scalable, high-quality engineering with agentic workflows
 
 ## Product goal
 

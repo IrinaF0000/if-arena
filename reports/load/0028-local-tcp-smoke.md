@@ -29,4 +29,4 @@
 
 - This run is intentionally tiny and local. It validates scenario wiring and negative handling, not capacity.
 - Slow-reader pressure is documented and modeled by `battle_load_client --scenario slow_readers`; a large live slow-reader soak remains future work.
-- Public deployment, TLS termination, async accept scaling, and production observability remain out of scope for this local portfolio slice.
+- Public deployment, TLS termination, async accept scaling, and production observability remain out of scope for this local local slice.

@@ -1,6 +1,6 @@
 # Secrets Management
 
-This project must be safe to publish as a public portfolio repository. All real secrets stay outside git.
+This project must be safe to publish as a public public repository. All real secrets stay outside git.
 
 ## Secret locations
 

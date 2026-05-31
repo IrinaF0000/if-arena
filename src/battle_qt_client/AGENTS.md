@@ -1,6 +1,6 @@
 # Qt Client Agent Rules
 
-The Qt client is a desktop visual client for demonstrating Qt/C++ skills and raw TCP networking.
+The Qt client is a desktop visual client to implement Qt/C++ skills and raw TCP networking.
 
 ## Responsibilities
 

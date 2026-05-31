@@ -2,7 +2,7 @@
 
 ## 1. Product summary
 
-IF Arena is a portfolio-grade C++20 project that demonstrates a real-time authoritative multiplayer backend with two user-facing clients:
+IF Arena is a production-minded C++20 project that implements a real-time authoritative multiplayer backend with two user-facing clients:
 
 1. Qt desktop client over raw TCP.
 2. Telegram Mini App over WebSocket/WSS.
@@ -13,16 +13,16 @@ The project starts from a copied snapshot of an existing local deterministic bat
 
 ## 2. Product goals
 
-### 2.1 Portfolio goals
+### 2.1 Technical goals
 
-- Demonstrate modern C++ backend engineering.
-- Demonstrate raw TCP socket programming and message framing.
-- Demonstrate Qt desktop application development.
-- Demonstrate a web/mobile UX through Telegram Mini App.
-- Demonstrate transport abstraction: one backend, multiple clients.
-- Demonstrate high-load-oriented practices: async I/O, bounded queues, rate limiting, backpressure, metrics, and load tests.
-- Demonstrate security-aware design for hostile network input.
-- Demonstrate agentic development workflow with strict quality gates and token economy.
+- Implement modern C++ backend engineering.
+- Implement raw TCP socket programming and message framing.
+- Implement Qt desktop application development.
+- Implement a web/mobile UX through Telegram Mini App.
+- Implement transport abstraction: one backend, multiple clients.
+- Implement high-load-oriented practices: async I/O, bounded queues, rate limiting, backpressure, metrics, and load tests.
+- Implement security-aware design for hostile network input.
+- Implement agentic development workflow with strict quality gates and token economy.
 
 ### 2.2 Gameplay goals
 
@@ -51,15 +51,14 @@ A person who wants to quickly try the demo with a friend:
 - Qt desktop: run client, enter host/port, join match.
 - Telegram: open bot, press Play, invite friend, start match.
 
-### 4.2 Technical reviewer
+### 4.2 Technical reader
 
-A recruiter, interviewer, or engineer reviewing the repository:
+A developer or operator inspecting the repository:
 
 - Reads architecture docs.
-- Sees clean module boundaries.
+- Checks module boundaries.
 - Runs tests and load client.
-- Inspects secure network handling.
-- Sees clear CV-relevant engineering decisions.
+- Inspects network validation and resource limits.
 
 ### 4.3 Coding agent
 

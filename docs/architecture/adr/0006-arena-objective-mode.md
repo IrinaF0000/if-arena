@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-A pure deathmatch is easy to implement but can become repetitive and does not strongly demonstrate objective state synchronization. A compact objective-based mode creates clearer gameplay and richer server state without requiring many characters or complex content.
+A pure deathmatch is easy to implement but can become repetitive and does not strongly implement objective state synchronization. A compact objective-based mode creates clearer gameplay and richer server state without requiring many characters or complex content.
 
 ## Decision
 
@@ -35,7 +35,7 @@ Positive:
 - useful server-owned objective state;
 - easy to show in Qt and Telegram UI;
 - good for replay/debugging;
-- demonstrates authoritative validation and synchronization.
+- implements authoritative validation and synchronization.
 
 Negative:
 

@@ -72,4 +72,4 @@ The helper binds to `127.0.0.1`, launches the executable without `shell=True`, w
 
 3. Add the trace to the `<select id="demoTraceSelect">` list in both viewer copies.
 
-Keep the online demo small and stable. It should demonstrate the replay workflow, not replace the local executable run.
+Keep the online demo small and stable. It should implement the replay workflow, not replace the local executable run.

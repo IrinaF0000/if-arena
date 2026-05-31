@@ -26,7 +26,7 @@ Qt Widgets is a good fit because:
 - it can use `QTcpSocket`
 - it is enough for a simple 2D arena
 - it is faster to implement than a polished QML UI
-- it demonstrates desktop C++ skills in addition to networking
+- it implements desktop C++ skills in addition to networking
 
 ## Consequences
 

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The project is intended to be public portfolio code, but it includes Telegram Mini App authentication, public deployment examples, TLS configuration, and backend sessions. These areas often require secrets. Accidental commits or unsafe logs would be high-impact for both security and professionalism.
+The project is intended to be public code, but it includes Telegram Mini App authentication, public deployment examples, TLS configuration, and backend sessions. These areas often require secrets. Accidental commits or unsafe logs would be high-impact for both security and professionalism.
 
 ## Decision
 

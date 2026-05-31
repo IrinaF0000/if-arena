@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-TCP servers can be harmed by slow readers, command spam, oversized frames, and unbounded queues. A portfolio project exposed publicly should demonstrate defensive resource management.
+TCP servers can be harmed by slow readers, command spam, oversized frames, and unbounded queues. A public project exposed publicly should implement defensive resource management.
 
 ## Decision
 

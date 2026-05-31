@@ -39,7 +39,7 @@ Recommended order:
 22. `0025-tcp-vertical-slice-integration.md`
 23. `0026-websocket-and-telegram-playable-slice.md`
 24. `0027-qt-playable-client.md`
-25. `0028-load-security-hardening-and-portfolio.md`
+25. `0028-load-security-hardening-and-docs.md`
 26. `0030-release-stabilization-and-qt-verification.md`
 27. `0031-fix-playable-controls-and-arena-readability.md`
 28. `0032-fix-websocket-client-envelope-and-idle-timeout.md`
@@ -55,7 +55,7 @@ Recommended order:
 38. `0043-map-contest-pressure-and-neutral-hazards.md`
 39. `0044-neutral-crow-hazard-prototype.md`
 40. `0045-visual-combat-and-objective-readability-polish.md`
-41. `0046-demo-and-portfolio-polish.md`
+41. `0046-demo-polish.md`
 42. `0047-repo-hygiene-and-ci-fixes.md`
 43. `0048-scenario-config-single-source.md`
 44. `0049-desktop-movement-reliability.md`

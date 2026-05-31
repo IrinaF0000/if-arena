@@ -170,7 +170,7 @@ Current status:
 
 - Local demo mode enables demo auth for CLI, Qt, and local browser testing.
 - Telegram auth validation exists backend-side, but replay protection and production session-token issuance remain follow-up work.
-- Raw TCP is suitable for local portfolio demos; exposing it publicly requires firewalling, conservative limits, and explicit operations review.
+- Raw TCP is suitable for local local demos; exposing it publicly requires firewalling, conservative limits, and explicit operations review.
 
 ## 6. References
 

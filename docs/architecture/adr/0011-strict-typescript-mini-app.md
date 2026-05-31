@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-The project should demonstrate high quality in all used languages, not just C++.
+The project should implement high quality in all used languages, not just C++.
 
 ## Decision
 

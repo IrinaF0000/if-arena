@@ -87,6 +87,6 @@ Avoid:
 - unclear carrier state;
 - debug-only visuals in normal play.
 
-## Portfolio asset constraints
+## Asset constraints
 
 Use original simple shapes or generated placeholder assets only. Do not copy commercial game assets, maps, icons, names, or UI identity.

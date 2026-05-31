@@ -2,7 +2,7 @@
 
 ## Design intent
 
-IF Arena is a small playable real-time arena game built to demonstrate networking and backend engineering. The gameplay should be simple enough to implement well, but expressive enough to show state synchronization, server authority, hazards, objective state, player-oriented rendering, and fast user input.
+IF Arena is a small playable real-time arena game built to implement networking and backend engineering. The gameplay should be simple enough to implement well, but expressive enough to show state synchronization, server authority, hazards, objective state, player-oriented rendering, and fast user input.
 
 ## Core loop
 

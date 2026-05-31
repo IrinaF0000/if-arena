@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The project should demonstrate high-load backend practices. A thread-per-client model is simple but does not show scalable server design and can waste resources under many connections.
+The project should implement high-load backend practices. A thread-per-client model is simple but does not show scalable server design and can waste resources under many connections.
 
 The simulation also needs a clear threading model to avoid data races.
 

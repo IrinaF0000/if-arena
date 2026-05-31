@@ -30,7 +30,7 @@ UTF-8 JSON payload
 
 ### Positive
 
-- demonstrates explicit TCP message framing
+- implements explicit TCP message framing
 - easy to debug with logs
 - easy to document
 - easy to use from both C++ server and Qt client
@@ -51,4 +51,4 @@ After MVP, the project can add:
 - delta snapshots
 - compression for large snapshots
 
-The MVP keeps JSON because portfolio reviewers can understand it quickly.
+The MVP keeps JSON because project reviewers can understand it quickly.

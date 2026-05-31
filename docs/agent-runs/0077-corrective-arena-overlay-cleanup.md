@@ -2,10 +2,10 @@
 
 ## Status
 
-State: commit-ready
+State: committed
 Branch: `codex/corrective-pre-push`
 Task packet: `docs/agent-tasks/0077-corrective-arena-overlay-cleanup.md`
-Implementation commit: pending
+Implementation commit: `b5e96ee`
 
 ## Scope
 
@@ -18,7 +18,7 @@ Implementation commit: pending
 - Implementation-Agent: completed.
 - Verification-Agent: completed.
 - Review-Agent: completed.
-- Commit-Agent: pending.
+- Commit-Agent: completed.
 
 ## Assumptions
 

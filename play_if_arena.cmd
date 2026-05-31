@@ -24,18 +24,21 @@ if exist "%STOP_SCRIPT%" (
     call "%STOP_SCRIPT%"
 )
 
-set "SERVER_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe"
+set "SERVER_EXE=%PROJECT_ROOT%\build\battle_server_app.exe"
 if not exist "%SERVER_EXE%" (
-    set "SERVER_EXE=%PROJECT_ROOT%\build\battle_server_app.exe"
+    set "SERVER_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe"
 )
 
-set "QT_CLIENT_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_qt_client.exe"
+set "QT_CLIENT_EXE=%PROJECT_ROOT%\build\battle_qt_client.exe"
+if not exist "%QT_CLIENT_EXE%" (
+    set "QT_CLIENT_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_qt_client.exe"
+)
 
 if not exist "%SERVER_EXE%" (
     echo ERROR: battle_server_app.exe was not found.
     echo Expected one of:
-    echo   %PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe
     echo   %PROJECT_ROOT%\build\battle_server_app.exe
+    echo   %PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe
     echo.
     echo Build the project first, then run this script again.
     pause
@@ -44,11 +47,12 @@ if not exist "%SERVER_EXE%" (
 
 if not exist "%QT_CLIENT_EXE%" (
     echo ERROR: battle_qt_client.exe was not found:
-    echo   %QT_CLIENT_EXE%
+    echo   %PROJECT_ROOT%\build\battle_qt_client.exe
+    echo   %PROJECT_ROOT%\build-qt-mingw\battle_qt_client.exe
     echo.
     echo Build the Qt client first:
-    echo   cmake -S . -B build-qt-mingw -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
-    echo   cmake --build build-qt-mingw --parallel
+    echo   cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBATTLE_BUILD_TESTS=ON -DBATTLE_BUILD_QT_CLIENT=ON -DCMAKE_PREFIX_PATH="C:\Qt\6.11.1\mingw_64"
+    echo   cmake --build build --parallel
     pause
     exit /b 1
 )
@@ -99,6 +103,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 
 echo.
 echo Starting two Qt clients...
+echo   %QT_CLIENT_EXE%
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$p1 = Start-Process -FilePath '%QT_CLIENT_EXE%' -WorkingDirectory '%PROJECT_ROOT%' -PassThru; " ^
   "$p2 = Start-Process -FilePath '%QT_CLIENT_EXE%' -WorkingDirectory '%PROJECT_ROOT%' -PassThru; " ^

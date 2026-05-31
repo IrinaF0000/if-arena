@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SERVER_EXE = ROOT / "build" / ("battle_server_app.exe" if sys.platform == "win32" else "battle_server_app")
-MAX_FRAME_BYTES = 4096
+MAX_FRAME_BYTES = 8192
 
 
 def require(condition: bool, message: str) -> None:
@@ -58,10 +58,10 @@ def write_config(path: Path, port: int) -> None:
             "demoAuthEnabled": True,
             "telegramAuthEnabled": False,
             "handshakeTimeoutMs": 500,
-            "idleTimeoutMs": 500,
+            "idleTimeoutMs": 70000,
             "maxInputCommandsPerSecond": 30,
-            "maxPendingWriteBytesPerSession": 4096,
-            "maxPendingOutboundMessages": 8,
+            "maxPendingWriteBytesPerSession": 1048576,
+            "maxPendingOutboundMessages": 256,
             "maxPendingCommandsPerMatch": 16,
             "maxCommandsPerTick": 16,
             "maxPendingCommandsPerSession": 8,

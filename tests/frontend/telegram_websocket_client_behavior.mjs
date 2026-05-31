@@ -235,6 +235,11 @@ socket.message({ version: 1, type: "ping", payload: {} });
 assert.equal(socket.sent.at(-1).version, 1);
 assert.equal(socket.sent.at(-1).type, "pong");
 
+const sentAfterServerPong = socket.sent.length;
+socket.message({ version: 1, type: "pong", payload: {} });
+assert.equal(messages.at(-1).type, "pong");
+assert.equal(socket.sent.length, sentAfterServerPong, "server pong must not trigger client_parse_error or echo traffic");
+
 socket.message({
   version: 1,
   type: "event_batch",

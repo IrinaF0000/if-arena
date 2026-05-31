@@ -25,16 +25,16 @@ if exist "%STOP_SCRIPT%" (
     call "%STOP_SCRIPT%"
 )
 
-set "SERVER_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe"
+set "SERVER_EXE=%PROJECT_ROOT%\build\battle_server_app.exe"
 if not exist "%SERVER_EXE%" (
-    set "SERVER_EXE=%PROJECT_ROOT%\build\battle_server_app.exe"
+    set "SERVER_EXE=%PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe"
 )
 
 if not exist "%SERVER_EXE%" (
     echo ERROR: battle_server_app.exe was not found.
     echo Expected one of:
-    echo   %PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe
     echo   %PROJECT_ROOT%\build\battle_server_app.exe
+    echo   %PROJECT_ROOT%\build-qt-mingw\battle_server_app.exe
     echo.
     echo Build the project first, then run this script again.
     pause

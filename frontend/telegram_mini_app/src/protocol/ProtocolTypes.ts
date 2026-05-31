@@ -167,6 +167,13 @@ export type PingMessage = {
   payload: Record<string, never>;
 };
 
+export type PongMessage = {
+  version: typeof protocolVersion;
+  type: "pong";
+  requestId?: string;
+  payload: Record<string, never>;
+};
+
 export type ServerMessage =
   | AuthResultMessage
   | MatchJoinedMessage
@@ -174,7 +181,8 @@ export type ServerMessage =
   | SnapshotMessage
   | EventBatchMessage
   | ErrorMessage
-  | PingMessage;
+  | PingMessage
+  | PongMessage;
 
 export type ClientParseError = {
   version: typeof protocolVersion;
@@ -307,6 +315,8 @@ function isServerMessage(value: unknown): value is ServerMessage {
       return isError(value);
     case "ping":
       return isPing(value);
+    case "pong":
+      return isPong(value);
     default:
       return false;
   }
@@ -392,6 +402,10 @@ function isError(value: { payload: unknown }): value is ErrorMessage {
 }
 
 function isPing(value: { payload: unknown }): value is PingMessage {
+  return isRecord(value.payload);
+}
+
+function isPong(value: { payload: unknown }): value is PongMessage {
   return isRecord(value.payload);
 }
 

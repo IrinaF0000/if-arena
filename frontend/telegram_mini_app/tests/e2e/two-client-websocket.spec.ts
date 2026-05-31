@@ -78,6 +78,7 @@ test("two mobile browser clients play through websocket with visible arena", asy
   await expect(pageA.locator("#move-up")).toBeDisabled();
   await pageA.locator("#connect").click();
   await expectAuthenticated(pageA, captureA, errors, "A");
+  await expectNoProtocolDiagnostic(pageA);
   await expect(pageA.locator("#create-match")).toBeEnabled();
   await pageA.locator("#create-match").click();
   await expect(pageA.locator("#match-line")).toContainText("Code");
@@ -88,6 +89,7 @@ test("two mobile browser clients play through websocket with visible arena", asy
   await expect(pageB.locator("#join-match")).toBeDisabled();
   await pageB.locator("#connect").click();
   await expectAuthenticated(pageB, captureB, errors, "B");
+  await expectNoProtocolDiagnostic(pageB);
   await expect(pageB.locator("#join-match")).toBeEnabled();
   await pageB.locator("#join-code").fill(matchCode);
   await pageB.locator("#join-match").click();
@@ -199,6 +201,11 @@ async function expectAuthenticated(page: Page, capture: SocketCapture, errors: s
       })}; ${error instanceof Error ? error.message : String(error)}`
     );
   }
+}
+
+async function expectNoProtocolDiagnostic(page: Page): Promise<void> {
+  await page.waitForTimeout(500);
+  await expect(page.locator("#connection-state")).not.toContainText("protocol:");
 }
 
 async function expectMandatoryAssets(page: Page): Promise<void> {

@@ -174,6 +174,8 @@ function handleMessage(message: IncomingMessage): void {
       break;
     case "ping":
       break;
+    case "pong":
+      break;
   }
 }
 

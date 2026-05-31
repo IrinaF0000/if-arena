@@ -179,6 +179,9 @@ assert.equal(pong.type, "pong");
 const parsedPing = protocol.parseIncomingMessage(JSON.stringify({ version: 1, type: "ping", payload: {} }));
 assert.equal(parsedPing.type, "ping");
 
+const parsedPong = protocol.parseIncomingMessage(JSON.stringify({ version: 1, type: "pong", payload: {} }));
+assert.equal(parsedPong.type, "pong");
+
 const malformed = protocol.parseIncomingMessage("{not-json");
 assert.equal(malformed.type, "client_parse_error");
 assert.equal(malformed.payload.reason, "malformed_json");

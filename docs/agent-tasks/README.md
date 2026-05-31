@@ -90,5 +90,6 @@ Recommended order:
 73. `0078-corrective-mobile-visual-e2e-gate.md`
 74. `0079-corrective-final-validation-gate.md`
 75. `0080-corrective-desktop-launcher-current-build.md`
+76. `0081-corrective-mobile-pong-envelope.md`
 
 Start multi-task Codex orchestration with `docs/agent-seeds/CODEX_ORCHESTRATOR_PROMPT.md`.
